@@ -1,0 +1,9 @@
+# ninja log v5
+0	12	0	build/flex-test.cpp	e0f2488944f2ff8b
+0	39	0	build/bison-test.cpp	a9b0cfe7b8814073
+40	1441	0	build/bison-test.o	118cffac13f7caa8
+12	2866	0	build/flex-test.o	43ab67e07a8e471a
+0	55	0	build/bison-test.cpp	a9b0cfe7b8814073
+0	649	0	build/main.o	e0c93feb99b4465
+55	1364	0	build/bison-test.o	118cffac13f7caa8
+1364	1531	0	bin/parse-test	a6a7fd1c0a001129

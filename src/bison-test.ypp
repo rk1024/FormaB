@@ -1,0 +1,64 @@
+%define parse.error verbose
+%defines
+%language "c++"
+%locations
+%name-prefix "frma"
+
+%param {void *yyscanner}
+
+%code provides {
+#define YYSTYPE frma::parser::semantic_type
+
+int frmalex(YYSTYPE *, frma::location *, void *);
+}
+
+%token LParen "("
+%token RParen ")"
+%token LBracket "["
+%token RBracket "]"
+%token LBrace "{"
+%token RBrace "}"
+%token Identifier
+%token Number
+%token Operator
+
+%start Input
+
+%%
+Input: StuffOpt;
+
+StuffOpt:
+  %empty |
+  Stuff;
+
+Stuff:
+  Expr |
+  Stuff Expr;
+
+Expr:
+  Operator ExprCont |
+  ExprCont;
+
+ExprCont:
+  Primary |
+  ExprCont Operator |
+  ExprCont Operator Primary;
+
+Primary:
+  PGroup |
+  KGroup |
+  CGroup |
+  Literal;
+
+Literal:
+  Identifier |
+  Number;
+
+PGroup: "(" StuffOpt ")";
+KGroup: "[" StuffOpt "]";
+CGroup: "{" StuffOpt "}";
+%%
+
+void frma::parser::error(const frma::location &loc, const std::string &msg) {
+  std::cerr << msg << std::endl;
+}

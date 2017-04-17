@@ -1,0 +1,146 @@
+/*%array*/
+
+%option 8bit
+%option batch never-interactive
+%option stack
+%option bison-bridge bison-locations
+%option reentrant pointer
+%option prefix="frma"
+
+%option noyywrap
+
+%option yylineno
+
+%option nodefault warn
+
+%top{
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic ignored "-Wunreachable-code"
+#pragma clang diagnostic ignored "-Wunused-function"
+}
+
+%{
+#include <iostream>
+#include <map>
+#include <string>
+
+#include "lexerTag.hpp"
+#include "lexerDriver.hpp"
+#include "bison-test.hpp"
+
+#define YYSTYPE frma::parser::semantic_type
+#define YYLTYPE frma::location
+#define YY_EXTRA_TYPE FrmaLexerTag *
+#define YY_DECL int frmalex(YYSTYPE *yylval_param, YYLTYPE *yylloc_param, yyscan_t yyscanner)
+
+typedef frma::parser::token tk;
+
+std::map<tk::yytokentype, std::string> tkNames = {
+  {tk::LParen, "LParen"},
+  {tk::RParen, "RParen"},
+  {tk::LBracket, "LBracket"},
+  {tk::RBracket, "RBracket"},
+  {tk::LBrace, "LBrace"},
+  {tk::RBrace, "RBrace"},
+  {tk::Identifier, "Identifier"},
+  {tk::Number, "Number"},
+  {tk::Operator, "Operator"},
+};
+
+#define $x yyg->yyextra_r
+
+#define $E(value) { std::cerr << value << std::endl; yyterminate(); }
+
+#define $TK(value) return tk::value;
+
+YY_DECL;
+%}
+
+Whitespace  [ \n\r\t]
+LParen      \(
+RParen      \)
+LBracket    \[
+RBracket    \]
+LBrace      \{
+RBrace      \}
+IDStart     [a-zA-Z_]
+NumStart    [0-9]
+OpStart     [`~!#$%^&*=+|;:,<.>/?-]
+Identifier  [0-9a-zA-Z_]
+Number      [0-9a-zA-Z_.]
+Operator    [`~!@#$%^&*_=+|;:,<.>/?-]
+
+%%
+{Whitespace}+ // noop for now
+
+{LParen}                $TK(LParen)
+{RParen}                $TK(RParen)
+
+{LBracket}              $TK(LBracket)
+{RBracket}              $TK(RBracket)
+
+{LBrace}                $TK(LBrace)
+{RBrace}                $TK(RBrace)
+
+{IDStart}{Identifier}*  $TK(Identifier)
+{NumStart}{Number}*     $TK(Number)
+{OpStart}{Operator}*    $TK(Operator)
+
+.                       $E("Invalid syntax.")
+
+<<EOF>>                 yyterminate();
+%%
+
+// int main() {
+//   yyscan_t scan = {0};
+//   FTLexerTag tag;
+//   int err = 0;
+
+//   if ((err = frmalex_init_extra(&tag, &scan))) goto catch1;
+
+//   while (true) {
+//     tk tok = frmalex(scan);
+
+//     if (tag.error) {
+//       std::cerr << "Lexical error occurred!" << std::endl;
+//       err = 1;
+//       goto catch1;
+//     }
+
+//     std::string str(frmaget_text(scan), frmaget_leng(scan));
+
+//     std::cout << "[tk] " << tkNames[tok] << " '" << str << "'" << std::endl;
+
+//     if (tok == tk::Eof) break;
+//   }
+
+//   goto finally1;
+
+// catch1:
+//   std::cerr << "Something bad happened." << std::endl;
+
+// finally1:
+//   {
+//     int err2 = 0;
+
+//     if ((err2 = frmalex_destroy(scan)))
+//       std::cerr << "Something *REALLY* bad happened." << std::endl;
+
+//     err = err || err2;
+//   }
+
+//   return err;
+// }
+
+namespace frma {
+  int lex_init_extra(FrmaLexerTag *extra, yyscan_t *scan) {
+    return frmalex_init_extra(extra, scan);
+  }
+
+  int lex_destroy(yyscan_t scan) {
+    return frmalex_destroy(scan);
+  }
+}
+
+#pragma clang diagnostic pop

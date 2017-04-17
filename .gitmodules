@@ -1,0 +1,3 @@
+[submodule "scripts/NinjaSnek"]
+	path = scripts/NinjaSnek
+	url = git@github.com:rookie1024/NinjaSnek

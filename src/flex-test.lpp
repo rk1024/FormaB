@@ -25,71 +25,110 @@
 #include <map>
 #include <string>
 
-#include "lexerTag.hpp"
+#include "parserTag.hpp"
 #include "lexerDriver.hpp"
 #include "bison-test.hpp"
 
 #define YYSTYPE frma::parser::semantic_type
 #define YYLTYPE frma::location
-#define YY_EXTRA_TYPE FrmaLexerTag *
+#define YY_EXTRA_TYPE frma::FormaParserTag *
 #define YY_DECL int frmalex(YYSTYPE *yylval_param, YYLTYPE *yylloc_param, yyscan_t yyscanner)
 
 typedef frma::parser::token tk;
 
-std::map<tk::yytokentype, std::string> tkNames = {
-  {tk::LParen, "LParen"},
-  {tk::RParen, "RParen"},
-  {tk::LBracket, "LBracket"},
-  {tk::RBracket, "RBracket"},
-  {tk::LBrace, "LBrace"},
-  {tk::RBrace, "RBrace"},
-  {tk::Identifier, "Identifier"},
-  {tk::Number, "Number"},
-  {tk::Operator, "Operator"},
-};
-
 #define $x yyg->yyextra_r
 
-#define $E(value) { std::cerr << value << std::endl; yyterminate(); }
+#define $E(value) { $x->error(*yylloc, value); yyterminate(); }
 
 #define $TK(value) return tk::value;
 
+#define $YK(var, type, value) { yylval->var = new frma::Forma##type(yytext); $TK(value) }
+
+#define $SL yylloc->step();
+
+#define $MN(n) yylloc->columns(n);
+#define $WN(n) yylloc->lines(n);
+
+#define $ML $MN(yyleng)
+#define $MO $MN(1)
+
+#define $WL $WN(yyleng)
+#define $WO $WN(1)
 YY_DECL;
 %}
 
-Whitespace  [ \n\r\t]
+Whitespace    [ \r\t]
+Newline       [\v\n]
+LCommentOpen  @@
+BCommentOpen  @\[
+LCommentClose \n
+BCommentClose @+\]
+LCommentInput [^\n]
+BCommentNoAt  [^@\n]
+BCommentAts   @+[^\]\n]?
+
+Backslash   \\
+
 LParen      \(
 RParen      \)
 LBracket    \[
 RBracket    \]
 LBrace      \{
 RBrace      \}
-IDStart     [a-zA-Z_]
-NumStart    [0-9]
-OpStart     [`~!#$%^&*=+|;:,<.>/?-]
-Identifier  [0-9a-zA-Z_]
-Number      [0-9a-zA-Z_.]
-Operator    [`~!@#$%^&*_=+|;:,<.>/?-]
+SQuote      \'
+DQuote      \"
+
+IDStart    [a-zA-Z_]
+PPStart    @
+NumStart   [0-9]
+OpStart    [`~!#$%^&*=+|;:,<.>/?-]
+Identifier [0-9a-zA-Z_]
+Number     [0-9a-zA-Z_.]
+Operator   [`~!@#$%^&*_=+|;:,<.>/?-]
+SQChar     [^'\\]
+DQChar     [^"\\]
+QLEscape   \\.
+
+%x BComment
 
 %%
-{Whitespace}+ // noop for now
+{Whitespace}+ { $SL $ML }
+{Newline}+    { $SL $WL }
 
-{LParen}                $TK(LParen)
-{RParen}                $TK(RParen)
+{LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO } // Line comment, noop
 
-{LBracket}              $TK(LBracket)
-{RBracket}              $TK(RBracket)
+{BCommentOpen} { $SL $ML yy_push_state(BComment, yyscanner); }
 
-{LBrace}                $TK(LBrace)
-{RBrace}                $TK(RBrace)
+<BComment>{
+  {Newline}+    { $SL $WL }
 
-{IDStart}{Identifier}*  $TK(Identifier)
-{NumStart}{Number}*     $TK(Number)
-{OpStart}{Operator}*    $TK(Operator)
+  {BCommentClose}  { $SL $ML yy_pop_state(yyscanner); }
+  {BCommentNoAt}+  { $SL $ML }
+  {BCommentAts}+   { $SL $ML }
 
-.                       $E("Invalid syntax.")
+  <<EOF>> { $SL $ML $E("unterminated block comment") }
+}
 
-<<EOF>>                 yyterminate();
+{LParen} { $SL $ML $TK(LParen) }
+{RParen} { $SL $ML $TK(RParen) }
+
+{LBracket} { $SL $ML $TK(LBracket) }
+{RBracket} { $SL $ML $TK(RBracket) }
+
+{LBrace} { $SL $ML $TK(LBrace) }
+{RBrace} { $SL $ML $TK(RBrace) }
+
+{IDStart}{Identifier}* { $SL $ML $YK(_ident, Ident, Identifier) }
+{PPStart}{Identifier}+ { $SL $ML $YK(_pp, PP, PPDirective) }
+{NumStart}{Number}*    { $SL $ML $YK(_literal, Literal, Number) }
+{OpStart}{Operator}*   { $SL $ML $YK(_oper, Oper, Operator) }
+
+{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}* { $SL $ML $YK(_literal, Literal, SQLiteral); }
+{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}* { $SL $ML $YK(_literal, Literal, DQLiteral); }
+
+. { $SL $ML $E("unexpected character"); }
+
+<<EOF>> { $SL $ML yyterminate(); }
 %%
 
 // int main() {
@@ -134,8 +173,12 @@ Operator    [`~!@#$%^&*_=+|;:,<.>/?-]
 // }
 
 namespace frma {
-  int lex_init_extra(FrmaLexerTag *extra, yyscan_t *scan) {
-    return frmalex_init_extra(extra, scan);
+  int lex_init_extra(YY_EXTRA_TYPE extra, yyscan_t *scan) {
+    if (int ret = frmalex_init_extra(extra, scan)) return ret;
+
+    frmaset_debug(true, *scan);
+
+    return 0;
   }
 
   int lex_destroy(yyscan_t scan) {

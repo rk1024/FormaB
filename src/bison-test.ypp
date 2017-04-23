@@ -4,61 +4,101 @@
 %locations
 %name-prefix "frma"
 
-%param {void *yyscanner}
+%param {frma::FormaParserTag *tag}
+
+%code requires {
+#include "ast.hpp"
+#include "parserTag.hpp"
+}
 
 %code provides {
 #define YYSTYPE frma::parser::semantic_type
+#undef yylex
+
 
 int frmalex(YYSTYPE *, frma::location *, void *);
+
+static int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *tag) {
+  return frmalex(yylval, yylloc, tag->scan);
+}
 }
 
-%token LParen "("
-%token RParen ")"
+%union {
+  frma::FormaAST *    _ast;
+  frma::FormaPrims *  _prims;
+  frma::FormaPrim *   _prim;
+  frma::FormaIdent *  _ident;
+  frma::FormaPP *     _pp;
+  frma::FormaLiteral *_literal;
+  frma::FormaOper *   _oper;
+  frma::FormaGroup *  _group;
+}
+
+%destructor { if (!($$->rooted() || tag->prims == $$)) delete $$; } <_prims>;
+%destructor { if (!$$->rooted()) delete $$; } <_prim>;
+%destructor { if (!$$->rooted()) delete $$; } <_ident>;
+%destructor { if (!$$->rooted()) delete $$; } <_pp>;
+%destructor { if (!$$->rooted()) delete $$; } <_literal>;
+%destructor { if (!$$->rooted()) delete $$; } <_oper>;
+%destructor { if (!$$->rooted()) delete $$; } <_group>;
+
+%token Comment
+
+%token LParen   "("
+%token RParen   ")"
 %token LBracket "["
 %token RBracket "]"
-%token LBrace "{"
-%token RBrace "}"
-%token Identifier
-%token Number
-%token Operator
+%token LBrace   "{"
+%token RBrace   "}"
+
+%token <_oper>    Operator
+%token <_ident>   Identifier
+%token <_pp>      PPDirective
+%token <_literal> Number
+%token <_literal> SQLiteral
+%token <_literal> DQLiteral
+
+%type <_prims>    Input
+%type <_prims>    PrimariesOpt
+%type <_prims>    Primaries
+%type <_prim>     Primary
+%type <_literal>  Literal
+%type <_group>    PGroup
+%type <_group>    KGroup
+%type <_group>    CGroup
 
 %start Input
 
 %%
-Input: StuffOpt;
+Input: PrimariesOpt { $$ = $1; tag->prims = $1; };
 
-StuffOpt:
-  %empty |
-  Stuff;
+PrimariesOpt:
+  %empty    { $$ = new FormaPrims(nullptr); } |
+  Primaries { $$ = $1; };
 
-Stuff:
-  Expr |
-  Stuff Expr;
-
-Expr:
-  Operator ExprCont |
-  ExprCont;
-
-ExprCont:
-  Primary |
-  ExprCont Operator |
-  ExprCont Operator Primary;
+Primaries:
+  Primary                       { $$ = new FormaPrims($1); } |
+  Primaries[init] Primary[prim] { $$ = new FormaPrims($init, $prim); };
 
 Primary:
-  PGroup |
-  KGroup |
-  CGroup |
-  Literal;
+  PGroup      { $$ = new FormaPrim($1); } |
+  KGroup      { $$ = new FormaPrim($1); } |
+  CGroup      { $$ = new FormaPrim($1); } |
+  Identifier  { $$ = new FormaPrim($1); } |
+  PPDirective { $$ = new FormaPrim($1); } |
+  Literal     { $$ = new FormaPrim($1); } |
+  Operator    { $$ = new FormaPrim($1); };
 
 Literal:
-  Identifier |
-  Number;
+  Number    { $$ = $1; } |
+  SQLiteral { $$ = $1; } |
+  DQLiteral { $$ = $1; };
 
-PGroup: "(" StuffOpt ")";
-KGroup: "[" StuffOpt "]";
-CGroup: "{" StuffOpt "}";
+PGroup: "(" PrimariesOpt[prims] ")" { $$ = new FormaGroup(FormaGroup::PGroup, $prims); };
+KGroup: "[" PrimariesOpt[prims] "]" { $$ = new FormaGroup(FormaGroup::KGroup, $prims); };
+CGroup: "{" PrimariesOpt[prims] "}" { $$ = new FormaGroup(FormaGroup::CGroup, $prims); };
 %%
 
 void frma::parser::error(const frma::location &loc, const std::string &msg) {
-  std::cerr << msg << std::endl;
+  tag->error(loc, msg);
 }

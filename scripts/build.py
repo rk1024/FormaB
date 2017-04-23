@@ -70,7 +70,10 @@ def main():
     "--full",
   ]
 
-  bisonflags = []
+  bisonflags = [
+    "--warnings=all",
+    "--report=all",
+  ]
 
   def addPkgs(*args):
     cxxflags.extend(pkcflags(*args))
@@ -157,31 +160,31 @@ def main():
 
   build.edges(
     (build.path_b("flex-test.cpp"), "$srcdir/flex-test.lpp"),
-    (build.path_b("bison-test.cpp"), "$srcdir/bison-test.ypp"),
+    (([build.path_b("bison-test.cpp")], [build.path_b("bison-test.hpp")]),
+     "$srcdir/bison-test.ypp"),
     ("parse-test", "phony", "$bindir/parse-test"),
   )
 
-  sources = {"$bindir/parse-test": (["main.cpp"], ["flex-test.cpp", "bison-test.cpp"])}
+  sources = {
+    "$bindir/parse-test": (
+      list(it.chain(
+        ["main.cpp"],
+        [path.relpath(p, "src") for p in glob.iglob("src/ast/*.cpp")],
+      )), ["flex-test.cpp", "bison-test.cpp"],
+    )
+  }
 
   for out, (ins, b_ins) in sources.iteritems():
     for n in ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(n)[0])),
         "$srcdir/{}".format(n)
-      ).set(
-        flags = " ".join([
-          "-I$builddir"
-        ])
-      )
+      ).set(flags = " ".join(["-I$builddir -I$srcdir"]))
 
     for b in b_ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(b)[0])), build.path_b(b)
-      ).set(
-        flags = " ".join([
-          "-I$srcdir"
-        ])
-      )
+      ).set(flags = " ".join(["-I$builddir -I$srcdir"]))
 
     build.edge(
       out,

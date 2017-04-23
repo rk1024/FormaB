@@ -43,7 +43,41 @@ typedef frma::parser::token tk;
 
 #define $TK(value) return tk::value;
 
-#define $YK(var, type, value) { yylval->var = new frma::Forma##type(yytext); $TK(value) }
+#define $SKT(var, type, text) yylval->var = new frma::Forma##type(text);
+#define $SK(var, type) $SKT(var, type, yytext)
+#define $SKB(var, type) $SKT(var, type, $B)
+
+#define $SPT(value, text) yylval->_prim = new frma::FormaPrim(frma::FormaPrim::value, text);
+#define $SP(value) $SPT(value, yytext)
+#define $SPB(value) $SPT(value, $B)
+
+#define $YKT(var, type, text) $SKT(var, type, text) $TK(type)
+#define $YK(var, type) $SK(var, type) $TK(type)
+#define $YKB(var, type) $SKB(var, type) $TK(type)
+#define $YKE(var, type) $SKB(var, type) $BE $TK(type)
+
+#define $YPT(type, text) $SPT(type, text) $TK(type)
+#define $YP(type) $SP(type) $TK(type)
+#define $YPB(type) $SPB(type) $TK(type)
+#define $YPE(type) $SPB(type) $BE $TK(type)
+
+#define $MR yymore();
+
+#define $SSPUSH(value) yy_push_state(SS##value, yyscanner);
+
+#define $SSPOP yy_pop_state(yyscanner);
+
+#define $END yyterminate();
+
+#define $BS $x->bufStart();
+
+#define $BE $x->bufEnd();
+
+#define $BW $x->buf() << yytext;
+
+#define $BSW $BS $BW
+
+#define $B $x->buf().str()
 
 #define $SL yylloc->step();
 
@@ -69,7 +103,7 @@ BCommentClose @+\]
 BCommentNoAt  [^@\n]
 BCommentAts   @+[^\]\n]?
 
-RawBlockStart @
+RawBlockStart @!
 RawBlockOpen  \{
 RawBlockClose @+\}
 RawBlockNoAt  [^@\n]
@@ -97,37 +131,37 @@ SQChar     [^'\\]
 DQChar     [^"\\]
 QLEscape   \\.
 
-%x BComment
-%x RawBlock
+%x SSBComment
+%x SSRawBlock
 
 %%
 {Whitespace}+ { $SL $ML }
 {Newline}+    { $SL $WL }
 
-{LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO } // Line comment, noop
+{LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
-{BCommentOpen} { $SL $ML yy_push_state(BComment, yyscanner); }
+{BCommentOpen} { $SL $ML $SSPUSH(BComment) }
 
-<BComment>{
+<SSBComment>{
   {Newline}+ { $SL $WL }
 
-  {BCommentClose}  { $SL $ML yy_pop_state(yyscanner); }
+  {BCommentClose}  { $SL $ML $SSPOP }
   {BCommentNoAt}+  { $SL $ML }
   {BCommentAts}+   { $SL $ML }
 
   <<EOF>> { $SL $ML $E("unterminated block comment") }
 }
 
-{RawBlockStart}{IDStart}{Identifier}*{RawBlockOpen} { $SL $ML yy_push_state(RawBlock, yyscanner); }
+{RawBlockStart}{IDStart}{Identifier}*{RawBlockOpen} { $SL $ML $SSPUSH(RawBlock) $BSW }
 
-<RawBlock>{
-  {Newline}+ { $SL $WL }
+<SSRawBlock>{
+  {Newline}+ { $WL $BW }
 
-  {RawBlockClose} { $SL $ML yy_pop_state(yyscanner); }
-  {RawBlockNoAt}+ { $SL $ML }
-  {RawBlockAts}+  { $SL $ML }
+  {RawBlockClose} { $ML $BW $SSPOP $YPE(RawBlock) }
+  {RawBlockNoAt}+ { $ML $BW }
+  {RawBlockAts}+  { $ML $BW }
 
-  <<EOF>> { $SL $ML $E("unterminated raw block") }
+  <<EOF>> { $ML $BE $E("unterminated raw block") }
 }
 
 {LParen} { $SL $ML $TK(LParen) }
@@ -139,17 +173,17 @@ QLEscape   \\.
 {LBrace} { $SL $ML $TK(LBrace) }
 {RBrace} { $SL $ML $TK(RBrace) }
 
-{IDStart}{Identifier}* { $SL $ML $YK(_ident, Ident, Identifier) }
-{PPStart}{Identifier}+ { $SL $ML $YK(_pp, PP, PPDirective) }
-{NumStart}{Number}*    { $SL $ML $YK(_literal, Literal, Number) }
-{OpStart}{Operator}*   { $SL $ML $YK(_oper, Oper, Operator) }
+{IDStart}{Identifier}* { $SL $ML $YP(Identifier) }
+{PPStart}{Identifier}+ { $SL $ML $YP(PPDirective) }
+{NumStart}{Number}*    { $SL $ML $YP(Number) }
+{OpStart}{Operator}*   { $SL $ML $YP(Operator) }
 
-{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}* { $SL $ML $YK(_literal, Literal, SQLiteral); }
-{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}* { $SL $ML $YK(_literal, Literal, DQLiteral); }
+{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}* { $SL $ML $YP(SQLiteral) }
+{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}* { $SL $ML $YP(DQLiteral) }
 
-. { $SL $ML $E("unexpected character"); }
+. { $SL $ML $E("unexpected character") }
 
-<<EOF>> { $SL $ML yyterminate(); }
+<<EOF>> { $SL $ML $END }
 %%
 
 namespace frma {

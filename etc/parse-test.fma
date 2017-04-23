@@ -5,7 +5,11 @@ using System;
   The return value is the program's return status code.
 @]
 
-@cpp{
+@!somelanguage{
+  So, basically, I can just put whatever here. }}}]]]
+  '
+  "
+@}
 
 @pragma warning disable 3200
 

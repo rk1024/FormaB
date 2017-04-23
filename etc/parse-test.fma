@@ -1,0 +1,14 @@
+using System;
+
+@[
+  This is the entry point for our program.
+  The return value is the program's return status code.
+@]
+
+@pragma warning disable 3200
+
+let Main = function(int argc, char **argv) -> int {
+  Console.Print("Hi there!"); @@ Make sure this stuff works.
+
+  return 0;
+}

@@ -13,7 +13,7 @@ struct FormaParserError {
 
   void print(std::ostream &os) const {
     if (loc.begin.filename)
-      os << loc.begin.filename;
+      os << *loc.begin.filename;
     else
       os << "???";
 
@@ -26,12 +26,14 @@ struct FormaParserError {
 class FormaParserTag {
   std::vector<FormaParserError> m_errors;
 
+  std::string m_filename;
+
 public:
   FormaPrims *prims = nullptr;
   void *      scan  = nullptr;
 
 
-  FormaParserTag() {}
+  FormaParserTag(const std::string &filename) : m_filename(filename) {}
 
   ~FormaParserTag() {
     if (prims) delete prims;
@@ -46,5 +48,7 @@ public:
   }
 
   const std::vector<FormaParserError> errors() const { return m_errors; }
+
+  std::string &filename() { return m_filename; }
 };
 }

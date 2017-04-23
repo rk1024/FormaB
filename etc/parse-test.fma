@@ -5,6 +5,8 @@ using System;
   The return value is the program's return status code.
 @]
 
+@cpp{
+
 @pragma warning disable 3200
 
 let Main = function(int argc, char **argv) -> int {

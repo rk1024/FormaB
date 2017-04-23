@@ -23,6 +23,7 @@
 %{
 #include <iostream>
 #include <map>
+#include <stdexcept>
 #include <string>
 
 #include "parserTag.hpp"
@@ -60,12 +61,19 @@ YY_DECL;
 Whitespace    [ \r\t]
 Newline       [\v\n]
 LCommentOpen  @@
-BCommentOpen  @\[
 LCommentClose \n
-BCommentClose @+\]
 LCommentInput [^\n]
+
+BCommentOpen  @\[
+BCommentClose @+\]
 BCommentNoAt  [^@\n]
 BCommentAts   @+[^\]\n]?
+
+RawBlockStart @
+RawBlockOpen  \{
+RawBlockClose @+\}
+RawBlockNoAt  [^@\n]
+RawBlockAts   @+[^\}\n]?
 
 Backslash   \\
 
@@ -90,6 +98,7 @@ DQChar     [^"\\]
 QLEscape   \\.
 
 %x BComment
+%x RawBlock
 
 %%
 {Whitespace}+ { $SL $ML }
@@ -100,13 +109,25 @@ QLEscape   \\.
 {BCommentOpen} { $SL $ML yy_push_state(BComment, yyscanner); }
 
 <BComment>{
-  {Newline}+    { $SL $WL }
+  {Newline}+ { $SL $WL }
 
   {BCommentClose}  { $SL $ML yy_pop_state(yyscanner); }
   {BCommentNoAt}+  { $SL $ML }
   {BCommentAts}+   { $SL $ML }
 
   <<EOF>> { $SL $ML $E("unterminated block comment") }
+}
+
+{RawBlockStart}{IDStart}{Identifier}*{RawBlockOpen} { $SL $ML yy_push_state(RawBlock, yyscanner); }
+
+<RawBlock>{
+  {Newline}+ { $SL $WL }
+
+  {RawBlockClose} { $SL $ML yy_pop_state(yyscanner); }
+  {RawBlockNoAt}+ { $SL $ML }
+  {RawBlockAts}+  { $SL $ML }
+
+  <<EOF>> { $SL $ML $E("unterminated raw block") }
 }
 
 {LParen} { $SL $ML $TK(LParen) }
@@ -131,59 +152,30 @@ QLEscape   \\.
 <<EOF>> { $SL $ML yyterminate(); }
 %%
 
-// int main() {
-//   yyscan_t scan = {0};
-//   FTLexerTag tag;
-//   int err = 0;
-
-//   if ((err = frmalex_init_extra(&tag, &scan))) goto catch1;
-
-//   while (true) {
-//     tk tok = frmalex(scan);
-
-//     if (tag.error) {
-//       std::cerr << "Lexical error occurred!" << std::endl;
-//       err = 1;
-//       goto catch1;
-//     }
-
-//     std::string str(frmaget_text(scan), frmaget_leng(scan));
-
-//     std::cout << "[tk] " << tkNames[tok] << " '" << str << "'" << std::endl;
-
-//     if (tok == tk::Eof) break;
-//   }
-
-//   goto finally1;
-
-// catch1:
-//   std::cerr << "Something bad happened." << std::endl;
-
-// finally1:
-//   {
-//     int err2 = 0;
-
-//     if ((err2 = frmalex_destroy(scan)))
-//       std::cerr << "Something *REALLY* bad happened." << std::endl;
-
-//     err = err || err2;
-//   }
-
-//   return err;
-// }
-
 namespace frma {
-  int lex_init_extra(YY_EXTRA_TYPE extra, yyscan_t *scan) {
-    if (int ret = frmalex_init_extra(extra, scan)) return ret;
+  lexer::lexer(frma::FormaParserTag &tag) {
+    if (int ret = frmalex_init_extra(&tag, &m_yyscanner))
+      throw new std::runtime_error(std::string("Scanner creation failed with code ") + std::to_string(ret));
 
-    frmaset_debug(true, *scan);
-
-    return 0;
+    tag.scan = m_yyscanner;
   }
 
-  int lex_destroy(yyscan_t scan) {
-    return frmalex_destroy(scan);
+  lexer::~lexer() {
+    if (int ret = frmalex_destroy(m_yyscanner))
+      throw new std::runtime_error(std::string("Scanner destructor failed with code ") + std::to_string(ret));
   }
+
+  bool lexer::debug() const { return frmaget_debug(m_yyscanner); }
+
+  void lexer::debug(bool value) { frmaset_debug(value, m_yyscanner); }
+
+  FILE *lexer::inFile() const { return frmaget_in(m_yyscanner); }
+
+  void lexer::inFile(FILE *value) { frmaset_in(value, m_yyscanner); }
+
+  FILE *lexer::outFile() const { return frmaget_out(m_yyscanner); }
+
+  void lexer::outFile(FILE *value) { frmaset_out(value, m_yyscanner); }
 }
 
 #pragma clang diagnostic pop

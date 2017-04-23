@@ -3,7 +3,28 @@
 #include "parserTag.hpp"
 
 namespace frma {
-  int lex_init_extra(frma::FormaParserTag *extra, void **scan);
+  class lexer {
+    void *m_yyscanner;
 
-  int lex_destroy(void *scan);
+  public:
+    lexer(frma::FormaParserTag &tag);
+
+    ~lexer();
+
+    void restart(FILE *input_file);
+
+#ifdef _DEBUG
+    bool debug() const;
+
+    void debug(bool value);
+#endif
+
+    FILE *inFile() const;
+
+    void inFile(FILE *value);
+
+    FILE *outFile() const;
+
+    void outFile(FILE *value);
+  };
 }

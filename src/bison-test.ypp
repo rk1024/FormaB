@@ -13,6 +13,7 @@
 
 %code provides {
 #define YYSTYPE frma::parser::semantic_type
+#define YYSTRIM($$) if (!$$->rooted()) delete $$;
 #undef yylex
 
 
@@ -35,12 +36,12 @@ static int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *
 }
 
 %destructor { if (!($$->rooted() || tag->prims == $$)) delete $$; } <_prims>;
-%destructor { if (!$$->rooted()) delete $$; } <_prim>;
-%destructor { if (!$$->rooted()) delete $$; } <_ident>;
-%destructor { if (!$$->rooted()) delete $$; } <_pp>;
-%destructor { if (!$$->rooted()) delete $$; } <_literal>;
-%destructor { if (!$$->rooted()) delete $$; } <_oper>;
-%destructor { if (!$$->rooted()) delete $$; } <_group>;
+%destructor { YYSTRIM($$); } <_prim>;
+%destructor { YYSTRIM($$); } <_ident>;
+%destructor { YYSTRIM($$); } <_pp>;
+%destructor { YYSTRIM($$); } <_literal>;
+%destructor { YYSTRIM($$); } <_oper>;
+%destructor { YYSTRIM($$); } <_group>;
 
 %token Comment
 
@@ -68,6 +69,10 @@ static int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *
 %type <_group>    CGroup
 
 %start Input
+
+%initial-action {
+  @$.begin.filename = @$.end.filename = &tag->filename();
+}
 
 %%
 Input: PrimariesOpt { $$ = $1; tag->prims = $1; };

@@ -168,7 +168,7 @@ def main():
   sources = {
     "$bindir/parse-test": (
       list(it.chain(
-        ["main.cpp"],
+        ["parseTest.cpp"],
         [path.relpath(p, "src") for p in glob.iglob("src/ast/*.cpp")],
       )), ["flex-test.cpp", "bison-test.cpp"],
     )

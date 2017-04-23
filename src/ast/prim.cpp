@@ -3,56 +3,47 @@
 #include <cassert>
 
 #include "group.hpp"
-#include "ident.hpp"
-#include "literal.hpp"
-#include "oper.hpp"
-#include "pp.hpp"
 
 namespace frma {
 FormaPrim::FormaPrim(FormaGroup *group) : m_type(Group), m_group(group) {
   m_group->m_rooted = true;
 }
-FormaPrim::FormaPrim(FormaIdent *ident) : m_type(Identifier), m_ident(ident) {
-  m_ident->m_rooted = true;
+
+FormaPrim::FormaPrim(PrimType type, const std::string &text)
+    : m_type(type), m_text(new std::string(text)) {
+  switch (type) {
+  case Group:
+    throw std::logic_error("Constructor not applicable to Group primitives.");
+  default: break;
+  }
 }
-FormaPrim::FormaPrim(FormaPP *pp) : m_type(PPDirective), m_pp(pp) {
-  m_pp->m_rooted = true;
-}
-FormaPrim::FormaPrim(FormaLiteral *literal)
-    : m_type(Literal), m_literal(literal) {
-  m_literal->m_rooted = true;
-}
-FormaPrim::FormaPrim(FormaOper *oper) : m_type(Operator), m_oper(oper) {
-  m_oper->m_rooted = true;
-}
+
+FormaPrim::FormaPrim(PrimType type, const char *text)
+    : FormaPrim(type, std::string(text)) {}
 
 FormaPrim::~FormaPrim() {
   switch (m_type) {
   case Group: delete m_group; break;
-  case Identifier: delete m_ident; break;
-  case PPDirective: delete m_pp; break;
-  case Literal: delete m_literal; break;
-  case Operator: delete m_oper; break;
+  default: delete m_text; break;
   }
 }
 
 void FormaPrim::print(std::ostream &os) const {
   switch (m_type) {
   case Group: m_group->print(os); break;
-  case Identifier: m_ident->print(os); break;
-  case PPDirective: m_pp->print(os); break;
-  case Literal: m_literal->print(os); break;
-  case Operator: m_oper->print(os); break;
+  default: os << *m_text; break;
   }
-}
-
-FormaLiteral *FormaPrim::literal() const {
-  if (m_type == Literal) return m_literal;
-  return nullptr;
 }
 
 FormaGroup *FormaPrim::group() const {
   if (m_type == Group) return m_group;
   return nullptr;
+}
+
+const std::string *FormaPrim::text() const {
+  switch (m_type) {
+    case Group: return nullptr;
+    default: return m_text;
+  }
 }
 }

@@ -13,39 +13,36 @@ class FormaPrim : public FormaAST {
 public:
   enum PrimType {
     Group,
+    RawBlock,
     Identifier,
     PPDirective,
-    Literal,
+    Number,
     Operator,
+    SQLiteral,
+    DQLiteral,
   };
 
 private:
   PrimType m_type;
 
   union {
-    FormaGroup *  m_group;
-    FormaIdent *  m_ident;
-    FormaPP *     m_pp;
-    FormaLiteral *m_literal;
-    FormaOper *   m_oper;
+    FormaGroup * m_group;
+    std::string *m_text;
   };
 
 public:
   FormaPrim(FormaGroup *group);
-  FormaPrim(FormaIdent *ident);
-  FormaPrim(FormaPP *pp);
-  FormaPrim(FormaLiteral *literal);
-  FormaPrim(FormaOper *oper);
+  FormaPrim(PrimType type, const std::string &text);
+  FormaPrim(PrimType type, const char *text);
 
   virtual ~FormaPrim() override;
 
   virtual void print(std::ostream &os) const override;
 
-  FormaGroup *  group() const;
-  FormaIdent *  ident() const;
-  FormaPP *     pp() const;
-  FormaLiteral *literal() const;
-  FormaOper *   oper() const;
+  inline PrimType type() const { return m_type; }
+
+  FormaGroup *       group() const;
+  const std::string *text() const;
 
   friend class FormaPrims;
 };

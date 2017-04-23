@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sstream>
+#include <stack>
 #include <vector>
 
 #include "location.hh"
@@ -28,6 +30,8 @@ class FormaParserTag {
 
   std::string m_filename;
 
+  std::stack<std::ostringstream> bufs;
+
 public:
   FormaPrims *prims = nullptr;
   void *      scan  = nullptr;
@@ -50,5 +54,11 @@ public:
   const std::vector<FormaParserError> errors() const { return m_errors; }
 
   std::string &filename() { return m_filename; }
+
+  inline void bufStart() { bufs.emplace(); }
+
+  inline void bufEnd() { bufs.pop(); }
+
+  std::ostringstream &buf() { return bufs.top(); }
 };
 }

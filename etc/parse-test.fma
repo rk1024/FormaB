@@ -11,6 +11,11 @@ using System;
   "
 @}
 
+@!meta{
+syntax((cond) then else)
+let if = record(Expression expr, Statement then, Statement else)
+@}
+
 @pragma warning disable 3200
 
 let Main = function(int argc, char **argv) -> int {

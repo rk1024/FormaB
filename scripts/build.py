@@ -1,3 +1,4 @@
+import fnmatch
 import glob
 import itertools as it
 import logging as l
@@ -31,6 +32,10 @@ def pkcflags(*args):
 
 def pklibs(*args):
   return pkgConfig("--libs", *args)
+
+
+def flatten(*args):
+  return list(it.chain(*args))
 
 
 def main():
@@ -75,6 +80,16 @@ def main():
     "--report=all",
   ]
 
+  astgenFlags = [
+    "-f$srcdir/flex-test.in.lpp:$builddir/flex-test.lpp",
+    "-b$srcdir/bison-test.in.ypp:$builddir/bison-test.ypp"
+  ]
+
+  astgenFlagsInternal = [
+    flag.replace("$srcdir", "src").replace("$builddir", "build")
+    for flag in astgenFlags
+  ]
+
   def addPkgs(*args):
     cxxflags.extend(pkcflags(*args))
     ldflags.extend(pklibs(*args))
@@ -90,7 +105,7 @@ def main():
 
     cxxflags.extend([
       "-g",
-      "-O1",
+      "-O0",
       "-D_GLIBCXX_DEBUG",
       "-D_LIBCPP_DEBUG",
       "-DDEBUG",
@@ -124,10 +139,12 @@ def main():
     cxx = "clang++",
     flex = "flex",
     bison = "bison",
+    ruby = "ruby",
     cxxflags = " ".join(cxxflags),
     ldflags = " ".join(ldflags),
     flexflags = " ".join(flexflags),
     bisonflags = " ".join(bisonflags),
+    astgenFlags = " ".join(astgenFlags),
     srcdir = build.path("src"),
     bindir = build.path("bin"),
   )
@@ -158,21 +175,60 @@ def main():
     command = "$bison $bisonflags $flags -o $out $in",
   )
 
+  build.rule("ruby").set(
+    command = "$ruby $rubyflags $flags $in $args",
+  )
+
   build.edges(
-    (build.path_b("flex-test.cpp"), "$srcdir/flex-test.lpp"),
-    (([build.path_b("bison-test.cpp")], [build.path_b("bison-test.hpp")]),
-     "$srcdir/bison-test.ypp"),
+    (build.path_b("flex-test.cpp"), "$builddir/flex-test.lpp"),
+    (([build.path_b("bison-test.cpp")], build.paths_b(
+      *[
+        "bison-test.hpp", "bison-test.output", "location.hh", "position.hh",
+        "stack.hh"
+      ]
+    )), "$builddir/bison-test.ypp"),
     ("parse-test", "phony", "$bindir/parse-test"),
   )
 
+  astSources = [
+    path.relpath(src.strip(), "build")
+    for src in str(
+      sp.check_output(
+        flatten(["ruby", "scripts/astgen.rb", "-l", "build/ast"],
+                astgenFlagsInternal)
+      )
+    ).split(" ")
+  ]
+
+  astImplSources = [
+    path.relpath(src.strip(), "build")
+    for src in str(
+      sp.check_output(
+        flatten(["ruby", "scripts/astgen.rb", "-i", "build/ast"],
+                astgenFlagsInternal)
+      )
+    ).split(" ")
+  ]
+
   sources = {
     "$bindir/parse-test": (
-      list(it.chain(
+      flatten(
         ["parseTest.cpp"],
-        [path.relpath(p, "src") for p in glob.iglob("src/ast/*.cpp")],
-      )), ["flex-test.cpp", "bison-test.cpp"],
+        (path.relpath(p, "src") for p in glob.glob("src/ast/*.cpp")),
+      ), flatten(
+        ["flex-test.cpp", "bison-test.cpp"],
+        fnmatch.filter(astSources, "**/*.cpp"),
+      )
     )
   }
+
+  l.debug(sources)
+  l.debug(astImplSources)
+
+  build.edge(
+    (build.paths_b(*astSources), build.paths_b(*astImplSources)), "ruby",
+    build.path("scripts/astgen.rb")
+  ).set(args = "$astgenFlags $rootdir/build/ast")
 
   for out, (ins, b_ins) in sources.iteritems():
     for n in ins:
@@ -193,7 +249,7 @@ def main():
       )
     )
 
-  return build.run("", "build", *sys.argv[1:])
+  return build.run(".", "build", *sys.argv[1:])
 
 
 sys.exit(main())

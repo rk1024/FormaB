@@ -1,5 +1,4 @@
 #pragma once
 
-#include "ast/prims.hpp"
-#include "ast/prim.hpp"
-#include "ast/group.hpp"
+#include "ast/ast.hpp"
+#include "ast/token.hpp"

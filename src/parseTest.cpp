@@ -29,13 +29,19 @@ int main(int argc, char **argv) {
 
     lex.inFile(infile);
 
-    parse.parse();
+    lex.debug(true);
+    parse.set_debug_level(1);
 
-    // bool fail = !tag.errors().empty();
+    bool success = !parse.parse();
+
+    success = success && tag.errors().empty();
 
     for (auto r : tag.errors()) r.print(std::cerr);
 
-    if (tag.prims) tag.prims->print(std::cout);
+    if (success) {
+      if (tag.prims) tag.prims->print(std::cout);
+      else std::cerr << "WARNING: no output" << std::endl;
+    }
 
     std::cout << std::endl;
 

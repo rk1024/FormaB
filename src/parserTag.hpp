@@ -59,6 +59,14 @@ public:
 
   inline void bufEnd() { bufs.pop(); }
 
+  inline void bufReturn() {
+    std::string top = bufs.top().str();
+
+    bufs.pop();
+
+    if (!bufs.empty()) bufs.top() << top;
+  }
+
   std::ostringstream &buf() { return bufs.top(); }
 };
 }

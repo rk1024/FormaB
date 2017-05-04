@@ -133,22 +133,22 @@ def main():
       "-D_NDEBUG",
     ])
 
-  l.debug(
-    "CXX Flags: {}".format(
-      " ".join(
-        "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
-        for flag in cxxflags
-      )
-    )
-  )
-  l.debug(
-    "LD  Flags: {}".format(
-      " ".join(
-        "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
-        for flag in ldflags
-      )
-    )
-  )
+  # l.debug(
+  #   "CXX Flags: {}".format(
+  #     " ".join(
+  #       "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
+  #       for flag in cxxflags
+  #     )
+  #   )
+  # )
+  # l.debug(
+  #   "LD  Flags: {}".format(
+  #     " ".join(
+  #       "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
+  #       for flag in ldflags
+  #     )
+  #   )
+  # )
 
   build.set(
     srcdir = build.path("src"),
@@ -236,9 +236,6 @@ def main():
       )
     )
   }
-
-  l.debug(sources)
-  l.debug(astImplSources)
 
   build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
              "ruby", ([build.path("scripts/astgen.rb")], flatten([

@@ -14,8 +14,9 @@ public:
 
   const std::string &value() const;
 
-  friend class FormaPrim;
-  friend class FormaRawBlk;
-  friend class FormaMSyntaxExt;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunknown-pragmas"
+#pragma astgen friends
+#pragma clang diagnostic pop
 };
 }

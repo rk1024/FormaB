@@ -2,6 +2,7 @@ import fnmatch
 import glob
 import itertools as it
 import logging as l
+import os
 import subprocess as sp
 import sys
 from os import path
@@ -36,6 +37,19 @@ def pklibs(*args):
 
 def flatten(*args):
   return list(it.chain(*args))
+
+
+def rglob(base, pattern, rel = None):
+  def _rglob(base, pattern):
+    return [
+      path.join(root, f)
+      for root, _, files in os.walk(base)
+      for f in fnmatch.filter(files, pattern)
+    ]
+
+  if rel is None: return _rglob(base, pattern)
+
+  return [path.relpath(f, rel) for f in _rglob(base, pattern)]
 
 
 def main():
@@ -81,8 +95,9 @@ def main():
   ]
 
   astgenFlags = [
-    "-f$srcdir/flex-test.in.lpp:$builddir/flex-test.lpp",
-    "-b$srcdir/bison-test.in.ypp:$builddir/bison-test.ypp"
+    "-f$rootdir/src/flex-test.in.lpp:$builddir/flex-test.lpp",
+    "-b$rootdir/src/bison-test.in.ypp:$builddir/bison-test.ypp",
+    "-t$rootdir/src/ast/token.in.hpp:$builddir/ast/token.hpp",
   ]
 
   astgenFlagsInternal = [
@@ -136,6 +151,8 @@ def main():
   )
 
   build.set(
+    srcdir = build.path("src"),
+    bindir = build.path("bin"),
     cxx = "clang++",
     flex = "flex",
     bison = "bison",
@@ -145,8 +162,6 @@ def main():
     flexflags = " ".join(flexflags),
     bisonflags = " ".join(bisonflags),
     astgenFlags = " ".join(astgenFlags),
-    srcdir = build.path("src"),
-    bindir = build.path("bin"),
   )
 
   build.rule(
@@ -225,10 +240,13 @@ def main():
   l.debug(sources)
   l.debug(astImplSources)
 
-  build.edge(
-    (build.paths_b(*astSources), build.paths_b(*astImplSources)), "ruby",
-    build.path("scripts/astgen.rb")
-  ).set(args = "$astgenFlags $rootdir/build/ast")
+  build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
+             "ruby", ([build.path("scripts/astgen.rb")], flatten([
+               "$srcdir/bison-test.in.ypp",
+               "$srcdir/flex-test.in.lpp",
+               "$srcdir/ast/token.in.hpp",
+             ], build.paths(*rglob("scripts/astgen", "*.rb"))))
+             ).set(args = "$astgenFlags $rootdir/build/ast")
 
   for out, (ins, b_ins) in sources.iteritems():
     for n in ins:

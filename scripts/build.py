@@ -101,7 +101,7 @@ def main():
   ]
 
   astgenFlagsInternal = [
-    flag.replace("$srcdir", "src").replace("$builddir", "build")
+    flag.replace("$rootdir", ".").replace("$builddir", "build")
     for flag in astgenFlags
   ]
 
@@ -209,7 +209,7 @@ def main():
     path.relpath(src.strip(), "build")
     for src in str(
       sp.check_output(
-        flatten(["ruby", "scripts/astgen.rb", "-l", "build/ast"],
+        flatten(["ruby", "scripts/ast.rb", "-l", "build/ast"],
                 astgenFlagsInternal)
       )
     ).split(" ")
@@ -219,7 +219,7 @@ def main():
     path.relpath(src.strip(), "build")
     for src in str(
       sp.check_output(
-        flatten(["ruby", "scripts/astgen.rb", "-i", "build/ast"],
+        flatten(["ruby", "scripts/ast.rb", "-i", "build/ast"],
                 astgenFlagsInternal)
       )
     ).split(" ")
@@ -238,7 +238,7 @@ def main():
   }
 
   build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
-             "ruby", ([build.path("scripts/astgen.rb")], flatten([
+             "ruby", ([build.path("scripts/ast.rb")], flatten([
                "$srcdir/bison-test.in.ypp",
                "$srcdir/flex-test.in.lpp",
                "$srcdir/ast/token.in.hpp",

@@ -36,40 +36,12 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 
 %destructor { if (!$$->rooted()) delete $$; } <_tok>
 
-%token LParen   "("
-%token RParen   ")"
-%token LBracket "["
-%token RBracket "]"
-%token LBrace   "{"
-%token RBrace   "}"
+%astgen-token-defs
 
-%token MKWFunction  "function"
-%token MKWInterface "interface"
-%token MKWLet       "let"
-%token MKWOperator  "operator"
-%token MKWRecord    "record"
-%token MKWStruct    "struct"
-%token MKWSyntax    "syntax"
-
-%token MOPComma ","
-%token MOPEqual "="
-%token MOPSemi  ";"
-
-%token MetaBlockStart
-%token MetaBlockEnd
-
-%token <_tok> RawBlockID
-%token <_tok> RawBlockBody
-%token <_tok> Operator
-%token <_tok> Identifier
-%token <_tok> PPDirective
-%token <_tok> Number
-%token <_tok> SQLiteral
-%token <_tok> DQLiteral
+%astgen-types
 
 %type <_primaries> Input
 %type <_tok> MetaLetLHS
-%astgen-types
 
 %start Input
 

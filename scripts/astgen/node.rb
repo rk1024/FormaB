@@ -7,7 +7,7 @@ require 'set'
 module ASTGen
   class Node
     class Union
-      attr_reader :members, :member_types
+      attr_reader :members
 
       def initialize(member_types)
         @members = {}
@@ -37,8 +37,8 @@ module ASTGen
 
       def add(type, *syms, **defs)
         @d.pos("syntax #{type.inspect}") do
-          @d.error("type #{type} not found") unless type == :self || @types.include?(type)
-          # raise @d.fatal("syntax for #{type} already registered") if @syntax.has_key? type
+          raise @d.fatal_r("type #{type.inspect} not found") unless type == :self || @types.include?(type)
+          # raise @d.fatal_r("syntax for #{type} already registered") if @syntax.has_key? type
 
           syms = syms.clone.freeze
 
@@ -172,7 +172,7 @@ module ASTGen
 
     def symbol(name, &block)
       @d.pos("symbol #{name.inspect}") do
-        raise @d.fatal("symbol #{name} already registered for node #{@symbol_names[name].inspect}") if @symbol_names.has_key? name
+        raise @d.fatal_r("symbol #{name} already registered for node #{@symbol_names[name].inspect}") if @symbol_names.has_key? name
 
         @symbol_names[name] = @name
 
@@ -184,7 +184,7 @@ module ASTGen
     end
 
     def []=(name, type)
-      raise @d.fatal("duplicate name #{name}") if @member_types.has_key?(name)
+      raise @d.fatal_r("duplicate name #{name}") if @member_types.has_key?(name)
 
       @members[name] = type
       @member_types[name] = type
@@ -200,9 +200,13 @@ module ASTGen
       end
 
       @d.pos("ctor #{type.inspect}") do
-        raise @d.fatal("type #{type} already registered") if @types.include? type
+        raise @d.fatal_r("type #{type} already registered") if @types.include? type
 
         members = members.clone.freeze
+
+        members.each do |e|
+          raise @d.fatal_r("unknown member name #{e.inspect}") unless @member_types.has_key? e
+        end
 
         @ctors[members] = [] if !@ctors.has_key?(members)
 
@@ -247,7 +251,7 @@ module ASTGen
 
         @format[arr] = [] if !@format.has_key?(arr)
 
-        raise @d.fatal("format for #{type} already registered") if @format[arr].include? type
+        raise @d.fatal_r("format for #{type} already registered") if @format[arr].include? type
 
         @format[arr] << type
       end
@@ -258,7 +262,11 @@ module ASTGen
 
       @syntax.each{|key, _| types.delete? key }
 
-      @d.error("syntax undefined for #{types.length} #{types.length == 1 ? "type" : "types"}: #{[*types].map{|e| e.inspect }.join(", ")}") unless types.length == 0
+      @symbols.each do |_, val|
+        val.send(:syntaxes).each{|key, _| types.delete? key }
+      end
+
+      @d.warn("syntax undefined for #{types.length} #{types.length == 1 ? "type" : "types"}: #{[*types].map{|e| e.inspect }.join(", ")}") unless types.length == 0
 
       types = @types.clone
 
@@ -309,10 +317,17 @@ module ASTGen
     def freeze
       @froz_name = "Forma#{@name}"
       @froz_memb_types = {}
+      @froz_memb_order = []
       @froz_type_ctors = {}
       @froz_dep_types = Set.new(@member_types.values)
 
       @froz_dep_types.delete(@name)
+
+      @unions.each do |e|
+        @froz_memb_order.concat(e.members.map{|k, v| k })
+      end
+
+      @froz_memb_order.concat(@members.map{|k, v| k })
 
       @ctors.each do |key, val|
         val.each do |e|
@@ -453,7 +468,9 @@ module ASTGen
       qname = pre.clone << @froz_name
 
       out << (LineWriter.lines do |l|
-        l << "#include \"ast/#{ASTGen.camel_name(@name)}.hpp\""
+        l << "#include <cassert>"
+
+        l.sep << "#include \"ast/#{ASTGen.camel_name(@name)}.hpp\""
 
         l.sep
 
@@ -486,7 +503,9 @@ module ASTGen
             if delg
               s = ": "
 
-              s << key.map{|e| "m_#{e.to_s}(#{e.to_s})"}.join(", ")
+              skey = Set.new(key)
+
+              s << @froz_memb_order.select{|e| skey.include? e }.map{|e| "m_#{e.to_s}(#{e.to_s})"}.join(", ")
 
               if @types.length > 1
                 s << ", " if key.length > 0
@@ -500,6 +519,7 @@ module ASTGen
             end
 
             key.each do |e|
+              l << "assert(m_#{e.to_s});"
               l << "m_#{e.to_s}->m_rooted = true;"
             end
           end
@@ -537,38 +557,52 @@ module ASTGen
 
         l.sep
 
-        l << "void #{pre}print(std::ostream &os) const {"
-        l.fmt with_indent: "  " do
-          emit_fmt = lambda do |f|
-            f.each do |e|
-              case e
-                when String
-                  l << "os << \"#{e}\";" unless e.length == 0
-                when Symbol
-                  l << "m_#{e.to_s}->print(os);"
-              end
-            end
-          end
+        any_fmt = @format.any?{|k, _| k && !k.empty? }
 
-          if @types.length > 1
-            l << "switch (m_type) {"
-            c = l.curr
-            l.fmt with_indent: "  " do
-              @format.each do |key, val|
-                val.each do |e|
-                  c << "case #{e.to_s}:"
+        l << "void #{pre}print(std::ostream &"
+
+        l.peek << "os" if any_fmt
+
+        l.peek << ") const {"
+        if any_fmt
+          l.fmt with_indent: "  " do
+            emit_fmt = lambda do |f|
+              f.each do |e|
+                case e
+                  when String
+                    l << "os << \"#{e}\";" unless e.length == 0
+                  when Symbol
+                    l << "m_#{e.to_s}->print(os);"
                 end
-
-                emit_fmt.call(key)
-                l << "break;"
               end
             end
-            l.trim << "}"
-          else
-            emit_fmt.call(@format.keys.first)
+
+            if @types.length > 1
+              l << "switch (m_type) {"
+              c = l.curr
+              l.fmt with_indent: "  " do
+                @format.select{|k, _| k }.each do |key, val|
+                  val.each do |e|
+                    c << "case #{e.to_s}:"
+                  end
+
+                  emit_fmt.call(key)
+                  l << "break;"
+                end
+              end
+
+              if @format.any?{|k, _| !k || k.empty? }
+                l << "default: break;"
+              end
+              l.trim << "}"
+            else
+              emit_fmt.call(@format.keys.first) if @format.keys.first
+            end
           end
+          l.trim << "}"
+        else
+          l.peek << "}"
         end
-        l.trim << "}"
 
         @member_types.each do |key, val|
           l.sep << "const Forma#{val.to_s} *#{pre}#{key.to_s}() const {"
@@ -610,6 +644,8 @@ module ASTGen
     end
 
     def emit_bison(nodes, l)
+      raise "Cannot emit non-frozen node!" unless frozen?
+
       def emit_symbol(name, syntax, l)
         l.sep << "#{name}:"
 
@@ -685,6 +721,5 @@ module ASTGen
         emit_symbol(key, val.send(:syntaxes), l)
       end
     end
-
   end
 end

@@ -12,8 +12,12 @@ using System;
 @}
 
 @!meta{
+let if = function(`{Expression cond}`)
+
 syntax((cond) then else)
 let if = record(Expression expr, Statement then, Statement else)
+
+let stuff = function(int a, int b) => 18 % 4 + 2 * 3 / 4 / 5 + 6;
 @}
 
 @pragma warning disable 3200

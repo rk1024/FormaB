@@ -133,23 +133,6 @@ def main():
       "-D_NDEBUG",
     ])
 
-  # l.debug(
-  #   "CXX Flags: {}".format(
-  #     " ".join(
-  #       "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
-  #       for flag in cxxflags
-  #     )
-  #   )
-  # )
-  # l.debug(
-  #   "LD  Flags: {}".format(
-  #     " ".join(
-  #       "'{}'".format(str(flag)) if " " in str(flag) else str(flag)
-  #       for flag in ldflags
-  #     )
-  #   )
-  # )
-
   build.set(
     srcdir = build.path("src"),
     bindir = build.path("bin"),
@@ -170,6 +153,7 @@ def main():
     command = "$cxx $cxxflags $flags -MMD -MF $out.d -c -o $out $in",
     deps = "gcc",
     depfile = "$out.d",
+    restat = "true"
   )
 
   build.rule(
@@ -227,40 +211,48 @@ def main():
 
   sources = {
     "$bindir/parse-test": (
+      [],
       flatten(
-        ["parseTest.cpp"],
-        (path.relpath(p, "src") for p in glob.glob("src/ast/*.cpp")),
-      ), flatten(
         ["flex-test.cpp", "bison-test.cpp"],
         fnmatch.filter(astSources, "**/*.cpp"),
-      )
+      ),
+      ["parseTest.o", "ast/token.o"]
     )
   }
+
+  for args in [
+    (build.path_b("parseTest.o"), (["$srcdir/parseTest.cpp"], ["$builddir/bison-test.hpp"])),
+    (build.path_b("ast/token.o"), (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])),
+  ]:
+    build.edge(*args).set(flags = "-I$builddir -I$srcdir")
 
   build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
              "ruby", ([build.path("scripts/ast.rb")], flatten([
                "$srcdir/bison-test.in.ypp",
                "$srcdir/flex-test.in.lpp",
                "$srcdir/ast/token.in.hpp",
-             ], build.paths(*rglob("scripts/astgen", "*.rb"))))
-             ).set(args = "$astgenFlags $rootdir/build/ast")
+             ], build.paths(*rglob("scripts/astgen", "*.rb"))))).set(
+               description = "ASTGen",
+               args = "$astgenFlags $rootdir/build/ast",
+               restat = "true",
+             )
 
-  for out, (ins, b_ins) in sources.iteritems():
+  for out, (ins, b_ins, objs) in sources.iteritems():
     for n in ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(n)[0])),
         "$srcdir/{}".format(n)
-      ).set(flags = " ".join(["-I$builddir -I$srcdir"]))
+      ).set(flags = "-I$builddir -I$srcdir")
 
     for b in b_ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(b)[0])), build.path_b(b)
-      ).set(flags = " ".join(["-I$builddir -I$srcdir"]))
+      ).set(flags = "-I$builddir -I$srcdir")
 
     build.edge(
       out,
       build.paths_b(
-        *["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_ins)]
+        *["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_ins, objs)]
       )
     )
 

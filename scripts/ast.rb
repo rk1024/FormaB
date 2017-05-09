@@ -7,17 +7,14 @@ ASTGen.run do
     let :Primaries, :prims
     let :Primary, :prim
 
-    ctor :Empty
-    ctor :Primary, :prim
+    empty :Empty, with_syntax: false
+    single :Primary, :prim
     ctor :Primaries, :prims, :prim
 
     ydtor "if (!($$->rooted() || tag->prims == $$)) delete $$;"
 
-    syntax :Primary, :prim
     syntax :Primaries, :prims, :prim
 
-    fmt :Empty
-    fmt :Primary, ":prim"
     fmt :Primaries, ":prims :prim"
 
     symbol :PrimariesOpt do
@@ -43,22 +40,14 @@ ASTGen.run do
       :DQLiteral,
     ]
 
-    ctor :Group, :group
-    ctor :RawBlock, :rawblk
-    ctor :MetaBlock, :metablk
-    ctor toks, :token
+    single :Group, :group
+    single :RawBlock, :rawblk
+    single :MetaBlock, :metablk
+    single toks, :token, with_syntax: false
 
-    syntax :Group, :group
-    syntax :RawBlock, :rawblk
-    syntax :MetaBlock, :metablk
     toks.each do |e|
       syntax e, [e, :token]
     end
-
-    fmt :Group, ":group"
-    fmt :RawBlock, ":rawblk"
-    fmt :MetaBlock, ":metablk"
-    fmt toks, ":token"
   end
 
   node :RawBlock do
@@ -79,15 +68,13 @@ ASTGen.run do
 
     syntax :MetaBlock, [:MetaBlockStart], [:MetaDeclarationsOpt, :decls], [:MetaBlockEnd]
 
-    fmt :MetaBlock, "@!meta{\\n:decls\\n@}"
+    fmt :MetaBlock, "@!meta{\n:decls\n@}"
   end
 
   node :Group do
     let :Primaries, :prims
 
-    ctor :PGroup, :prims
-    ctor :KGroup, :prims
-    ctor :CGroup, :prims
+    ctor [:PGroup, :KGroup, :CGroup], :prims
 
     syntax :PGroup, "(", [:PrimariesOpt, :prims], ")"
     syntax :KGroup, "[", [:PrimariesOpt, :prims], "]"
@@ -104,16 +91,13 @@ ASTGen.run do
     let :MetaDeclarations, :decls
     let :MetaDeclaration, :decl
 
-    ctor :Empty
-    ctor :Declaration, :decl
+    empty :Empty, with_syntax: false
+    single :Declaration, :decl
     ctor :Declarations, :decls, :decl
 
-    syntax :Declaration, :decl
     syntax :Declarations, :decls, :decl
 
-    fmt :Empty
-    fmt :Declaration, ":decl"
-    fmt :Declarations, ":decls :decl"
+    fmt :Declarations, ":decls\n\n:decl"
 
     symbol :MetaDeclarationsOpt do
       syntax :Empty
@@ -123,18 +107,10 @@ ASTGen.run do
 
   node :MetaDeclaration do
     union do
-      let :MetaSyntaxExt, :ext
       let :MetaLetDecl, :let
     end
 
-    ctor :SyntaxExt, :ext
-    ctor :LetDecl, :let
-
-    syntax :SyntaxExt, :ext
-    syntax :LetDecl, :let
-
-    fmt :SyntaxExt, ":ext"
-    fmt :LetDecl, ":let"
+    single :LetDecl, :let
   end
 
   node :MetaLetDecl do
@@ -155,53 +131,45 @@ ASTGen.run do
       let :MetaRecord, :rec
     end
 
-    ctor :Function, :func
-    ctor :SyntaxExt, :ext
-    ctor :Record, :rec
-
-    syntax :Function, :func
-    syntax :SyntaxExt, :ext
-    syntax :Record, :rec
-
-    fmt :Function, ":func"
-    fmt :SyntaxExt, ":ext"
-    fmt :Record, ":rec"
+    single :Function, :func
+    single :SyntaxExt, :ext
+    single :Record, :rec
   end
 
   node :MetaFunction do
-    let :MetaFuncArgs, :args
+    let :MetaFuncArgList, :args
     let :MetaFuncBody, :body
 
     ctor :Function, :args, :body
 
     syntax :Function, "function", :args, :body
 
-    fmt :Function, "function :args :body"
+    fmt :Function, "function:args :body"
   end
 
   node :MetaSyntaxExt do
-    let :MetaSyntaxExtArgs, :args
+    let :MetaSyntaxExtArgList, :args
     let :MetaFuncBody, :body
 
     ctor :SyntaxExt, :args, :body
 
     syntax :SyntaxExt, "function", :args, :body
 
-    fmt :SyntaxExt, "function :args :body"
+    fmt :SyntaxExt, "function:args :body"
   end
 
   node :MetaRecord do
-    let :MetaFuncArgs, :args
+    let :MetaFuncArgList, :args
 
     ctor :Record, :args
 
-    syntax :Record, "record", :args
+    syntax :Record, "record", :args, ";"
 
-    fmt :Record, "record:args"
+    fmt :Record, "record:args;"
   end
 
-  node :MetaFuncArgs do
-    let :MetaFuncArgList, :args
+  node :MetaFuncArgList do
+    let :MetaFuncArgs, :args
 
     ctor :FuncArgs, :args
 
@@ -210,76 +178,88 @@ ASTGen.run do
     fmt :FuncArgs, "(:args)"
   end
 
-  node :MetaSyntaxExtArgs do
-    let :MetaSyntaxExtArgList, :args
+  node :MetaSyntaxExtArgList do
+    let :MetaSyntaxExtArgs, :args
 
     ctor :FuncArgs, :args
 
-    syntax :FuncArgs, "(", :args, [:CommaOpt], ")"
+    syntax :FuncArgs, "(", [:SAStart], :args, [:SAEnd], ")"
 
-    fmt :FuncArgs, "(:args))"
+    fmt :FuncArgs, "(`:args`)"
   end
 
-  node :MetaFuncArgList do
-    let :MetaFuncArgList, :args
+  node :MetaFuncArgs do
+    let :MetaFuncArgs, :args
     let :MetaFuncArg, :arg
 
-    ctor :Argument, :arg
+    single :Argument, :arg
     ctor :Arguments, :args, :arg
 
-    syntax :Argument, :arg
     syntax :Arguments, :args, ",", :arg
 
-    fmt :Argument, ":arg"
     fmt :Arguments, ":args, :arg"
   end
 
-  node :MetaSyntaxExtArgList do
-    let :MetaSyntaxExtArgList, :args
+  node :MetaSyntaxExtArgs do
+    let :MetaSyntaxExtArgs, :args
     let :MetaSyntaxExtArg, :arg
 
-    ctor :Argument, :arg
+    single :Argument, :arg
     ctor :Arguments, :args, :arg
 
-    syntax :Argument, :arg
-    syntax :Arguments, :args, ",", :arg
+    syntax :Arguments, :args, :arg
 
-    fmt :Argument, ":arg"
-    fmt :Arguments, ":args, :arg"
+    fmt :Arguments, ":args :arg"
   end
 
   node :MetaFuncArg do
-    let :Token, :type
+    let :Token, :typen
     let :Token, :name
 
-    ctor :Argument, :type, :name
+    ctor :Argument, :typen, :name
 
-    syntax :Argument, [:Identifier, :type], [:Identifier, :name]
+    syntax :Argument, [:Identifier, :typen], [:Identifier, :name]
 
-    fmt :Argument, ":type :name"
+    fmt :Argument, ":typen :name"
   end
 
   node :MetaSyntaxExtArg do
     union do
-      let :MetaSyntaxExtNamedArg, :namedArg
+      let :Token, :tok
+      let :MetaSyntaxExtGroup, :group
     end
 
-    ctor :NamedArgument, :namedArg
+    toks = [
+      :Identifier,
+      :Operator,
+      :Number,
+    ]
 
-    syntax :NamedArgument, "{", :namedArg, "}"
+    ctor :NamedArgument, :tok
+    single toks, :tok, with_syntax: false
+    single :Group, :group
 
-    fmt :NamedArgument, "{ :namedArg }"
+    syntax :NamedArgument, "{", [:Identifier, :tok], "}"
+
+    toks.each do |tok|
+      syntax tok, [tok, :tok]
+    end
+
+    fmt :NamedArgument, "{:tok}"
   end
 
-  node :MetaSyntaxExtNamedArg do
-    let :Token, :type
-    let :Token, :name
+  node :MetaSyntaxExtGroup do
+    let :MetaSyntaxExtArgs, :args
 
-    ctor :Argument, :type, :name
+    ctor [:PGroup, :KGroup, :CGroup], :args
 
-    syntax :Argument, [:Identifier, :type], [:Identifier, :name]
+    syntax :PGroup, "(", :args, ")"
+    syntax :KGroup, "[", :args, "]"
+    syntax :CGroup, "{{", :args, "}}"
 
-    fmt :Argument, ":type :name"
+    fmt :PGroup, "(:args)"
+    fmt :KGroup, "[:args]"
+    fmt :CGroup, "{{:args}}"
   end
 
   node :MetaFuncBody do
@@ -288,14 +268,8 @@ ASTGen.run do
       let :MetaFuncStmtBody, :stmts
     end
 
-    ctor :Expression, :expr
-    ctor :Statements, :stmts
-
-    syntax :Expression, :expr
-    syntax :Statements, :stmts
-
-    fmt :Expression, ":expr"
-    fmt :Statements, ":stmts"
+    single :Expression, :expr
+    single :Statements, :stmts
   end
 
   node :MetaFuncExprBody do
@@ -315,20 +289,18 @@ ASTGen.run do
 
     syntax :StmtBody, "{", :stmts, "}"
 
-    fmt :StmtBody, ":stmts"
+    fmt :StmtBody, "{\n:stmts\n}"
   end
 
   node :MetaStatements do
     let :MetaStatements, :stmts
     let :MetaStatement, :stmt
 
-    ctor :Statement, :stmt
+    single :Statement, :stmt
     ctor :Statements, :stmts, :stmt
 
-    syntax :Statement, :stmt
     syntax :Statements, :stmts, :stmt
 
-    fmt :Statement, ":stmt"
     fmt :Statements, ":stmts :stmt"
   end
 
@@ -338,7 +310,7 @@ ASTGen.run do
       let :MetaExpression, :expr
     end
 
-    ctor :Empty
+    empty :Empty, with_syntax: false
     ctor :LetStatement, :let
     ctor :Expression, :expr
 
@@ -346,9 +318,8 @@ ASTGen.run do
     syntax :LetStatement, :let, ";"
     syntax :Expression, :expr, ";"
 
-    fmt :Empty
-    fmt :LetStatement, ":let"
-    fmt :Expression, ":expr"
+    fmt :LetStatement, ":let;"
+    fmt :Expression, ":expr;"
   end
 
   node :MetaLetStatement do
@@ -367,11 +338,7 @@ ASTGen.run do
       let :MetaInfixExpression, :infix
     end
 
-    ctor :Infix, :infix
-
-    syntax :Infix, :infix
-
-    fmt :Infix, ":infix"
+    single :Infix, :infix
   end
 
   node :MetaInfixExpression do
@@ -395,11 +362,9 @@ ASTGen.run do
     ctor left.map{|k, _| k }, :infixl, :infixr
     ctor last.map{|k, _| k }, :infixl, :prefix
 
-    ctor :Prefix, :prefix
+    single :Prefix, :prefix, with_syntax: false
 
     syntax :self, [:MetaAddExpression, :self]
-
-    fmt :Prefix, ":prefix"
 
     left.each do |key, val|
       sym = "Meta#{key}Expression".to_sym
@@ -425,23 +390,18 @@ ASTGen.run do
   end
 
   node :MetaPrefixExpression do
-    let :MetaPostfixExpression, :postfix
+    union do
+      let :MetaPrefixExpression, :prefix
+      let :MetaPostfixExpression, :postfix
+    end
 
-    ctor :Postfix, :postfix
-
-    syntax :Postfix, :postfix
-
-    fmt :Postfix, ":postfix"
+    single :Postfix, :postfix
   end
 
   node :MetaPostfixExpression do
     let :MetaPrimary, :prim
 
-    ctor :Primary, :prim
-
-    syntax :Primary, :prim
-
-    fmt :Primary, ":prim"
+    single :Primary, :prim
   end
 
   node :MetaPrimary do
@@ -453,12 +413,10 @@ ASTGen.run do
       :Number
     ]
 
-    ctor toks, :token
+    single toks, :token, with_syntax: false
 
     toks.each do |e|
       syntax e, [e, :token]
     end
-
-    fmt toks, ":token"
   end
 end

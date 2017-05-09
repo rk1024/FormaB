@@ -26,6 +26,11 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 }
 }
 
+%code {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunreachable-code"
+}
+
 %astgen-union
 
 %union {
@@ -33,10 +38,11 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 }
 
 %astgen-dtors
-
 %destructor { if (!$$->rooted()) delete $$; } <_tok>
 
+%token-table
 %astgen-token-defs
+%token end 0 "end of file"
 
 %astgen-types
 
@@ -64,3 +70,5 @@ CommaOpt:
 void frma::parser::error(const frma::location &loc, const std::string &msg) {
   tag->error(loc, msg);
 }
+
+#pragma clang diagnostic pop

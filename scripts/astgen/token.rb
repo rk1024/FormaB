@@ -1,6 +1,6 @@
 module ASTGen
   class Token
-    attr_writer :action, :capt
+    attr_writer :str, :pat, :capt, :action
 
     def initialize(name, str: nil, pat: nil, capt: nil, action: nil)
       @d = ASTGen.diag
@@ -13,10 +13,6 @@ module ASTGen
     end
 
     def froz_validate
-      unless @str.nil? || @pat.nil?
-        @d.error("too many selectors defined")
-      end
-
       unless @capt.nil? || [:text, :buf, :buf_end].include?(@capt)
         @d.error("invalid capture type #{@capt.inspect}")
       end
@@ -27,6 +23,8 @@ module ASTGen
     end
 
     def freeze
+      @froz_is_str = @str && @pat.nil?
+
       super
 
       froz_validate
@@ -35,7 +33,7 @@ module ASTGen
     def emit_flex_head(l)
       raise "Cannot emit non-frozen token!" unless frozen?
 
-      if @str
+      if @froz_is_str
         l << "#{@name} #{@str.inspect}"
       end
     end
@@ -43,7 +41,7 @@ module ASTGen
     def emit_flex_body(l)
       raise "Cannot emit non-frozen token!" unless frozen?
 
-      if @str
+      if @froz_is_str
         l << "{#{@name}}"
       end
 
@@ -78,8 +76,13 @@ module ASTGen
 
       l.peek << " #{@name}"
 
-      l.peek << " #{@str.inspect}" if @str
-
+      if @str
+        l.peek << " #{if @froz_is_str
+          @str
+        else
+          "#{@name} [BISON SUCKS] (#{@str})"
+        end.inspect}"
+      end
     end
   end
 end

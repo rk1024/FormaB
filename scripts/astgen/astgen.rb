@@ -3,6 +3,7 @@ require_relative 'linewriter'
 require_relative 'node'
 require_relative 'token'
 
+require 'fileutils'
 require 'getoptlong'
 require 'set'
 
@@ -14,9 +15,9 @@ module ASTGen
     end
 
     def node(name)
-      raise @d.fatal_r("Duplicate node name #{name}") if @nodes.has_key?(name)
+      raise @d.fatal_r("duplicate node name #{name.inspect}") if @nodes.has_key?(name)
 
-      @nodes[name] = true
+      @nodes[name] = :node
 
       self
     end
@@ -27,8 +28,10 @@ module ASTGen
   @@symbols = {}
   @@errored = false
   @@quiet = false
+  @@verbose = false
 
   def self.quiet?; @@quiet end
+  def self.verbose?; @@verbose end
 
   def self.error!; @@errored = true end
 
@@ -36,6 +39,7 @@ module ASTGen
     Diagnostics.new(
       on_error: lambda { self.error! },
       quiet: lambda { self.quiet? },
+      verbose: lambda { self.verbose? },
     )
   end
 
@@ -54,7 +58,7 @@ module ASTGen
   end
 
   private_class_method def self.token(name, *args, **kwargs)
-    raise @@d.fatal_r("Duplicate token name #{name}") if @@tokens.has_key?(name)
+    raise @@d.fatal_r("Duplicate token name #{name.inspect}") if @@tokens.has_key?(name)
 
     t = nil
 
@@ -67,7 +71,7 @@ module ASTGen
   end
 
   def self.node(name, &block)
-    raise @@d.fatal_r("Duplicate node name #{name}") if @@nodes.has_key?(name)
+    raise @@d.fatal_r("Duplicate node name #{name.inspect}") if @@nodes.has_key?(name)
 
     run_diag do
       n = Node.new(name, @@symbols)
@@ -90,10 +94,133 @@ module ASTGen
     File.join("#{path}", "#{camel_name(name)}")
   end
 
-  private_class_method def self.emit(path, data)
-    @@nodes.each do |key, val|
-      FileUtils.mkdir_p(path) unless File.directory?(path)
+  private_class_method def self.scan_flex(path, data)
+    @@d.pos("scan_flex") do
+      i = 0
 
+      File.foreach(data[:flexIn]) do |line|
+        i += 1
+
+        pos = lambda { "at #{data[:flexIn]}:#{i}" }
+
+        case line
+          when /^\s*%astgen-token\s+(\S*)\s+(.*)\s*$/
+            s = StringScanner.new($2)
+            t = nil
+            sym = $1.to_sym
+            contents = nil
+
+            err = catch :err do
+              if s.scan(/"/)
+                contents = s.scan(/([^\\"]|\\.)*/)
+
+                throw :err, "'\"'" unless s.scan(/"/)
+
+                t = token(sym, str: contents)
+              elsif s.scan(/\//)
+                contents = s.scan(/[^\/]*/)
+
+                throw :err, "'/'" unless s.scan(/\//)
+
+                t = token(sym, pat: contents)
+
+                s.scan(/\s+/)
+
+                if s.scan(/"/)
+                  t.str = s.scan(/([^\\"]|\\.)*/).gsub(/\\(.)/, "\\1")
+
+                  throw :err, "'\"'" unless s.scan(/"/)
+                end
+              else
+                throw :err, "'\"' or '/'"
+              end
+
+              s.scan(/\s+/)
+
+              if s.scan(/\{/)
+                action = catch :err do
+                  braces = 1
+                  a = ""
+
+                  while braces > 0
+                    r = s.scan_until(/[{}]/)
+                    throw :err unless r
+
+                    a << r[0..-1 - s.matched_size]
+
+                    case s.matched
+                      when "{"
+                        braces += 1
+
+                      when "}"
+                        braces -= 1
+                    end
+
+                    a << s.match if braces > 0
+                  end
+
+                  a
+                end
+
+                t.action = action.strip! if action
+                s.scan(/\s+/)
+              end
+
+              while s.scan(/\w+/)
+                case s.matched
+                  when "capture"
+                    if s.scan(/\s+buf/)
+                      if s.scan(/\s+end/)
+                        t.capt = :buf_end
+                      else
+                        t.capt = :buf
+                      end
+                    else
+                      t.capt = :text
+                    end
+                  else
+                    @@d.error("unexpected token flag '#{s.matched}'")
+                end
+
+                s.scan(/\s+/)
+              end
+
+              "end of line" if s.eos?
+
+              nil
+            end
+
+            @@d.error("unexpected #{s.eos? ? "end of line" : "'#{s.rest}'"} (expecting #{err}) #{pos.call}") if err
+          when /^\s*%astgen-token\b(?!-)/
+            @@d.error("invalid syntax for %astgen-token #{pos.call}")
+        end
+      end
+    end
+  end
+
+  private_class_method def self.emit(path, data)
+    mtime = File.mtime($0)
+    mmtime = Time.new(0)
+
+    $".select{|e| e != $0 && File.exists?(e) }.each do |e|
+      m = File.mtime(e)
+      mmtime = m if m > mmtime
+    end
+
+    mtime = mmtime if mmtime > mtime
+
+    emit_ast(path, data) if ast_outs(path, data, outs: true, impl: true)
+      .any?{|e| !File.exists?(e) || mtime > File.mtime(e) }
+
+    emit_flex(path, data) if !File.exists?(data[:flexOut]) || [File.mtime(data[:flexIn]), mmtime].max > File.mtime(data[:flexOut])
+    emit_bison(path, data) if !File.exists?(data[:bisonOut]) || [File.mtime(data[:bisonIn]), File.mtime(data[:flexIn]), mtime].max > File.mtime(data[:bisonOut])
+    emit_token(path, data) if !File.exists?(data[:tokenOut]) || [File.mtime(data[:tokenIn]), mtime].max > File.mtime(data[:tokenOut])
+  end
+
+  private_class_method def self.emit_ast(path, data)
+    FileUtils.mkdir_p(path) unless File.directory?(path)
+
+    @@nodes.each do |key, val|
       fname = file_path(path, key.to_s)
 
       File.open("#{fname}.hpp", "w") do |f|
@@ -114,112 +241,6 @@ module ASTGen
         l << "#include \"ast/#{camel_name(key.to_s)}.hpp\""
       end
     end) << "\n"
-
-    emit_flex(path, data)
-    emit_bison(path, data)
-    emit_token(path, data)
-
-    self
-  end
-
-  private_class_method def self.scan_flex(path, data)
-    @@d.pos("scan_flex") do
-      i = 0
-
-      File.foreach(data[:flexIn]) do |line|
-        i += 1
-
-        pos = lambda { "at #{data[:flexIn]}:#{i}" }
-
-        case line
-          when /^\s*%astgen-token\s+(\S*)\s+(.*)\s*$/
-            s = StringScanner.new($2)
-            t = nil
-            sym = $1.to_sym
-            contents = nil
-
-            err = catch :err do
-              if s.scan(/"/)
-                contents = s.scan(/[^"]*/)
-
-                throw :err, "'\"'" unless s.scan(/"/)
-
-                t = token(sym, str: contents)
-              elsif s.scan(/\//)
-                contents = s.scan(/[^\/]*/)
-
-                throw :err, "'/'" unless s.scan(/\//)
-
-                t = token(sym, pat: contents)
-              else
-                throw :err, "'\"' or '/'"
-              end
-
-              s.scan(/\s+/)
-
-              if t
-                s.scan(/\s+/)
-
-                if s.scan(/\{/)
-                  action = catch :err do
-                    braces = 1
-                    a = ""
-
-                    while braces > 0
-                      r = s.scan_until(/[{}]/)
-                      throw :err unless r
-
-                      a << r[0..-1 - s.matched_size]
-
-                      case s.matched
-                        when "{"
-                          braces += 1
-
-                        when "}"
-                          braces -= 1
-                      end
-
-                      a << s.match if braces > 0
-                    end
-
-                    a
-                  end
-
-                  t.action = action.strip! if action
-                  s.scan(/\s+/)
-                end
-
-                while s.scan(/\w+/)
-                  case s.matched
-                    when "capture"
-                      if s.scan(/\s+buf/)
-                        if s.scan(/\s+end/)
-                          t.capt = :buf_end
-                        else
-                          t.capt = :buf
-                        end
-                      else
-                        t.capt = :text
-                      end
-                    else
-                      @@d.error("unexpected token flag '#{s.matched}'")
-                  end
-
-                  s.scan(/\s+/)
-                end
-              end
-
-              "end of line" if s.eos?
-
-              nil
-            end
-
-            @@d.error("unexpected #{s.eos? ? "end of line" : "'#{s.rest}'"} (expecting #{err}) #{pos.call}") if err
-          when /^\s*%astgen-token\b(?!-)/
-            @@d.error("invalid syntax for %astgen-token #{pos.call}")
-        end
-      end
-    end
   end
 
   private_class_method def self.emit_flex(path, data)
@@ -313,13 +334,26 @@ module ASTGen
     end
   end
 
-  private_class_method def self.list(s, path, data, impl:)
-    list = @@nodes.map do |key, val|
-      "#{file_path(path, key.to_s)}.#{impl ? "hpp" : "cpp"}"
+  private_class_method def self.ast_outs(path, data, outs:, impl:)
+    list = []
+
+    @@nodes.each do |key, val|
+      p = file_path(path, key.to_s)
+
+      list << "#{p}.cpp" if outs
+      list << "#{p}.hpp" if impl
     end
 
+    list << file_path(path, "ast.hpp") if impl
+
+    list
+  end
+
+  private_class_method def self.list(s, path, data, impl:)
+    list = ast_outs(path, data, outs: !impl, impl: impl)
+
     if impl
-      list << file_path(path, "ast.hpp") << data[:tokenOut]
+      list << data[:tokenOut]
     else
       list << data[:flexOut] << data[:bisonOut]
     end
@@ -330,6 +364,8 @@ module ASTGen
   public_class_method def self.run(&block)
     @@d.pos("ASTGen.run") do
       opts = GetoptLong.new(
+        ["--verbose", "-v", GetoptLong::NO_ARGUMENT],
+        ["--quiet", "-q", GetoptLong::NO_ARGUMENT],
         ["--list", "-l", GetoptLong::NO_ARGUMENT],
         ["--implicit", "-i", GetoptLong::NO_ARGUMENT],
         ["--flex", "-f", GetoptLong::REQUIRED_ARGUMENT],
@@ -350,6 +386,12 @@ module ASTGen
 
       opts.each do |opt, arg|
         case opt
+          when "--verbose"
+            @@verbose = true
+
+          when "--quiet"
+            @@quiet = true
+
           when "--list"
             do_list = true
 
@@ -391,12 +433,17 @@ module ASTGen
 
       run_diag { scan_flex(dir, data) } unless do_list || @@errored
 
-      freeze
+      run_diag { freeze } unless @@errored
 
       raise "One or more errors have occurred." if @@errored
 
-      if do_list then run_diag { list($stdout, dir, data, impl: impl) }
-      else run_diag { emit(dir, data) } end
+      run_diag do
+        if do_list
+          list($stdout, dir, data, impl: impl)
+        else
+          emit(dir, data)
+        end
+      end
 
       raise "One or more internal errors have occurred." if @@errored
     end

@@ -50,8 +50,10 @@ module ASTGen
 
       def each(&block) @syntax.each(&block) end
       def each_with_index(&block) @syntax.each_with_index(&block) end
+      def flat_map(&block) @syntax.flat_map(&block) end
       def has_key?(key) @syntax.has_key?(key) end
       def length; @syntax.length end
+      def select(&block) @syntax.select(&block) end
 
       def validate(froz_type_ctors)
         each do |key, val|
@@ -215,6 +217,22 @@ module ASTGen
       end
     end
 
+    def empty(type, with_syntax: true, with_fmt: true)
+      @d.pos("empty #{type.inspect}") do
+        ctor type
+        syntax type if with_syntax
+        fmt type if with_fmt
+      end
+    end
+
+    def single(type, member, with_syntax: true, with_fmt: true)
+      @d.pos("single #{type.inspect}") do
+        ctor type, member
+        syntax type, member if with_syntax
+        fmt type, member.inspect if with_fmt
+      end
+    end
+
     def ydtor(str)
       @bison_dtor = str
     end
@@ -258,6 +276,10 @@ module ASTGen
     end
 
     def froz_validate
+      @member_types.each do |key, _|
+        @d.error("use of reserved member name :type") if key == :type
+      end
+
       types = @types.clone
 
       @syntax.each{|key, _| types.delete? key }
@@ -548,8 +570,10 @@ module ASTGen
             end
             l.trim << "}"
           else
-            @member_types.each do |key, |
-              l << "if (m_#{key.to_s}) delete m_#{key.to_s};"
+            @ctors.each do |key, _|
+              key.each do |e|
+                l << "if (m_#{e.to_s}) delete m_#{e.to_s};"
+              end
             end
           end
         end
@@ -570,7 +594,7 @@ module ASTGen
               f.each do |e|
                 case e
                   when String
-                    l << "os << \"#{e}\";" unless e.length == 0
+                    l << "os << #{e.inspect};" unless e.length == 0
                   when Symbol
                     l << "m_#{e.to_s}->print(os);"
                 end
@@ -659,7 +683,7 @@ module ASTGen
               s = e.syms.map do |e2|
                 case e2
                   when String
-                    "\"#{e2}\""
+                    "#{e2.inspect}"
                   when Symbol
                     case key
                       when :self

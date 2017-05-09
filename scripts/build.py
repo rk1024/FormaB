@@ -100,11 +100,6 @@ def main():
     "-t$rootdir/src/ast/token.in.hpp:$builddir/ast/token.hpp",
   ]
 
-  astgenFlagsInternal = [
-    flag.replace("$rootdir", ".").replace("$builddir", "build")
-    for flag in astgenFlags
-  ]
-
   def addPkgs(*args):
     cxxflags.extend(pkcflags(*args))
     ldflags.extend(pklibs(*args))
@@ -126,12 +121,21 @@ def main():
       "-DDEBUG",
       "-D_DEBUG",
     ])
+
+    astgenFlags.extend([
+      "-v",
+    ])
   else:
     cxxflags.extend([
       "-Ofast",
       "-DNDEBUG",
       "-D_NDEBUG",
     ])
+
+  astgenFlagsInternal = [
+    flag.replace("$rootdir", ".").replace("$builddir", "build")
+    for flag in astgenFlags
+  ]
 
   build.set(
     srcdir = build.path("src"),
@@ -210,19 +214,21 @@ def main():
   ]
 
   sources = {
-    "$bindir/parse-test": (
-      [],
-      flatten(
-        ["flex-test.cpp", "bison-test.cpp"],
-        fnmatch.filter(astSources, "**/*.cpp"),
-      ),
-      ["parseTest.o", "ast/token.o"]
-    )
+    "$bindir/parse-test": ([], flatten(
+      ["flex-test.cpp", "bison-test.cpp"],
+      fnmatch.filter(astSources, "**/*.cpp"),
+    ), ["parseTest.o", "ast/token.o"])
   }
 
   for args in [
-    (build.path_b("parseTest.o"), (["$srcdir/parseTest.cpp"], ["$builddir/bison-test.hpp"])),
-    (build.path_b("ast/token.o"), (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])),
+    (
+      build.path_b("parseTest.o"),
+      (["$srcdir/parseTest.cpp"], ["$builddir/bison-test.hpp"])
+    ),
+    (
+      build.path_b("ast/token.o"),
+      (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])
+    ),
   ]:
     build.edge(*args).set(flags = "-I$builddir -I$srcdir")
 
@@ -252,7 +258,10 @@ def main():
     build.edge(
       out,
       build.paths_b(
-        *["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_ins, objs)]
+        *[
+          "{}.o".format(path.splitext(n)[0])
+          for n in it.chain(ins, b_ins, objs)
+        ]
       )
     )
 

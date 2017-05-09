@@ -82,40 +82,40 @@ YY_DECL;
 
 %astgen-token-rules
 
-Whitespace    [ \r\t]
-Newline       [\v\n]
-LCommentOpen  @@
+Whitespace [ \r\t]
+Newline [\v\n]
+
+LCommentOpen @@
 LCommentClose \n
 LCommentInput [^\n]
 
-BCommentOpen  @\[
+BCommentOpen @\[
 BCommentClose @+\]
-BCommentNoAt  [^@\n]
-BCommentAts   @+[^\]\n]?
+BCommentNoAt [^@\n]
+BCommentAts @+[^\]\n]?
 
 RawBlockStart @!
-RawBlockOpen  \{
+RawBlockOpen \{
 RawBlockClose @+\}
-RawBlockNoAt  [^@\n]
-RawBlockAts   @+[^\}\n]?
+RawBlockNoAt [^@\n]
+RawBlockAts @+[^\}\n]?
 
 MetaBlockID meta
 
 SQuote \'
 DQuote \"
+BQuote \`
 
-SABQuote \`
-
-IDStart    [a-zA-Z_]
-PPStart    @
-NumStart   [0-9]
-OpStart    [`~!#$%^&*=+|;:,<.>/?-]
+IDStart [a-zA-Z_]
+PPStart @
+NumStart [0-9]
+OpStart [`~!#$%^&*=+|;:,<.>/?-]
 Identifier [0-9a-zA-Z_]
-Number     [0-9a-zA-Z_.]
-Operator   [`~!@#$%^&*_=+|;:,<.>/?-]
-SQChar     [^'\\]
-DQChar     [^"\\]
-QLEscape   \\.
+Number [0-9a-zA-Z_.]
+Operator [`~!@#$%^&*_=+|;:,<.>/?-]
+SQChar [^'\\]
+DQChar [^"\\]
+QLEscape \\.
 
 %x SSBComment
 
@@ -124,6 +124,7 @@ QLEscape   \\.
 %x SSMetaBlockID
 %x SSRawBlock
 %x SSMetaBlock
+
 %x SSSyntaxExtArgs
 
 %%
@@ -138,9 +139,9 @@ QLEscape   \\.
 }
 
 <SSBComment>{
-  {BCommentClose}  { $SL $ML $SSPOP }
-  {BCommentNoAt}+  { $SL $ML }
-  {BCommentAts}+   { $SL $ML }
+  {BCommentClose} { $SL $ML $SSPOP }
+  {BCommentNoAt}+ { $SL $ML }
+  {BCommentAts}+ { $SL $ML }
 
   <<EOF>> { $SL $ML $E("unterminated block comment") }
 }
@@ -159,40 +160,40 @@ QLEscape   \\.
 
 <SSMetaBlockID>{
   /*{ignore me}*/
-  %astgen-token MetaBlockStart /{RawBlockOpen}/ { $SL $ML $SSBEGIN(MetaBlock) }
+  %astgen-token MetaBlockStart /{RawBlockOpen}/ "@!meta{" { $SL $ML $SSBEGIN(MetaBlock) }
 }
 
 <SSRawBlock>{
   {Newline}+ { $WL $BW }
 
-  %astgen-token RawBlockBody /{RawBlockClose}/ { $ML $SSPOP } capture buf end
+  %astgen-token RawBlockBody /{RawBlockClose}/ "@}" { $ML $SSPOP } capture buf end
 
   {RawBlockNoAt}+ { $ML $BW }
-  {RawBlockAts}+  { $ML $BW }
+  {RawBlockAts}+ { $ML $BW }
 }
 
 <SSMetaBlock>{
   /*{ignore me}*/
-  %astgen-token MetaBlockEnd /{RawBlockClose}/ { $SL $ML $SSPOP }
+  %astgen-token MetaBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
 
-  %astgen-token SAStart /{SABQuote}/ { $SL $ML $SSPUSH(SyntaxExtArgs) }
+  %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
-  %astgen-token MKWFunction "function" { $SL $ML }
-  %astgen-token MKWInterface "interface" { $SL $ML }
-  %astgen-token MKWLet "let" { $SL $ML }
-  %astgen-token MKWRecord "record" { $SL $ML }
-  %astgen-token MKWStruct "struct" { $SL $ML }
+  %astgen-token KWFunction "function" { $SL $ML }
+  %astgen-token KWInterface "interface" { $SL $ML }
+  %astgen-token KWLet "let" { $SL $ML }
+  %astgen-token KWRecord "record" { $SL $ML }
+  %astgen-token KWStruct "struct" { $SL $ML }
 
-  %astgen-token MOPComma "," { $SL $ML }
-  %astgen-token MOPDiv "/" { $SL $ML }
-  %astgen-token MOPEqGT "=>" { $SL $ML }
-  %astgen-token MOPEqual "=" { $SL $ML }
-  %astgen-token MOPMinus "-" { $SL $ML }
-  %astgen-token MOPMod "%" { $SL $ML }
-  %astgen-token MOPMul "*" { $SL $ML }
-  %astgen-token MOPPeriod "." { $SL $ML }
-  %astgen-token MOPPlus "+" { $SL $ML }
-  %astgen-token MOPSemi ";" { $SL $ML }
+  %astgen-token Comma "," { $SL $ML }
+  %astgen-token Div "/" { $SL $ML }
+  %astgen-token EqGT "=>" { $SL $ML }
+  %astgen-token Equal "=" { $SL $ML }
+  %astgen-token Minus "-" { $SL $ML }
+  %astgen-token Mod "%" { $SL $ML }
+  %astgen-token Mul "*" { $SL $ML }
+  %astgen-token Period "." { $SL $ML }
+  %astgen-token Plus "+" { $SL $ML }
+  %astgen-token Semi ";" { $SL $ML }
 }
 
 <SSRawBlock,SSMetaBlock>{
@@ -201,26 +202,30 @@ QLEscape   \\.
 
 <SSSyntaxExtArgs>{
   /*{ignore me}*/
-  %astgen-token SAEnd /{SABQuote}/ { $SL $ML $SSPOP }
-  %astgen-token SAOPLLBrace "{{"
-  %astgen-token SAOPRRBrace "}}"
+  %astgen-token SAEnd /{BQuote}/ "`" { $SL $ML $SSPOP }
+
+  %astgen-token LLBrace "{{" { $SL $ML }
+  %astgen-token RRBrace "}}" { $SL $ML }
 
   <<EOF>> { $ML $BE $E("unterminated syntax extension arguments") }
 }
 
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
-  %astgen-token LParen "("
-  %astgen-token RParen ")"
-  %astgen-token LBracket "["
-  %astgen-token RBracket "]"
-  %astgen-token LBrace "{"
-  %astgen-token RBrace "}"
+  %astgen-token LParen "(" { $SL $ML }
+  %astgen-token RParen ")" { $SL $ML }
+  %astgen-token LBracket "[" { $SL $ML }
+  %astgen-token RBracket "]" { $SL $ML }
+  %astgen-token LBrace "{" { $SL $ML }
+  %astgen-token RBrace "}" { $SL $ML }
 
   %astgen-token Identifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token Number /{NumStart}{Number}*/ { $SL $ML } capture
+}
 
+<INITIAL,SSMetaBlock>{
+  /*{ignore me}*/
   %astgen-token SQLiteral /{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}*/ { $SL $ML } capture
   %astgen-token DQLiteral /{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}*/ { $SL $ML } capture
 }
@@ -231,7 +236,7 @@ QLEscape   \\.
 
 <*>{
   {Newline}+ { $SL $WL }
-  .          { $SL $ML $E(std::string("unexpected character '") + yytext + "'") }
+  . { $SL $ML $E(std::string("unexpected character '") + yytext + "'") }
 }
 %%
 

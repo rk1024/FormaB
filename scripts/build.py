@@ -55,6 +55,8 @@ def rglob(base, pattern, rel = None):
 def main():
   build = conf.Build()
 
+  build.useRepo("https://www.github.com/rookie1024/ninja")
+
   debug = True
 
   cxxflags = [
@@ -192,6 +194,8 @@ def main():
     )), "$builddir/bison-test.ypp"),
     ("parse-test", "phony", "$bindir/parse-test"),
   )
+
+  build.util("ast-order", "ruby", build.path("scripts/ast.rb")).set(args = "-r")
 
   astSources = [
     path.relpath(src.strip(), "build")

@@ -145,7 +145,7 @@ module ASTGen
       def syntax(*syms, **defs) @syntaxes.add(*syms, **defs) end
     end
 
-    attr_reader :bison_dtor, :froz_name, :froz_dep_types
+    attr_reader :name, :bison_dtor, :froz_name, :froz_depends, :froz_dep_types
 
     def initialize(name, symbols)
       @d = ASTGen.diag
@@ -339,7 +339,9 @@ module ASTGen
     def freeze
       @froz_name = "Forma#{@name}"
       @froz_memb_types = {}
+      @froz_memb_dtypes = {}
       @froz_memb_order = []
+      @froz_depends = []
       @froz_type_ctors = {}
       @froz_dep_types = Set.new(@member_types.values)
 
@@ -350,6 +352,12 @@ module ASTGen
       end
 
       @froz_memb_order.concat(@members.map{|k, v| k })
+
+      depend_set = Set.new
+      @froz_memb_order.each do |e|
+        t = @member_types[e]
+        @froz_depends << t if t != :Token && depend_set.add?(t)
+      end
 
       @ctors.each do |key, val|
         val.each do |e|

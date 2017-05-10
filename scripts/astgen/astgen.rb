@@ -217,6 +217,23 @@ module ASTGen
     emit_token(path, data) if !File.exists?(data[:tokenOut]) || [File.mtime(data[:tokenIn]), mtime].max > File.mtime(data[:tokenOut])
   end
 
+  private_class_method def self.list_order()
+    order = [@@nodes.first[1]]
+    order_set = Set.new(order.map{|e| e.name })
+
+    i = 0
+    while i < order.length do
+      order[i].froz_depends.reverse.each do |e|
+        order.insert(i + 1, @@nodes[e]) if order_set.add?(e)
+      end
+      i += 1
+    end
+
+    order.each do |e|
+      @@d.info(e.name.inspect)
+    end
+  end
+
   private_class_method def self.emit_ast(path, data)
     FileUtils.mkdir_p(path) unless File.directory?(path)
 
@@ -368,12 +385,14 @@ module ASTGen
         ["--quiet", "-q", GetoptLong::NO_ARGUMENT],
         ["--list", "-l", GetoptLong::NO_ARGUMENT],
         ["--implicit", "-i", GetoptLong::NO_ARGUMENT],
+        ["--order", "-r", GetoptLong::NO_ARGUMENT],
         ["--flex", "-f", GetoptLong::REQUIRED_ARGUMENT],
         ["--bison", "-b", GetoptLong::REQUIRED_ARGUMENT],
         ["--token", "-t", GetoptLong::REQUIRED_ARGUMENT],
       )
 
       do_list = impl = false
+      do_order = false
 
       data = {
         :flexIn => nil,
@@ -399,6 +418,9 @@ module ASTGen
             do_list = true
             impl = true
 
+          when "--order"
+            do_order = true
+
           when "--flex"
             data[:flexIn], data[:flexOut] = arg.split(":")
 
@@ -410,16 +432,18 @@ module ASTGen
         end
       end
 
-      raise "Missing flex input" unless data[:flexIn]
-      raise "Missing flex output" unless data[:flexOut]
-      raise "Missing bison input" unless data[:bisonIn]
-      raise "Missing bison output" unless data[:bisonOut]
-      raise "Missing token input header" unless data[:tokenIn]
-      raise "Missing token output header" unless data[:tokenOut]
+      raise "Cannot specify --order and --list/--implicit together" if do_list && do_order
 
-      raise "Missing AST directory path" if ARGV.length == 0
+      raise "Missing flex input" unless data[:flexIn] || do_list || do_order
+      raise "Missing flex output" unless data[:flexOut] || do_list || do_order
+      raise "Missing bison input" unless data[:bisonIn] || do_list || do_order
+      raise "Missing bison output" unless data[:bisonOut] || do_list || do_order
+      raise "Missing token input header" unless data[:tokenIn] || do_list || do_order
+      raise "Missing token output header" unless data[:tokenOut] || do_list || do_order
 
-      dir = ARGV.shift
+      raise "Missing AST directory path" unless ARGV.length > 0 || do_order
+
+      dir = ARGV.shift unless do_order
 
       @@quiet = true if do_list
 
@@ -431,21 +455,33 @@ module ASTGen
         end
       end
 
-      run_diag { scan_flex(dir, data) } unless do_list || @@errored
+      catch :stop do
+        throw :stop if @@errored
 
-      run_diag { freeze } unless @@errored
+        if do_order
+          run_diag { freeze() }
+          throw :stop if @@errored
 
-      raise "One or more errors have occurred." if @@errored
+          run_diag { list_order() }
+          throw :stop
+        end
 
-      run_diag do
-        if do_list
-          list($stdout, dir, data, impl: impl)
-        else
-          emit(dir, data)
+        run_diag { scan_flex(dir, data) }
+        throw :stop if @@errored
+
+        run_diag { freeze() }
+        throw :stop if @@errored
+
+        run_diag do
+          if do_list
+            list($stdout, dir, data, impl: impl)
+          else
+            emit(dir, data)
+          end
         end
       end
 
-      raise "One or more internal errors have occurred." if @@errored
+      raise "One or more errors have occurred." if @@errored
     end
   end
 end

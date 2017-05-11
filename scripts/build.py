@@ -192,7 +192,7 @@ def main():
         "stack.hh"
       ]
     )), "$builddir/bison-test.ypp"),
-    ("parse-test", "phony", "$bindir/parse-test"),
+    ("parse-test", "phony", "$bindir/parse-test", True),
   )
 
   build.util("ast-order", "ruby", build.path("scripts/ast.rb")).set(args = "-r")

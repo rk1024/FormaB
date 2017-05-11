@@ -53,6 +53,7 @@ module ASTGen
       def flat_map(&block) @syntax.flat_map(&block) end
       def has_key?(key) @syntax.has_key?(key) end
       def length; @syntax.length end
+      def map!(&block); @syntax.map!(&block); self end
       def select(&block) @syntax.select(&block) end
 
       def validate(froz_type_ctors)
@@ -139,10 +140,92 @@ module ASTGen
       protected :syntaxes
 
       def initialize(d, types)
-        @syntaxes = Syntaxes.new(d, types)
+        @d = d
+        d.push("symbol")
+        @syntaxes = Syntaxes.new(d.fork, types)
       end
 
       def syntax(*syms, **defs) @syntaxes.add(*syms, **defs) end
+
+      def me(name)
+        [@name, name]
+      end
+    end
+
+    class Prec
+      class PrecItem < Symbl
+        attr_reader :name
+
+        def initialize(name, d, types)
+          super(d, types)
+          @name = name
+          @defer_handle = nil
+        end
+
+        def defer(name)
+          @defer_handle = Object.new unless @defer_handle
+          [@defer_handle, name]
+        end
+
+        def resolved?; @defer_handle.nil? end
+
+        def resolve(name)
+          return if resolved?
+
+          @syntaxes.each do |key, val|
+            val.each do |e|
+              e.syms.each do |e2|
+                if e2.is_a?(Array)
+                  e2[0] = case e2[0]
+                    when self
+                      @name
+                    when @defer_handle
+                      name
+                    else
+                      e2[0]
+                  end
+                end
+              end
+            end
+          end
+        end
+      end
+
+      def initialize(d, types, symbols)
+        @d = d.fork
+        @d.push("prec_group")
+        @types = types
+        @symbols = symbols
+        @items = []
+      end
+
+      def symbol(name, &block)
+        item = PrecItem.new(name, @d.fork, @types)
+        @items << item
+
+        item.instance_eval(&block)
+
+        @deferred_item.syntax :self, @deferred_item.defer(:self) if @deferred_item
+        defer to: name
+        @deferred_item = item unless item.resolved?
+      end
+
+      def defer(to:)
+        @deferred_item.resolve(to) if @deferred_item
+        @deferred_item = nil
+      end
+
+      def chain(*args, **kwargs)
+        @items.last.syntax(*args, **kwargs)
+      end
+
+      def resolve(node)
+        raise @d.fatal_r("unresolved precedence symbol #{@deferred_item.name.inspect}") if @deferred_item
+
+        @items.each do |e|
+          node.symbol(e.name, e)
+        end
+      end
     end
 
     attr_reader :name, :bison_dtor, :froz_name, :froz_depends, :froz_dep_types
@@ -172,17 +255,25 @@ module ASTGen
       end
     end
 
-    def symbol(name, &block)
+    def symbol(name, value = nil, &block)
       @d.pos("symbol #{name.inspect}") do
+        raise "Block and value cannot be provided together to symbol!" if value && block_given?
         raise @d.fatal_r("symbol #{name} already registered for node #{@symbol_names[name].inspect}") if @symbol_names.has_key? name
 
         @symbol_names[name] = @name
 
-        s = Symbl.new(@d, @types)
+        s = value ? value : Symbl.new(@d, @types)
         @symbols[name] = s
 
-        s.instance_eval(&block)
+        s.instance_eval(&block) if block_given?
       end
+    end
+
+    def prec_group(&block)
+      p = Prec.new(@d, @types, @symbols)
+      p.instance_eval(&block)
+
+      p.resolve(self)
     end
 
     def []=(name, type)

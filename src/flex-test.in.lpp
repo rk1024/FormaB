@@ -80,7 +80,7 @@ typedef frma::parser::token tk;
 YY_DECL;
 %}
 
-%astgen-token-rules
+%astgen-token-defs
 
 Whitespace [ \r\t]
 Newline [\v\n]
@@ -107,7 +107,8 @@ DQuote \"
 BQuote \`
 
 IDStart [a-zA-Z_]
-PPStart @
+IDEscape @
+PPStart @#
 NumStart [0-9]
 OpStart [`~!#$%^&*=+|;:,<.>/?-]
 Identifier [0-9a-zA-Z_]
@@ -126,6 +127,8 @@ QLEscape \\.
 %x SSMetaBlock
 
 %x SSSyntaxExtArgs
+
+%x SSEscapedID
 
 %%
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
@@ -178,19 +181,25 @@ QLEscape \\.
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
+  %astgen-token KWElse "else" { $SL $ML }
   %astgen-token KWFunction "function" { $SL $ML }
+  %astgen-token KWIf "if" { $SL $ML }
   %astgen-token KWInterface "interface" { $SL $ML }
   %astgen-token KWLet "let" { $SL $ML }
   %astgen-token KWRecord "record" { $SL $ML }
   %astgen-token KWStruct "struct" { $SL $ML }
 
+  %astgen-token Assign "=" { $SL $ML }
   %astgen-token Comma "," { $SL $ML }
+  %astgen-token Conj "&&" { $SL $ML }
+  %astgen-token Disj "||" { $SL $ML }
   %astgen-token Div "/" { $SL $ML }
+  %astgen-token Equal "==" { $SL $ML }
   %astgen-token EqGT "=>" { $SL $ML }
-  %astgen-token Equal "=" { $SL $ML }
   %astgen-token Minus "-" { $SL $ML }
   %astgen-token Mod "%" { $SL $ML }
   %astgen-token Mul "*" { $SL $ML }
+  %astgen-token NotEqual "!=" { $SL $ML }
   %astgen-token Period "." { $SL $ML }
   %astgen-token Plus "+" { $SL $ML }
   %astgen-token Semi ";" { $SL $ML }
@@ -219,9 +228,17 @@ QLEscape \\.
   %astgen-token LBrace "{" { $SL $ML }
   %astgen-token RBrace "}" { $SL $ML }
 
-  %astgen-token Identifier /{IDStart}{Identifier}*/ { $SL $ML } capture
+  %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token Number /{NumStart}{Number}*/ { $SL $ML } capture
+
+  {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
+}
+
+<INITIAL,SSMetaBlock,SSSyntaxExtArgs,SSEscapedID>{
+  /*{ignore me}*/
+
+  %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
 }
 
 <INITIAL,SSMetaBlock>{

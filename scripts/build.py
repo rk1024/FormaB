@@ -9,7 +9,7 @@ from os import path
 
 import NinjaSnek.configure as conf
 
-l.basicConfig(level = l.DEBUG)
+l.basicConfig(level = l.INFO)
 
 
 def pkgConfig(*args):

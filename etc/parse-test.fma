@@ -12,13 +12,25 @@ using System;
 @}
 
 @!meta{
-let if = function(`({cond}) {then} else {else}`) {
+let @if = function(`({cond}) {then} else {else}`) {
   1 + 2;
-}
+};
 
-let if = record(Expression expr, Statement then, Statement else);
+let @if = record(Expression expr, Statement then, Statement @else);
 
 let stuff = function(int a, int b) => 18 % 4 + 2 * 3 / 4 / 5 + 6;
+
+let myfn = function() {
+
+
+@@  if (let a = 1; a == 0)
+    if (b);
+    else;
+};
+
+let pi = 3.14159;
+
+let stuff = (pi + 1) / 2;
 @}
 
 @pragma warning disable 3200

@@ -1,39 +1,105 @@
 require_relative 'diag'
-require_relative 'linewriter'
+require_relative 'loosehash'
 require_relative 'node'
 require_relative 'token'
 
-require 'fileutils'
 require 'getoptlong'
-require 'set'
 
 module ASTGen
-  class ASTList
-    def initialize(nodes, d)
-      @d = d
-      @nodes = nodes
+  class ASTBuilder
+    attr_accessor :nodes
+
+    def initialize(d)
+      @d = d.fork
+      @nodes = LooseHash.new
     end
 
-    def node(name)
-      raise @d.fatal_r("duplicate node name #{name.inspect}") if @nodes.has_key?(name)
+    def node(name, &block)
+      @d.pos("node #{name.inspect}") do
+        @nodes[name] = _node(name, &block)
+      end
+    end
 
-      @nodes[name] = :node
+    private def ast_outs(data, outs:, impl:)
+      list = []
 
-      self
+      @nodes.each do |name, nodes|
+        next unless nodes.length > 0
+
+        p = File.join(data[:astDir], ASTGen.camel_name(name.to_s))
+
+        list << "#{p}.cpp" if outs
+        list << "#{p}.hpp" if impl
+      end
+
+      list << File.join(data[:astDir], "ast.hpp") if impl
+
+      list
     end
   end
 
-  @@tokens = {}
-  @@nodes = {}
-  @@symbols = {}
+  class ListBuilder < ASTBuilder
+    def initialize(d)
+      super
+    end
+
+    private def _node(name, &block) name end
+
+    def make_list(data, impl)
+      list = ast_outs(data, outs: !impl, impl: impl)
+
+      if impl
+        list << data[:tokenOut]
+      else
+        list << data[:flexOut] << data[:bisonOut]
+      end
+
+      $stdout << list.join(" ") << "\n"
+    end
+  end
+
+  class FullBuilder < ASTBuilder
+    def initialize(d)
+      super
+    end
+
+    private def _node(name, &block) Node.build(name, @d, &block) end
+
+    def make_ast(data)
+      node_list = @nodes.flatten do |name, nodes, uses|
+        @d.error("duplicate node name #{@d.hl(name)} used #{uses} times")
+      end
+
+      symbol_list = LooseHash.new
+      node_list.each do |name, node|
+        symbol_list.merge!(node.symbols.map{|n, s| [n, s] }.to_h)
+      end
+
+      symbol_list = symbol_list.flatten do |name, syms, uses|
+        @d.error("duplicate symbol #{@d.hl(name)} used #{uses} times in " <<
+          (syms.length > 1 ? "#{syms.length} nodes: " : "node ") <<
+          syms.map do |sym, count|
+            s = @d.hl(sym.node)
+            s << " (#{count} times)" if count > 1 && nodes.length > 1
+            next s
+          end.join(", "))
+      end
+
+      nodes = node_list.map{|m, b| [m, b.make_node(symbol_list)] }.to_h
+      symbols = symbol_list.map{|n, b| [n, b.make_symbol(nodes, symbol_list)] }.to_h
+      tokens = Token.scan(data[:flexIn], @d)
+
+      [nodes, symbols, tokens]
+    end
+  end
+
   @@errored = false
   @@quiet = false
   @@verbose = false
 
+  def self.error!; @@errored = true end
   def self.quiet?; @@quiet end
   def self.verbose?; @@verbose end
-
-  def self.error!; @@errored = true end
 
   def self.diag
     Diagnostics.new(
@@ -52,333 +118,22 @@ module ASTGen
       [false, nil]
     rescue => e
       $stderr << e.backtrace[0] << ":#{e.to_s} (#{e.class})\n" <<
-        e.backtrace[1..-1].map{|e| " " * 8 + "from " << e.to_s << "\n"}.join
+        e.backtrace[1..-1].map{|e2| " " * 8 + "from " << e2.to_s << "\n"}.join
       error!
     end
-  end
-
-  private_class_method def self.token(name, *args, **kwargs)
-    raise @@d.fatal_r("Duplicate token name #{name.inspect}") if @@tokens.has_key?(name)
-
-    t = nil
-
-    run_diag do
-      t = Token.new(name, *args, **kwargs)
-      @@tokens[name] = t
-    end
-
-    t
-  end
-
-  def self.node(name, &block)
-    raise @@d.fatal_r("Duplicate node name #{name.inspect}") if @@nodes.has_key?(name)
-
-    run_diag do
-      n = Node.new(name, @@symbols)
-      @@nodes[name] = n
-
-      n.instance_eval(&block)
-    end
-  end
-
-  private_class_method def self.freeze
-    @@tokens.each{|_, val| val.freeze }
-    @@nodes.each{|_, val| val.freeze }
   end
 
   def self.camel_name(name)
     name[0].downcase << name[1..-1]
   end
 
-  def self.file_path(path, name)
-    File.join("#{path}", "#{camel_name(name)}")
+  def self.file_path(path, name, ext = nil)
+    s = File.join(path, camel_name(name))
+    s << ".#{ext}" if ext
+    s
   end
 
-  private_class_method def self.scan_flex(path, data)
-    @@d.pos("scan_flex") do
-      i = 0
-
-      File.foreach(data[:flexIn]) do |line|
-        i += 1
-
-        pos = lambda { "at #{data[:flexIn]}:#{i}" }
-
-        case line
-          when /^\s*%astgen-token\s+(\S*)\s+(.*)\s*$/
-            s = StringScanner.new($2)
-            t = nil
-            sym = $1.to_sym
-            contents = nil
-
-            err = catch :err do
-              if s.scan(/"/)
-                contents = s.scan(/([^\\"]|\\.)*/)
-
-                throw :err, "'\"'" unless s.scan(/"/)
-
-                t = token(sym, str: contents)
-              elsif s.scan(/\//)
-                contents = s.scan(/[^\/]*/)
-
-                throw :err, "'/'" unless s.scan(/\//)
-
-                t = token(sym, pat: contents)
-
-                s.scan(/\s+/)
-
-                if s.scan(/"/)
-                  t.str = s.scan(/([^\\"]|\\.)*/).gsub(/\\(.)/, "\\1")
-
-                  throw :err, "'\"'" unless s.scan(/"/)
-                end
-              else
-                throw :err, "'\"' or '/'"
-              end
-
-              s.scan(/\s+/)
-
-              if s.scan(/\{/)
-                action = catch :err do
-                  braces = 1
-                  a = ""
-
-                  while braces > 0
-                    r = s.scan_until(/[{}]/)
-                    throw :err unless r
-
-                    a << r[0..-1 - s.matched_size]
-
-                    case s.matched
-                      when "{"
-                        braces += 1
-
-                      when "}"
-                        braces -= 1
-                    end
-
-                    a << s.match if braces > 0
-                  end
-
-                  a
-                end
-
-                t.action = action.strip! if action
-                s.scan(/\s+/)
-              end
-
-              while s.scan(/\w+/)
-                case s.matched
-                  when "capture"
-                    if s.scan(/\s+buf/)
-                      if s.scan(/\s+end/)
-                        t.capt = :buf_end
-                      else
-                        t.capt = :buf
-                      end
-                    else
-                      t.capt = :text
-                    end
-                  else
-                    @@d.error("unexpected token flag '#{s.matched}'")
-                end
-
-                s.scan(/\s+/)
-              end
-
-              "end of line" if s.eos?
-
-              nil
-            end
-
-            @@d.error("unexpected #{s.eos? ? "end of line" : "'#{s.rest}'"} (expecting #{err}) #{pos.call}") if err
-          when /^\s*%astgen-token\b(?!-)/
-            @@d.error("invalid syntax for %astgen-token #{pos.call}")
-        end
-      end
-    end
-  end
-
-  private_class_method def self.emit(path, data)
-    mtime = File.mtime($0)
-    mmtime = Time.new(0)
-
-    $".select{|e| e != $0 && File.exists?(e) }.each do |e|
-      m = File.mtime(e)
-      mmtime = m if m > mmtime
-    end
-
-    mtime = mmtime if mmtime > mtime
-
-    emit_ast(path, data) if ast_outs(path, data, outs: true, impl: true)
-      .any?{|e| !File.exists?(e) || mtime > File.mtime(e) }
-
-    emit_flex(path, data) if !File.exists?(data[:flexOut]) || [File.mtime(data[:flexIn]), mmtime].max > File.mtime(data[:flexOut])
-    emit_bison(path, data) if !File.exists?(data[:bisonOut]) || [File.mtime(data[:bisonIn]), File.mtime(data[:flexIn]), mtime].max > File.mtime(data[:bisonOut])
-    emit_token(path, data) if !File.exists?(data[:tokenOut]) || [File.mtime(data[:tokenIn]), mtime].max > File.mtime(data[:tokenOut])
-  end
-
-  private_class_method def self.list_order()
-    order = [@@nodes.first[1]]
-    order_set = Set.new(order.map{|e| e.name })
-
-    i = 0
-    while i < order.length do
-      order[i].froz_depends.reverse.each do |e|
-        order.insert(i + 1, @@nodes[e]) if order_set.add?(e)
-      end
-      i += 1
-    end
-
-    order.each do |e|
-      @@d.info(e.name.inspect)
-    end
-  end
-
-  private_class_method def self.emit_ast(path, data)
-    FileUtils.mkdir_p(path) unless File.directory?(path)
-
-    @@nodes.each do |key, val|
-      fname = file_path(path, key.to_s)
-
-      File.open("#{fname}.hpp", "w") do |f|
-        val.emit_head(@@nodes, f)
-        f.close
-      end
-
-      File.open("#{fname}.cpp", "w") do |f|
-        val.emit_body(@@nodes, f)
-        f.close
-      end
-    end
-
-    f = File.open(file_path(path, "ast.hpp"), "w")
-
-    f << (LineWriter.lines do |l|
-      @@nodes.each do |key, val|
-        l << "#include \"ast/#{camel_name(key.to_s)}.hpp\""
-      end
-    end) << "\n"
-  end
-
-  private_class_method def self.emit_flex(path, data)
-    @@d.pos("scan_flex") do
-      File.open(data[:flexOut], "w") do |o|
-        File.foreach(data[:flexIn]) do |line|
-          case line
-            when /^(\s*)%astgen-token-rules\s*$/
-              o << (LineWriter.lines do |l|
-                @@tokens.each {|_, val| val.emit_flex_head(l) }
-              end) << "\n"
-            when /^(\s*)%astgen-token\s+([a-zA-Z][a-zA-Z0-9]*)/
-              o << (LineWriter.lines with_indent: $1 do |l|
-                sym = $2.to_sym
-                @@tokens[sym].emit_flex_body(l)
-              end) << "\n"
-            else
-              o << line if o
-          end
-        end
-      end
-    end
-  end
-
-  private_class_method def self.emit_bison(path, data)
-    File.open(data[:bisonOut], "w") do |o|
-      File.foreach(data[:bisonIn]) do |line|
-        case line
-          when /^\s*%astgen-token-defs\s*$/
-            o << (LineWriter.lines do |l|
-              @@tokens.each do |_, val|
-                val.emit_bison_def(l)
-              end
-            end) << "\n"
-          when /^\s*%astgen-union\s*$/
-            o << (LineWriter.lines do |l|
-              l << "%union {"
-              l.fmt with_indent: "  " do
-                @@nodes.each do |key, val|
-                  l << "frma::#{val.froz_name} *_#{camel_name(key)};"
-                end
-              end
-              l.trim << "}"
-            end) << "\n"
-          when /^\s*%astgen-dtors\s*$/
-            o << (LineWriter.lines do |l|
-              @@nodes.each do |key, val|
-                s = val.bison_dtor || "if (!$$->rooted()) delete $$;"
-                l << "%destructor { #{s} } <_#{camel_name(key)}>"
-              end
-            end) << "\n"
-          when /^\s*%astgen-types\s*$/
-            o << (LineWriter.lines do |l|
-              @@nodes.each do |key, val|
-                l << "%type <_#{camel_name(key)}> #{key}"
-              end
-
-              @@symbols.each do |key, val|
-                l << "%type <_#{camel_name(val)}> #{key}"
-              end
-            end) << "\n"
-          when /^\s*%astgen-syntax\s*$/
-            o << (LineWriter.lines do |l|
-              @@nodes.each do |_, val|
-                l.sep
-                val.emit_bison(@@nodes, l)
-              end
-            end) << "\n"
-          else
-            o << line
-        end
-      end
-    end
-  end
-
-  private_class_method def self.emit_token(path, data)
-    File.open(data[:tokenOut], "w") do |o|
-      File.foreach(data[:tokenIn]) do |line|
-        case line
-          when /^\s*#pragma\s+astgen\s+friends\s*$/
-            o << (LineWriter.lines with_indent: "  " do |l|
-            @@nodes.select{|key, val| val.froz_dep_types.include?(:Token) }
-              .each do |key, val|
-                l << "friend class Forma#{key.to_s};"
-              end
-            end) << "\n"
-          else
-            o << line
-        end
-      end
-    end
-  end
-
-  private_class_method def self.ast_outs(path, data, outs:, impl:)
-    list = []
-
-    @@nodes.each do |key, val|
-      p = file_path(path, key.to_s)
-
-      list << "#{p}.cpp" if outs
-      list << "#{p}.hpp" if impl
-    end
-
-    list << file_path(path, "ast.hpp") if impl
-
-    list
-  end
-
-  private_class_method def self.list(s, path, data, impl:)
-    list = ast_outs(path, data, outs: !impl, impl: impl)
-
-    if impl
-      list << data[:tokenOut]
-    else
-      list << data[:flexOut] << data[:bisonOut]
-    end
-
-    s << list.join(" ") << "\n"
-  end
-
-  public_class_method def self.run(&block)
+  def self.run(&block)
     @@d.pos("ASTGen.run") do
       opts = GetoptLong.new(
         ["--verbose", "-v", GetoptLong::NO_ARGUMENT],
@@ -434,54 +189,154 @@ module ASTGen
 
       raise "Cannot specify --order and --list/--implicit together" if do_list && do_order
 
-      raise "Missing flex input" unless data[:flexIn] || do_list || do_order
-      raise "Missing flex output" unless data[:flexOut] || do_list || do_order
-      raise "Missing bison input" unless data[:bisonIn] || do_list || do_order
-      raise "Missing bison output" unless data[:bisonOut] || do_list || do_order
-      raise "Missing token input header" unless data[:tokenIn] || do_list || do_order
-      raise "Missing token output header" unless data[:tokenOut] || do_list || do_order
+      no_files = do_list || do_order
+
+      raise "Missing flex input" unless data[:flexIn] || no_files
+      raise "Missing flex output" unless data[:flexOut] || no_files
+      raise "Missing bison input" unless data[:bisonIn] || no_files
+      raise "Missing bison output" unless data[:bisonOut] || no_files
+      raise "Missing token input header" unless data[:tokenIn] || no_files
+      raise "Missing token output header" unless data[:tokenOut] || no_files
 
       raise "Missing AST directory path" unless ARGV.length > 0 || do_order
 
-      dir = ARGV.shift unless do_order
+      data[:astDir] = ARGV.shift unless do_order
 
       @@quiet = true if do_list
 
+      b = nil
+
       run_diag do
-        if do_list
-          ASTList.new(@@nodes, @@d).instance_eval(&block)
+        b = if do_list
+          ListBuilder.new(@@d)
         else
-          class_eval(&block)
+          FullBuilder.new(@@d)
         end
+        b.instance_eval(&block)
       end
 
       catch :stop do
-        throw :stop if @@errored
-
         if do_order
-          run_diag { freeze() }
-          throw :stop if @@errored
-
-          run_diag { list_order() }
+          run_diag { list_order(b) }
           throw :stop
         end
 
-        run_diag { scan_flex(dir, data) }
-        throw :stop if @@errored
-
-        run_diag { freeze() }
-        throw :stop if @@errored
-
         run_diag do
           if do_list
-            list($stdout, dir, data, impl: impl)
+            b.make_list(data, impl)
           else
-            emit(dir, data)
+            (nodes, symbols, tokens) = b.make_ast(data)
+
+            # @@d.debug("Nodes:")
+            # @@d.p(nodes, long: true)
+            # @@d.debug("Symbols:")
+            # @@d.p(symbols, long: true)
+            # @@d.p("Tokens:")
+            # @@d.p(tokens, long: true)
+
+            nodes.each do |name, node|
+              File.open(file_path(data[:astDir], name, "hpp"), "w") do |f|
+                f << node.emit_head(nodes) << "\n"
+              end
+
+              File.open(file_path(data[:astDir], name, "cpp"), "w") do |f|
+                f << node.emit_body(nodes) << "\n"
+              end
+            end
+
+            File.open(File.join(data[:astDir], "ast.hpp"), "w") do |f|
+              nodes.each do |name, node|
+                f << LineWriter.lines do |l|
+                  node.emit_include(l)
+                end << "\n"
+              end
+            end
+
+            File.open(data[:tokenOut], "w") do |f|
+              File.foreach(data[:tokenIn]) do |line|
+                case line
+                  when /^\s*#pragma\s+astgen\s+friends\s*\(([^\)]*)\)\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      Node.emit_friends(nodes, :Token, l)
+                    end << "\n"
+                  else
+                    f << line
+                end
+              end
+            end
+
+            File.open(data[:flexOut], "w") do |f|
+              File.foreach(data[:flexIn]) do |line|
+                case line
+                  when /^(\s*)%astgen-token-defs\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      tokens.each do |name, tok|
+                        tok.emit_flex_part(:def, l)
+                      end
+                    end << "\n"
+                  when /^(\s*)%astgen-token\s+(\S+).*$/
+                    name = $2.to_sym
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      tokens[name].emit_flex_part(:rule, l)
+                    end unless !tokens.isnt_error?(name)
+                    f << "\n"
+                  else
+                    f << line
+                end
+              end
+            end
+
+            File.open(data[:bisonOut], "w") do |f|
+              File.foreach(data[:bisonIn]) do |line|
+                case line
+                  when /^(\s*)%astgen-token-defs\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      tokens.each do |name, tok|
+                        tok.emit_bison_part(:def, l)
+                      end
+                    end << "\n"
+                  when /^(\s*)%astgen-union\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      l << "%union {"
+                      l.group.fmt with_indent: "  " do
+                        nodes.each do |name, node|
+                          node.emit_bison_part(:union, l)
+                        end
+
+                        Token.emit_bison_part(:union, l)
+                      end
+                      l.trim << "}"
+                    end << "\n"
+                  when /^(\s*)%astgen-dtors\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      nodes.each do |name, node|
+                        node.emit_bison_part(:dtor, l)
+                      end
+
+                      Token.emit_bison_part(:dtor, l)
+                    end << "\n"
+                  when /^(\s*)%astgen-types\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      symbols.each do |name, symbol|
+                        symbol.emit_bison_part(:type, l)
+                      end
+                    end << "\n"
+                  when /^(\s*)%astgen-rules\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      symbols.each do |name, symbol|
+                        symbol.emit_bison_part(:rule, l)
+                      end
+                    end << "\n"
+                  else
+                    f << line
+                end
+              end
+            end
           end
         end
       end
 
-      raise "One or more errors have occurred." if @@errored
+      exit(1) if @@errored
     end
   end
 end

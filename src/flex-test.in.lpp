@@ -132,16 +132,19 @@ QLEscape \\.
 
 %%
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+  /*{ignore me}*/
   {Whitespace}+ { $SL $ML }
 }
 
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+  /*{ignore me}*/
   {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
   {BCommentOpen} { $SL $ML $SSPUSH(BComment) }
 }
 
 <SSBComment>{
+  /*{ignore me}*/
   {BCommentClose} { $SL $ML $SSPOP }
   {BCommentNoAt}+ { $SL $ML }
   {BCommentAts}+ { $SL $ML }
@@ -152,12 +155,14 @@ QLEscape \\.
 {RawBlockStart} { $SL $ML $SSPUSH(RawBlockStart) }
 
 <SSRawBlockStart>{
+  /*{ignore me}*/
   {MetaBlockID} { $SL $ML $SSBEGIN(MetaBlockID) }
 
   %astgen-token RawBlockID /{IDStart}{Identifier}*/ { $SL $ML $SSBEGIN(RawBlockID) } capture
 }
 
 <SSRawBlockID>{
+  /*{ignore me}*/
   {RawBlockOpen} { $SL $ML $SSBEGIN(RawBlock) $BS }
 }
 
@@ -167,6 +172,7 @@ QLEscape \\.
 }
 
 <SSRawBlock>{
+  /*{ignore me}*/
   {Newline}+ { $WL $BW }
 
   %astgen-token RawBlockBody /{RawBlockClose}/ "@}" { $ML $SSPOP } capture buf end
@@ -181,13 +187,17 @@ QLEscape \\.
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
+  %astgen-token KWDo "do" { $SL $ML }
   %astgen-token KWElse "else" { $SL $ML }
+  %astgen-token KWFor "for" { $SL $ML }
   %astgen-token KWFunction "function" { $SL $ML }
   %astgen-token KWIf "if" { $SL $ML }
   %astgen-token KWInterface "interface" { $SL $ML }
   %astgen-token KWLet "let" { $SL $ML }
+  %astgen-token KWLoop "loop" { $SL $ML }
   %astgen-token KWRecord "record" { $SL $ML }
   %astgen-token KWStruct "struct" { $SL $ML }
+  %astgen-token KWWhile "while" { $SL $ML }
 
   %astgen-token Assign "=" { $SL $ML }
   %astgen-token Comma "," { $SL $ML }
@@ -206,6 +216,7 @@ QLEscape \\.
 }
 
 <SSRawBlock,SSMetaBlock>{
+  /*{ignore me}*/
   <<EOF>> { $ML $BE $E("unterminated raw block") }
 }
 
@@ -237,7 +248,6 @@ QLEscape \\.
 
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs,SSEscapedID>{
   /*{ignore me}*/
-
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
 }
 
@@ -252,6 +262,7 @@ QLEscape \\.
 <<EOF>> { $SL $ML $END }
 
 <*>{
+  /*{ignore me}*/
   {Newline}+ { $SL $WL }
   . { $SL $ML $E(std::string("unexpected character '") + yytext + "'") }
 }

@@ -34,14 +34,14 @@ module ASTGen
       def diag_no_inspect; [:@d] end
     end
 
-    module MultiSymbolBuilder
-      
+    class UnionBuilder < ObjBuilder
+      def inspect; "<#{self.class.name}:0x#{object_id.to_s(16)} members: #{@members.inspect}>" end
     end
 
     class NodeBuilder < ObjBuilder
       include ASymbol::FormatBuilder
 
-      attr_reader :name, :unions, :ctors, :symbols
+      attr_reader :name, :unions, :ctors, :dtor, :symbols
 
       def initialize(name, d)
         super(d)
@@ -49,7 +49,9 @@ module ASTGen
         @name = name
         @unions = []
         @ctors = LooseHash.new
+        @dtor = nil
         @symbols = LooseHash.new
+        @last_symbol = nil
       end
 
       def union(&block)
@@ -79,28 +81,59 @@ module ASTGen
         end
       end
 
-      def symbol(name = nil, &block)
-        name = @name unless name
+      def dtor(str)
+        @d.pos("dtor #{str.inspect}") do
+          if [
+            verify(str.is_a?(String)) { @d.error("invalid destructor") },
+            verify(!@dtor) { @d.error("duplicate destructor declaration") },
+          ].all?
+            @dtor = str
+          end
+        end
+      end
+
+      def symbol(name = @name, &block)
         @d.pos("symbol #{name.inspect}") do
           if [
             verify(name.is_a?(Symbol)) { @d.error("invalid symbol name #{@d.hl(name)}") },
           ].all?
-            @symbols[name] = ASymbol.build(name, @name, @d, &block)
+            @symbols[name] = @last_symbol = ASymbol.build(name, @name, @d, &block)
           end
+        end
+      end
+
+      def chain(name = @name, &block)
+        @d.pos("chain #{name.inspect}") do
+          if [
+            verify(name.is_a?(Symbol)) { @d.error("invalid symbol name #{@d.hl(name)}") },
+          ].all?
+            @symbols[name] = curr_symbol = ASymbol.build(name, @name, @d, &block)
+          end
+
+          if @last_symbol
+            @last_symbol.rule :self, @last_symbol.defer(:self)
+            @last_symbol.resolve(name)
+          else
+            @d.error("no symbol available to chain to")
+          end
+
+          @last_symbol = curr_symbol
         end
       end
 
       def make_node(symbols)
         members = @members.clone
-        member_order = @member_order.clone
+        member_order = []
 
         @unions.each do |union|
           members.merge!(union.members)
           member_order.concat(union.member_order)
         end
 
+        member_order.concat(@member_order)
+
         members = members.flatten do |name, types, uses|
-          @d.error("duplicate member #{@d.hl(name)} used #{uses} times for " <<
+          @d.error("duplicate member #{@d.hl(name)} declared #{uses} times as " <<
             (types.length > 1 ? "#{types.length} types: " : "type ") <<
             types.map do |type, count|
               s = @d.hl(type)
@@ -135,7 +168,7 @@ module ASTGen
                 next true unless verify(members.has_key?(arg)) { @d.error("unknown member #{@d.hl(arg)}") }
                 curr2
               end,
-              !verify(@symbols.any?{|_, s| s.syntax.has_value?(alt) }) { unused << alt }
+              !verify(@symbols.any?{|_, s| s.syntax.has_value?(alt) }) { unused << alt },
             ].any?
           end
         end.each{|a, _| alt_ctors.make_error(a) }
@@ -164,7 +197,6 @@ module ASTGen
         end
 
         alt_formats = alt_formats.flatten
-
         alt_formats.map do |alt, formats|
           [
             alt,
@@ -181,6 +213,9 @@ module ASTGen
             end
           ]
         end.each{|k, v| alt_formats[k] = v }
+        alt_formats.select do |alt, formats|
+          alt_ctors.is_error?(alt)
+        end.each{|k, _| alt_formats.make_error(k) }
 
         ctor_alts = LooseHash.new(alt_ctors).invert.dedup
 
@@ -188,7 +223,7 @@ module ASTGen
         alt_ctors.each do |alt, sig|
           catch :break do
             alt_formats.fetch(alt) do
-                ctors[sig] = LooseHash.new.addn(nil, alt)
+              ctors[sig] = LooseHash.new.addn(nil, alt)
               throw :break
             end.each_key do |sym|
               ctors[sig] = LooseHash.new.addn(sym, alt)
@@ -216,7 +251,7 @@ module ASTGen
 
         format_syms = Set.new
 
-        alt_formats.each_value{|f| format_syms.merge(f.each_key) }
+        alt_formats.each_value{|f| format_syms.merge(f.each_key) if f.length > 1 }
 
         n = Node.new(@name, @d)
 
@@ -229,6 +264,7 @@ module ASTGen
         n.alt_ctors = alt_ctors
         n.ctor_alts = ctor_alts
         n.ctors = ctors
+        n.dtor = @dtor ? @dtor.clone : nil
         n.alt_formats = alt_formats
         n.format = format
         n.format_syms = format_syms
@@ -237,10 +273,6 @@ module ASTGen
       end
 
       def inspect; "<#{self.class.name}:0x#{object_id.to_s(16)} #{@name.inspect} members: #{@members.inspect}, unions: #{@unions.inspect}, ctors: #{@ctors.inspect}, fmt: #{@fmt.inspect}, symbols: #{@symbols.inspect}>" end
-    end
-
-    class UnionBuilder < ObjBuilder
-      def inspect; "<#{self.class.name}:0x#{object_id.to_s(16)} members: #{@members.inspect}>" end
     end
 
     def self.build(name, d, &block)
@@ -260,6 +292,7 @@ module ASTGen
       :alt_ctors,
       :ctor_alts,
       :ctors,
+      :dtor,
       :alt_formats,
       :format,
       :format_syms,
@@ -277,6 +310,7 @@ module ASTGen
       @alt_ctors = {}
       @ctor_alts = {}
       @ctors = {}
+      @dtor = nil
       @alt_formats = {}
       @format = {}
       @format_syms = []
@@ -428,20 +462,23 @@ module ASTGen
               l << "#{class_name}(#{[*args, *memb_args].join(", ")});"
             end
 
-            emit_ctor.call([
-              "#{@@AltEnumName}",
-              "#{@@SymEnumName}",
-            ]) if syms.any?{|k, v| k && k.length > 1 && v.length > 1 }
+            if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
+              emit_ctor.call([]) if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
+            else
+              emit_ctor.call([
+                "#{@@AltEnumName}",
+                "#{@@SymEnumName}",
+              ]) if syms.any?{|k, v| k && k.length > 1 && v.length > 1 }
 
-            emit_ctor.call([
-              "#{@@SymEnumName}",
-            ]) if syms.any?{|k, v| k && k.length > 1 && v.length <= 1 }
+              emit_ctor.call([
+                "#{@@SymEnumName}",
+              ]) if syms.any?{|k, v| k && k.length > 1 && v.length <= 1 }
 
-            emit_ctor.call([
-              "#{@@AltEnumName}",
-            ]) if syms.any?{|k, v| (!k || k.length <= 1) && v.length > 1 }
+              emit_ctor.call([
+                "#{@@AltEnumName}",
+              ]) if syms.any?{|k, v| !k || k.length <= 1 }
+            end
 
-            emit_ctor.call([]) if syms.any?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
           end
 
           l.sep
@@ -518,59 +555,60 @@ module ASTGen
             l.trim << "}"
           end
 
-          items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
-          emit_ctor.call([
-            "#{@@AltEnumName} #{@@AltMembName}",
-            "#{@@SymEnumName} #{@@SymMembName}",
-          ], [
-            "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
-            "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
-          ]) unless items.empty?
+          if syms.length <= 1 && syms.all? {|k, v| (!k || k.length <= 1) && v.length <= 1 }
+            emit_ctor.call([], [
+              *("#{Node.field_name(@@AltMembName)}(#{syms.first[1].first})" if use_alts?),
+              *("#{Node.field_name(@@SymMembName)}(#{sym_name(syms.first[0].first)})" if use_syms?),
+            ]) unless syms.empty?
+          else
+            items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
+            emit_ctor.call([
+              "#{@@AltEnumName} #{@@AltMembName}",
+              "#{@@SymEnumName} #{@@SymMembName}",
+            ], [
+              "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
+              "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
+            ]) unless items.empty?
 
-          items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
-          emit_ctor.call([
-            "#{@@SymEnumName} #{@@SymMembName}",
-          ], [
-            "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
-          ]) do
-            l << "switch(#{Node.field_name(@@SymMembName)}) {"
-            c = l.curr
-            l.fmt with_indent: "  " do
-              items.each do |syms, alts|
-                syms.each{|s| c << "case #{sym_name(s)}:" }
+            items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
+            emit_ctor.call([
+              "#{@@SymEnumName} #{@@SymMembName}",
+            ], [
+              "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
+            ]) do
+              l << "switch(#{Node.field_name(@@SymMembName)}) {"
+              c = l.curr
+              l.fmt with_indent: "  " do
+                items.each do |syms, alts|
+                  syms.each{|s| c << "case #{sym_name(s)}:" }
 
-                l << "#{Node.field_name(@@AltMembName)} = #{alts.first};"
-                l << "break;"
+                  l << "#{Node.field_name(@@AltMembName)} = #{alts.first};"
+                  l << "break;"
+                end
               end
-            end
-            l.trim << "}"
-          end unless items.empty?
+              l.trim << "}"
+            end unless items.empty?
 
-          items = syms.select{|k, v| (!k || k.length <= 1) && v.length > 1 }
-          emit_ctor.call([
-            "#{@@AltEnumName} #{@@AltMembName}",
-          ], [
-            "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
-          ]) do
-            l << "switch(#{Node.field_name(@@AltMembName)}) {"
-            c = l.curr
-            l.fmt with_indent: "  " do
-              items.each do |syms, alts|
-                alts.each{|s| c << "case #{s}:" }
+            items = syms.select{|k, v| !k || k.length <= 1 }
+            emit_ctor.call([
+              "#{@@AltEnumName} #{@@AltMembName}",
+            ], [
+              "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
+            ]) do
+              l << "switch(#{Node.field_name(@@AltMembName)}) {"
+              c = l.curr
+              l.fmt with_indent: "  " do
+                items.each do |syms, alts|
+                  alts.each{|s| c << "case #{s}:" }
 
-                l << "#{Node.field_name(@@SymMembName)} = #{sym_name(syms.first)};"
-                l << "break;"
+                  l << "#{Node.field_name(@@SymMembName)} = #{sym_name(syms.first)};"
+                  l << "break;"
+                end
+
               end
-
-            end
-            l.trim << "}"
-          end unless items.empty?
-
-          items = syms.select{|k, v| (!k || k.length <= 1) && v.length <= 1 }
-          emit_ctor.call([], [
-            *("#{Node.field_name(@@AltMembName)}(#{items.first[1].first})" if use_alts?),
-            *("#{Node.field_name(@@SymMembName)}(#{sym_name(items.first[0].first)})" if use_syms?),
-          ]) unless items.empty?
+              l.trim << "}"
+            end unless items.empty?
+          end
         end
 
         l.sep
@@ -705,7 +743,7 @@ module ASTGen
         when :union
           l << "#{qual_class_name} *#{bison_name};"
         when :dtor
-          l << "%destructor { if (!$$->rooted()) delete $$; } <#{bison_name}>"
+          l << "%destructor { #{@dtor ? @dtor : "if (!$$->rooted()) delete $$;"} } <#{bison_name}>"
       end
     end
 

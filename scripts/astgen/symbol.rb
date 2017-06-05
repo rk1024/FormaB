@@ -39,21 +39,59 @@ module ASTGen
         @name = name
         @node = node
         @syntax = LooseHash.new
+        @defer_handle = nil
+        @defer_to = nil
+      end
+
+      def resolved?; !@defer_handle || @defer_to end
+
+      def resolve(name) @defer_to = name end
+
+      def me(name) [@name, name] end
+
+      def defer(name)
+        @defer_handle = Object.new.freeze unless @defer_handle
+        [@defer_handle, name]
       end
 
       def rule(alt, *syms, fmt: nil)
         @d.pos("rule #{[alt.inspect, *syms.map{|s| s.inspect }].join(", ")}") do
-          syms = syms.clone.freeze
-          @syntax[syms] = alt
+          if [
+            verify(alt.is_a?(Symbol)) { @d.error("invalid alternative name #{@d.hl(alt)}") },
+            syms.reduce(true) do |curr, sym|
+              next false unless verify(case sym
+                when Symbol, String, @defer_handle; true
+                when Array; (1..2) === sym.length
+                else false
+              end) { @d.error("invalid symbol spec #{@d.hl(sym)}") }
+              curr
+            end,
+          ].all?
+            syms = syms.clone.freeze
+            @syntax[syms] = alt
 
-          self.fmt(alt, *fmt) if fmt
+            self.fmt(alt, *fmt) if fmt
+          end
         end
       end
 
       def make_symbol(nodes, symbols)
         node = nodes[@node]
 
-        syntax = @syntax.flatten do |syms, alts, uses|
+        syntax = LooseHash.new
+        @syntax.counted.each do |syms, alts|
+          out = syms.map do |sym|
+            if sym.is_a?(Array) && sym.length == 2 && sym[0] == @defer_handle
+              next [@defer_to, *sym[1..-1]]
+            end
+
+            sym
+          end
+
+          alts.each{|a, n| syntax.addn(out, a, n: n) }
+        end
+
+        syntax = syntax.flatten do |syms, alts, uses|
           @d.error("syntax #{syms.map{|e| @d.hl(e) }.join(", ")} defined #{uses} times for " <<
             (alts.length > 1 ? "#{alts.length} alternatives: " : "") <<
             alts.map do |alt, count|
@@ -89,7 +127,15 @@ module ASTGen
                         ctor_ok && verify(ctor_self ? name == :self : node.alt_ctors[alt].include?(name)) { @d.error("member #{@d.hl(name)} not in constructor #{@d.hl(alt)}") },
                         type == :Token || !symbols.has_key?(type) || (
                           !symbols.is_error?(type) &&
-                          verify(ctor_self ? symbols[type].node == node.name : symbols[type].node == node.members[name]) { @d.error("symbol #{@d.hl(type)} (of type #{@d.hl(symbols[type].node)}) incompatible with type #{@d.hl(node.members[name])} of member #{@d.hl(name)}") }
+                          !node.members.is_error?(name) &&
+                          verify(ctor_self ? symbols[type].node == node.name : symbols[type].node == node.members[name]) do
+                            @d.error("symbol #{@d.hl(type)} (of type #{@d.hl(symbols[type].node)}) incompatible with " <<
+                              if ctor_self
+                                "the type of the current node"
+                              else
+                                "type #{@d.hl(node.members[name])} of member #{@d.hl(name)}"
+                              end)
+                          end
                         )
                       ].all?
                   end
@@ -160,7 +206,7 @@ module ASTGen
                   ctor = @node.alt_ctors[alt]
                   syms = @node.ctors[ctor]
                   "new #{@node.qual_class_name}(#{[
-                    *("#{@node.qual_class_name}::#{alt}" if syms.each_value.any?{|v| v.length > 1 }),
+                    *("#{@node.qual_class_name}::#{alt}" if syms.length > 1 || syms.each_value.any?{|v| v.length > 1 }),
                     *("#{@node.qual_class_name}::#{@node.sym_name(@name)}" if syms.each_key.any?{|k| k && k.length > 1 }),
                     *@node.alt_ctors[alt].map{|a| "$#{a}" },
                   ].join(", ")})"

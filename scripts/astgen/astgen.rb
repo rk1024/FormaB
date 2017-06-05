@@ -71,19 +71,28 @@ module ASTGen
       end
 
       symbol_list = LooseHash.new
-      node_list.each do |name, node|
-        symbol_list.merge!(node.symbols.map{|n, s| [n, s] }.to_h)
+      @nodes.counted.each_value do |nodes|
+        nodes.each do |node, count|
+          node.symbols.counted.each do |name, syms|
+            syms.each{|s, n| symbol_list.addn(name, s, n: count * n) }
+          end
+        end
       end
 
       symbol_list = symbol_list.flatten do |name, syms, uses|
+        nodes = syms.map{|s, n| [s.node, n] }.to_h
+
         @d.error("duplicate symbol #{@d.hl(name)} used #{uses} times in " <<
-          (syms.length > 1 ? "#{syms.length} nodes: " : "node ") <<
-          syms.map do |sym, count|
-            s = @d.hl(sym.node)
+          (nodes.length > 1 ? "#{nodes.length} nodes: " : "node ") <<
+          nodes.map do |sym, count|
+            s = @d.hl(sym)
             s << " (#{count} times)" if count > 1 && nodes.length > 1
             next s
           end.join(", "))
       end
+      symbol_list.select do |name, sym|
+        !verify(sym.resolved?) { @d.error("unresolved defer() in symbol #{@d.hl(name)}") }
+      end.each{|n, _| symbol_list.make_error(n) }
 
       nodes = node_list.map{|m, b| [m, b.make_node(symbol_list)] }.to_h
       symbols = symbol_list.map{|n, b| [n, b.make_symbol(nodes, symbol_list)] }.to_h
@@ -250,7 +259,7 @@ module ASTGen
                   node.emit_include(l)
                 end << "\n"
               end
-            end
+            end unless @@errored
 
             File.open(data[:tokenOut], "w") do |f|
               File.foreach(data[:tokenIn]) do |line|

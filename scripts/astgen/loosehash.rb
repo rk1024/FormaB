@@ -123,6 +123,7 @@ class LooseHash
   def <<((key, val)) addn(key, val) end
 
   def addn(key, val, n: 1)
+    raise "Use []= to add nested values" if val.is_a?(LooseHash)
     @hash[key] = {} unless @hash.has_key?(key)
     raise "Cannot mix nested and non-nested values" if @hash[key].is_a?(LooseHash)
     @hash[key][val] = 0 unless @hash[key].has_key?(val)
@@ -179,6 +180,10 @@ class LooseHash
     @hash.each{|k, v| ret[v.each_key.to_a] = k }
     ret
   end
+
+  def length; @hash.length end
+
+  def rehash; @hash.rehash end
 
   def flatten(&block)
     errors = Set.new
@@ -238,7 +243,7 @@ class LooseHash
           end
         end
       else
-        other.each{|k, v| self[k] = v }
+        other.each{|k, v| addn(k, v, n: 1) }
     end
   end
 

@@ -1,5 +1,7 @@
 #include <cstdio>
 
+#include <list>
+
 #include "bison-test.hpp"
 #include "lexerDriver.hpp"
 #include "parserTag.hpp"
@@ -7,13 +9,28 @@
 int main(int argc, char **argv) {
   FILE *      infile;
   std::string filename("???");
+  bool verbose = false;
 
-  switch (argc) {
-  case 1:
+  std::list<std::string> args;
+
+  {
+    bool doFlags = true;
+    for (size_t i = 1; i < argc; ++i) {
+      std::string arg(argv[i]);
+      if (doFlags) {
+        if (arg == "-v") verbose = true;
+        else if (arg == "--") doFlags = false;
+        else args.push_back(arg);
+      }
+      else args.push_back(arg);
+    }
+  }
+  switch (args.size()) {
+  case 0:
     infile   = stdin;
     filename = "<stdin>";
     break;
-  case 2:
+  case 1:
     infile   = fopen(argv[1], "r");
     filename = argv[1];
     break;
@@ -29,8 +46,10 @@ int main(int argc, char **argv) {
 
     lex.inFile(infile);
 
-    lex.debug(true);
-    parse.set_debug_level(1);
+    if (verbose) {
+      lex.debug(true);
+      parse.set_debug_level(1);
+    }
 
     bool success = !parse.parse();
 

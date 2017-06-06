@@ -1,0 +1,118 @@
+input: semi-expression-opt
+
+comma-expression:
+  comma-expression
+  comma-expression-part ","
+
+comma-expression-part:
+  comma-expression-part "," expression
+  expression
+
+semi-expression-opt(cond?):
+  %empty
+  semi-expression(cond?)
+
+semi-expression():
+  semi-expression(cond)
+
+semi-expression(cond?):
+  semi-expression(cond?) semi-expression-part(cond?)
+  semi-expression-part(cond?)
+
+semi-expression-part(cond?):
+  semi-expression-unit(cond?) ";"
+  non-semi-expression-unit(cond?)
+
+semi-expression-unit(cond):
+
+semi-expression-unit(non-cond):
+  let-expression
+  infix-expression
+
+non-semi-expression-unit(cond):
+  cond-expression
+
+non-semi-expression-unit(non-cond):
+  block-expression
+
+expression:
+  block-expression
+  let-expression
+  infix-expression
+
+cond-expression:
+  matched-cond-expression
+  unmatched-cond-expression
+
+matched-cond-expression:
+  "if" "(" condition ")" matched-cond-expression "else" matched-cond-expression
+  semi-expression-part(non-cond)
+
+unmatched-cond-expression:
+  "if" "(" condition ")" expression
+  "if" "(" condition ")" unmatched-cond-expression "else" matched-cond-expression
+
+block-expression:
+  "{" semi-expression-opt "}"
+
+let-expression:
+  "let" Identifier "=" expression
+
+infix-expression:
+  me "+" defer
+  me "-" defer
+  me "*" defer
+  me "/" defer
+  me "%" defer
+  defer-node
+
+unary-expression:
+  "+" me
+  "-" me
+  "++" me
+  "--" me
+  defer-node
+
+call-expression:
+  me "(" comma-expression-opt ")"
+  defer-node
+
+member-expression:
+  call-expression "." Identifier
+  call-expression "[" comma-expression "]"
+  defer-node
+
+primary:
+  Literal
+  Identifier
+  "(" expression ")"
+
+
+
+
+
+
+
+
+
+
+
+cond-expression():
+  cond-expression(matched)
+  cond-expression(unmatched)
+
+cond-expression(matched):
+  "if" "(" condition ")" cond-expression(matched) "else" cond-expression(matched)
+  non-cond-expression
+
+cond-expression(unmatched):
+  "if" "(" condition ")" statement
+  "if" "(" condition ")" cond-expression(unmatched) "else" cond-expression(unmatched)
+
+condition:
+  expression
+  let-expression ";" expression
+
+non-cond-expression:
+  let-expression
+  infix-expression

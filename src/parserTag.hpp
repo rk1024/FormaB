@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sstream>
+#include <stack>
 #include <vector>
 
 #include "location.hh"
@@ -13,7 +15,7 @@ struct FormaParserError {
 
   void print(std::ostream &os) const {
     if (loc.begin.filename)
-      os << loc.begin.filename;
+      os << *loc.begin.filename;
     else
       os << "???";
 
@@ -26,12 +28,18 @@ struct FormaParserError {
 class FormaParserTag {
   std::vector<FormaParserError> m_errors;
 
+  std::string m_filename;
+
+  std::stack<std::ostringstream> bufs;
+
 public:
-  FormaPrims *prims = nullptr;
-  void *      scan  = nullptr;
+  FormaPrimaries *prims   = nullptr;
+  void *          scan    = nullptr;
+  bool            lexFail = false;
+  location        lexFailPos;
 
 
-  FormaParserTag() {}
+  FormaParserTag(const std::string &filename) : m_filename(filename) {}
 
   ~FormaParserTag() {
     if (prims) delete prims;
@@ -46,5 +54,21 @@ public:
   }
 
   const std::vector<FormaParserError> errors() const { return m_errors; }
+
+  std::string &filename() { return m_filename; }
+
+  inline void bufStart() { bufs.emplace(); }
+
+  inline void bufEnd() { bufs.pop(); }
+
+  inline void bufReturn() {
+    std::string top = bufs.top().str();
+
+    bufs.pop();
+
+    if (!bufs.empty()) bufs.top() << top;
+  }
+
+  std::ostringstream &buf() { return bufs.top(); }
 };
 }

@@ -66,7 +66,7 @@ CommaOpt:
 %%
 
 void frma::parser::error(const frma::location &loc, const std::string &msg) {
-  tag->error(loc, msg);
+  if (!(tag->lexFail && loc == tag->lexFailPos)) tag->error(loc, msg);
 }
 
 #pragma clang diagnostic pop

@@ -33,8 +33,10 @@ class FormaParserTag {
   std::stack<std::ostringstream> bufs;
 
 public:
-  FormaPrimaries *prims = nullptr;
-  void *          scan  = nullptr;
+  FormaPrimaries *prims   = nullptr;
+  void *          scan    = nullptr;
+  bool            lexFail = false;
+  location        lexFailPos;
 
 
   FormaParserTag(const std::string &filename) : m_filename(filename) {}

@@ -102,7 +102,7 @@ module ASTGen
         end
       end
 
-      def chain(name = @name, &block)
+      def chain(name = @name, with_rule: true, &block)
         @d.pos("chain #{name.inspect}") do
           if [
             verify(name.is_a?(Symbol)) { @d.error("invalid symbol name #{@d.hl(name)}") },
@@ -111,7 +111,7 @@ module ASTGen
           end
 
           if @last_symbol
-            @last_symbol.rule :self, @last_symbol.defer(:self)
+            @last_symbol.rule :self, @last_symbol.defer(:self) if with_rule
             @last_symbol.resolve(name)
           else
             @d.error("no symbol available to chain to")

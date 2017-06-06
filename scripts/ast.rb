@@ -145,7 +145,7 @@ ASTGen.run do
 
     [:Open, :Closed].each do |part|
       symbol :"Meta#{part}SemiExpressionPart" do
-        rule :Semi, [:"Meta#{part}SemiExpressionUnit", :expr], ";" unless part == :Open
+        rule :Semi, [:"Meta#{part}SemiExpressionUnitOpt", :expr], ";" unless part == :Open
         rule :NonSemi, [:"Meta#{part}NonSemiExpressionUnit", :expr]
       end
     end
@@ -153,6 +153,7 @@ ASTGen.run do
 
   node :MetaExpression do
     union do
+      let :MetaFunctionExpression, :func
       let :MetaCondExpression, :cond
       let :MetaLoopExpression, :loop
       let :MetaBlockExpression, :block
@@ -160,6 +161,8 @@ ASTGen.run do
       let :MetaInfixExpression, :infix
     end
 
+    ctor :Empty, fmt: []
+    ctor :Func, :func, fmt: :func
     ctor :Cond, :cond, fmt: :cond
     ctor :Loop, :loop, fmt: :loop
     ctor :Block, :block, fmt: :block
@@ -167,16 +170,24 @@ ASTGen.run do
     ctor :Infix, :infix, fmt: :infix
 
     [:Open, :Closed].each do |part|
+      symbol :"Meta#{part}SemiExpressionUnitOpt" do
+        rule :Empty
+        rule :self, [:"Meta#{part}SemiExpressionUnit", :self]
+      end unless part == :Open
+
       symbol :"Meta#{part}SemiExpressionUnit" do
         case part
           when :Closed
+            rule :Func, [:MetaRecordExpression, :func]
             rule :Loop, [:MetaClosedDoWhileExpression, :loop]
             rule :Infix, :infix
         end
       end unless part == :Open
 
       symbol :"Meta#{part}NonSemiExpressionUnit" do
+        rule :Func, [:"Meta#{part}ArrowFuncExpression", :func]
         rule :Cond, [:"Meta#{part}IfElseExpression", :cond]
+        rule :Cond, [:"Meta#{part}UnlessElseExpression", :cond]
         rule :Loop, [:"Meta#{part}LoopExpression", :loop]
         rule :Loop, [:"Meta#{part}WhileExpression", :loop]
         rule :Loop, [:"Meta#{part}ForExpression", :loop]
@@ -185,16 +196,78 @@ ASTGen.run do
         case part
           when :Open
             rule :Cond, [:MetaOpenIfExpression, :cond]
+            rule :Cond, [:MetaOpenUnlessExpression, :cond]
           when :Closed
+            rule :Func, [:MetaBlockFuncExpression, :func]
             rule :Block, :block
         end
       end
+
+      symbol :"Meta#{part}Expression" do
+        rule :self, [:"Meta#{part}SemiExpressionUnit", :self] unless part == :Open
+        rule :self, [:"Meta#{part}NonSemiExpressionUnit", :self]
+      end
+    end
+
+    symbol :MetaExpression do
+      [:Open, :Closed].each{|p| rule :self, [:"Meta#{p}Expression", :self] }
+    end
+  end
+
+  node :MetaFunctionExpression do
+    union do
+      let :MetaSemiExpressionPart, :semi
+      let :MetaBlockExpression, :block
+    end
+
+    let :MetaFunctionArguments, :args
+
+    ctor :ArrowFunc, :args, :semi, fmt: ["function (", :args, ") => ", :semi]
+    ctor :BlockFunc, :args, :block, fmt: ["function (", :args, ") ", :block]
+    ctor :Record, :args, fmt: ["record (", :args, ")"]
+
+    [:Open, :Closed].each do |part|
+      symbol :"Meta#{part}ArrowFuncExpression" do
+        rule :ArrowFunc, "function", "(", [:MetaFunctionArgumentsOpt, :args], ")", "=>", [:"Meta#{part}SemiExpressionPart", :semi]
+      end
+    end
+
+    symbol :MetaBlockFuncExpression do
+      rule :BlockFunc, "function", "(", [:MetaFunctionArgumentsOpt, :args], ")", :block
+    end
+
+    symbol :MetaRecordExpression do
+      rule :Record, "record", "(", [:MetaFunctionArgumentsOpt, :args], ")"
+    end
+  end
+
+  node :MetaFunctionArguments do
+    let :MetaFunctionArguments, :args
+    let :MetaFunctionArgument, :arg
+
+    ctor :Empty, fmt: []
+    ctor :Arguments, :args, :arg, fmt: [:args, ", ", :arg]
+    ctor :Argument, :arg, fmt: :arg
+
+    symbol :MetaFunctionArgumentsOpt do
+      rule :Empty
+      rule :self, [:MetaFunctionArguments, :self]
     end
 
     symbol do
-      rule :Block, :block
-      rule :Let, :let
-      rule :Infix, :infix
+      rule :Arguments, :args, ",", :arg
+      rule :Argument, :arg
+    end
+  end
+
+  node :MetaFunctionArgument do
+    let :Token, :typen
+    let :Token, :id
+
+    ctor :Typed, :typen, :id, fmt: [:typen, " ", :id]
+
+    symbol do
+      rule :Typed, [:Identifier, :typen], [:Identifier, :id]
     end
   end
 
@@ -203,19 +276,22 @@ ASTGen.run do
     let :MetaSemiExpressionPart, :then
     let :MetaSemiExpressionPart, :otherwise
 
-    ctor :If, :cond, :then, fmt: ["if (", :cond, ") ", :then]
-    ctor :IfElse, :cond, :then, :otherwise, fmt: ["if (", :cond, ") ", :then, "\nelse ", :otherwise]
+    ctor [:Unless, :If], :cond, :then, fmt: ["if (", :cond, ") ", :then]
+    ctor [:UnlessElse, :IfElse], :cond, :then, :otherwise, fmt: ["if (", :cond, ") ", :then, "\nelse ", :otherwise]
 
-    symbol :MetaOpenIfExpression do
-      rule :If, "if", "(", :cond, ")", :then
-    end
+    [
+      [:If, "if"],
+      [:Unless, "unless"],
+    ].each do |name, tok|
+      symbol :"MetaOpen#{name}Expression" do
+        rule name, tok, "(", :cond, ")", :then
+      end
 
-    symbol :MetaOpenIfElseExpression do
-      rule :IfElse, "if", "(", :cond, ")", [:MetaClosedSemiExpressionPart, :then], "else", [:MetaOpenSemiExpressionPart, :otherwise]
-    end
-
-    symbol :MetaClosedIfElseExpression do
-      rule :IfElse, "if", "(", :cond, ")", [:MetaClosedSemiExpressionPart, :then], "else", [:MetaClosedSemiExpressionPart, :otherwise]
+      [:Open, :Closed].each do |part|
+        symbol :"Meta#{part}#{name}ElseExpression" do
+          rule :"#{name}Else", tok, "(", :cond, ")", [:MetaClosedSemiExpressionPart, :then], "else", [:"Meta#{part}SemiExpressionPart", :otherwise]
+        end
+      end
     end
   end
 
@@ -315,10 +391,37 @@ ASTGen.run do
 
     let :MetaInfixExpression, :infixl
 
-    ctor [:Add, :Sub, :Mul, :Div], :infixl, :infixr
+    ctor [
+      :Disjunct,
+      :Conjunct,
+      :Equal,
+      :NotEqual,
+      :Greater,
+      :Less,
+      :GreaterEq,
+      :LessEq,
+      :BitOr,
+      :BitAnd,
+      :BitXor,
+      :Add,
+      :Sub,
+      :Mul,
+      :Div,
+    ], :infixl, :infixr
     ctor :Mod, :infixl, :unary
     ctor :Unary, :unary, fmt: :unary
 
+    fmt :Conjunct, :infixl, " || ", :infixr
+    fmt :Disjunct, :infixl, " && ", :infixr
+    fmt :Equal, :infixl, " == ", :infixr
+    fmt :NotEqual, :infixl, " != ", :infixr
+    fmt :Greater, :infixl, " > ", :infixr
+    fmt :Less, :infixl, " < ", :infixr
+    fmt :GreaterEq, :infixl, " >= ", :infixr
+    fmt :LessEq, :infixl, " <= ", :infixr
+    fmt :BitOr, :infixl, " | ", :infixr
+    fmt :BitAnd, :infixl, " & ", :infixr
+    fmt :BitXor, :infixl, " ^ ", :infixr
     fmt :Add, :infixl, " + ", :infixr
     fmt :Sub, :infixl, " - ", :infixr
     fmt :Mul, :infixl, " * ", :infixr
@@ -326,6 +429,39 @@ ASTGen.run do
     fmt :Mod, :infixl, " % ", :unary
 
     symbol do end
+
+    chain :MetaDisjunctExpression do
+      rule :Disjunct, me(:infixl), "||", defer(:infixr)
+    end
+
+    chain :MetaConjunctExpression do
+      rule :Conjunct, me(:infixl), "&&", defer(:infixr)
+    end
+
+    chain :MetaComparisonExpression do
+      [
+        [:Equal, "=="],
+        [:NotEqual, "!="],
+        [:Greater, ">"],
+        [:Less, "<"],
+        [:GreaterEq, ">="],
+        [:LessEq, "<="],
+      ].each do |name, op|
+        rule name, me(:infixl), op, defer(:infixr)
+      end
+    end
+
+    chain :MetaBitwiseOrExpression do
+      rule :BitOr, me(:infixl), "|", defer(:infixr)
+    end
+
+    chain :MetaBitwiseAndExpression do
+      rule :BitAnd, me(:infixl), "&", defer(:infixr)
+    end
+
+    chain :MetaBitwiseXorExpression do
+      rule :BitXor, me(:infixl), "^", defer(:infixr)
+    end
 
     chain :MetaAddExpression do
       rule :Add, me(:infixl), "+", defer(:infixr)
@@ -356,19 +492,25 @@ ASTGen.run do
     end
 
     ctor [
+      :LogNot,
+      :BitNot,
       :Pos,
       :Neg,
       :Inc,
-      :Dec
+      :Dec,
     ], :unary
     ctor :Call, :call, fmt: :call
 
+    fmt :LogNot, "!", :unary
+    fmt :BitNot, "~", :unary
     fmt :Pos, "+", :unary
     fmt :Neg, "-", :unary
     fmt :Inc, "++", :unary
     fmt :Dec, "--", :unary
 
     symbol do
+      rule :LogNot, "!", :unary
+      rule :BitNot, "~", :unary
       rule :Pos, "+", :unary
       rule :Neg, "-", :unary
       rule :Inc, "++", :unary
@@ -444,9 +586,17 @@ ASTGen.run do
     ]
 
     ctor toks, :tok, fmt: :tok
+    ctor [:Nil, :True, :False]
+
+    fmt :Nil, "nil"
+    fmt :True, "true"
+    fmt :False, "false"
 
     symbol do
       toks.each{|t| rule t, [t, :tok] }
+      rule :Nil, "nil"
+      rule :True, "true"
+      rule :False, "false"
     end
   end
 end

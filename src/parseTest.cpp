@@ -9,7 +9,9 @@
 int main(int argc, char **argv) {
   FILE *      infile;
   std::string filename("???");
+#ifdef _DEBUG
   bool verbose = false;
+#endif
 
   std::list<std::string> args;
 
@@ -18,11 +20,17 @@ int main(int argc, char **argv) {
     for (size_t i = 1; i < argc; ++i) {
       std::string arg(argv[i]);
       if (doFlags) {
-        if (arg == "-v") verbose = true;
-        else if (arg == "--") doFlags = false;
-        else args.push_back(arg);
-      }
-      else args.push_back(arg);
+#ifdef _DEBUG
+        if (arg == "-v")
+          verbose = true;
+        else
+#endif
+            if (arg == "--")
+          doFlags = false;
+        else
+          args.push_back(arg);
+      } else
+        args.push_back(arg);
     }
   }
   switch (args.size()) {
@@ -46,10 +54,12 @@ int main(int argc, char **argv) {
 
     lex.inFile(infile);
 
+#ifdef _DEBUG
     if (verbose) {
       lex.debug(true);
       parse.set_debug_level(1);
     }
+#endif
 
     bool success = !parse.parse();
 
@@ -58,8 +68,10 @@ int main(int argc, char **argv) {
     for (auto r : tag.errors()) r.print(std::cerr);
 
     if (success) {
-      if (tag.prims) tag.prims->print(std::cout);
-      else std::cerr << "WARNING: no output" << std::endl;
+      if (tag.prims)
+        tag.prims->print(std::cout);
+      else
+        std::cerr << "WARNING: no output" << std::endl;
     }
 
     std::cout << std::endl;

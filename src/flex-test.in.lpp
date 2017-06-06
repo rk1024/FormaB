@@ -37,7 +37,12 @@ typedef frma::parser::token tk;
 
 #define $x yyg->yyextra_r
 
-#define $E(value) { $x->error(*yylloc, value); yyterminate(); }
+#define $E(value) do { \
+  $x->error(*yylloc, std::string("lexical error: ") + value); \
+  $x->lexFail = true; \
+  $x->lexFailPos = *yylloc; \
+  yyterminate(); \
+} while (false);
 
 #define $TK(value) return tk::value;
 
@@ -69,7 +74,11 @@ typedef frma::parser::token tk;
 
 #define $SL yylloc->step();
 
-#define $MN(n) { yylloc->columns(n); yylineno += n; }
+#define $MN(n) do { \
+  yylloc->columns(n); \
+  yylineno += n; \
+} while (false);
+
 #define $WN(n) yylloc->lines(n);
 
 #define $ML $MN(yyleng)
@@ -187,32 +196,54 @@ QLEscape \\.
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
+  %astgen-token KWBreak "break" { $SL $ML }
+  %astgen-token KWCase "case" { $SL $ML }
+  %astgen-token KWCatch "catch" { $SL $ML }
   %astgen-token KWDo "do" { $SL $ML }
   %astgen-token KWElse "else" { $SL $ML }
+  %astgen-token KWFalse "false" { $SL $ML }
+  %astgen-token KWFinally "finally" { $SL $ML }
   %astgen-token KWFor "for" { $SL $ML }
   %astgen-token KWFunction "function" { $SL $ML }
   %astgen-token KWIf "if" { $SL $ML }
   %astgen-token KWInterface "interface" { $SL $ML }
   %astgen-token KWLet "let" { $SL $ML }
   %astgen-token KWLoop "loop" { $SL $ML }
+  %astgen-token KWNext "next" { $SL $ML }
+  %astgen-token KWNull "nil" { $SL $ML }
   %astgen-token KWRecord "record" { $SL $ML }
   %astgen-token KWStruct "struct" { $SL $ML }
+  %astgen-token KWSwitch "switch" { $SL $ML }
+  %astgen-token KWTrue "true" { $SL $ML }
+  %astgen-token KWTry "try" { $SL $ML }
+  %astgen-token KWUnless "unless" { $SL $ML }
   %astgen-token KWWhile "while" { $SL $ML }
 
+  %astgen-token And "&" { $SL $ML }
   %astgen-token Assign "=" { $SL $ML }
+  %astgen-token Colon ":" { $SL $ML }
   %astgen-token Comma "," { $SL $ML }
+  %astgen-token Compl "!" { $SL $ML }
   %astgen-token Conj "&&" { $SL $ML }
   %astgen-token Disj "||" { $SL $ML }
   %astgen-token Div "/" { $SL $ML }
   %astgen-token Equal "==" { $SL $ML }
   %astgen-token EqGT "=>" { $SL $ML }
+  %astgen-token Greater ">" { $SL $ML }
+  %astgen-token GreaterEq ">=" { $SL $ML }
+  %astgen-token Less "<" { $SL $ML }
+  %astgen-token LessEq "<=" { $SL $ML }
   %astgen-token Minus "-" { $SL $ML }
   %astgen-token Mod "%" { $SL $ML }
   %astgen-token Mul "*" { $SL $ML }
+  %astgen-token Not "~" { $SL $ML }
   %astgen-token NotEqual "!=" { $SL $ML }
+  %astgen-token Or "|" { $SL $ML }
   %astgen-token Period "." { $SL $ML }
   %astgen-token Plus "+" { $SL $ML }
+  %astgen-token Quest "?" { $SL $ML }
   %astgen-token Semi ";" { $SL $ML }
+  %astgen-token Xor "^" { $SL $ML }
 }
 
 <SSRawBlock,SSMetaBlock>{

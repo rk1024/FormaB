@@ -1,14 +1,77 @@
 using System;
 
+@!somelanguage{
+  So, basically, I can just put whatever here. }}}]]]
+  '
+  "
+@}
+
+@!meta{
+@@ let @if = function(`({cond}) {then} else {else}`) {
+@@   1 + 2;
+@@ };
+
+  let @if = record(Expression expr, Statement then, Statement @else);
+
+  let stuff = function(int a, int b) => 18 % 4 + 2 * 3 / 4 / 5 + 6;
+
+  let myfn = function() {
+    if (let a = 1; a == 0)
+      if (b);
+      else;
+  };
+
+  loop {
+    ++j;
+  }
+
+  while (x) ;
+
+  while (let x = 15; if (12 <= x) y; else z;) ;
+
+  do ; while (y);
+
+  do ; while (let j = 5; j + 1);
+
+  for (let i = 0; i < 10; ++i) ;
+
+  unless (this.failed()) ;
+
+  for (let x = true; x != false; x = false) ;
+
+  unless (x) ;
+  else ; @@ For consistency, not style - I personally don't really like it
+
+  if (let a = 1; a + 1) {
+  }
+
+  {
+    hi();
+  }
+
+  let awesome = if (1) {
+    a();
+    13;
+  } else {
+    b();
+    27;
+  }
+
+  let pi = 3.14159;
+
+  let stuff = (pi + 1) / 2;
+  (1 + 2 * 3).test()["hi"].x["some", stuff()](1, 2);
+@}
+
+@#pragma warning disable 3200
+
 @[
   This is the entry point for our program.
   The return value is the program's return status code.
 @]
 
-@pragma warning disable 3200
-
-let Main = function(int argc, char **argv) -> int {
-  Console.Print("Hi there!"); @@ Make sure this stuff works.
+let main = function(int argc, char **argv) -> int {
+  print("Hi there!"); @@ Make sure this stuff works.
 
   return 0;
 }

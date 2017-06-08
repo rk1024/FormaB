@@ -210,7 +210,7 @@ QLEscape \\.
   %astgen-token KWLet "let" { $SL $ML }
   %astgen-token KWLoop "loop" { $SL $ML }
   %astgen-token KWNext "next" { $SL $ML }
-  %astgen-token KWNull "nil" { $SL $ML }
+  %astgen-token KWNil "nil" { $SL $ML }
   %astgen-token KWRecord "record" { $SL $ML }
   %astgen-token KWReturn "return" { $SL $ML }
   %astgen-token KWStruct "struct" { $SL $ML }
@@ -241,6 +241,7 @@ QLEscape \\.
   %astgen-token LessEq "<=" { $SL $ML }
   %astgen-token Minus "-" { $SL $ML }
   %astgen-token MinusAssign "-=" { $SL $ML }
+  %astgen-token MinusMinus "--" { $SL $ML }
   %astgen-token Mod "%" { $SL $ML }
   %astgen-token ModAssign "%=" { $SL $ML }
   %astgen-token Mul "*" { $SL $ML }
@@ -252,6 +253,7 @@ QLEscape \\.
   %astgen-token Period "." { $SL $ML }
   %astgen-token Plus "+" { $SL $ML }
   %astgen-token PlusAssign "+=" { $SL $ML }
+  %astgen-token PlusPlus "++" { $SL $ML }
   %astgen-token Quest "?" { $SL $ML }
   %astgen-token Semi ";" { $SL $ML }
   %astgen-token Xor "^" { $SL $ML }

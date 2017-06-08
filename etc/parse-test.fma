@@ -11,15 +11,29 @@ using System;
 @@   1 + 2;
 @@ };
 
+  let factorial = function(int x) =>
+    if (x == 1) 1;
+    else x * factorial(x - 1);
+
+  let fibonacci = function(int n) =>
+    if (n < 2) 1;
+    else fibonacci(n - 1) + fibonacci(n - 2);
+
   let @if = record(Expression expr, Statement then, Statement @else);
 
   let stuff = function(int a, int b) => 18 % 4 + 2 * 3 / 4 / 5 + 6;
+
+  next 5;
+
+  return 5;
+
+  return;
 
   let myfn = function() {
     if (let a = 1; a == 0)
       if (b);
       else;
-  };
+  }
 
   loop {
     ++j;
@@ -36,11 +50,19 @@ using System;
   for (let i = 0; i < 10; ++i) ;
 
   unless (this.failed()) ;
-
   for (let x = true; x != false; x = false) ;
+  let x = 1462;
+  x += 1;
+  x -= 1;
+  x *= y += 1;
+  x /= 2;
+  x %= 5;
+  x ^= 0b1010;
+
+  10 += 5; @@ Okay, this needs to not work eventually.
 
   unless (x) ;
-  else ; @@ For consistency, not style - I personally don't really like it
+  else ; @@ For consistency, not style - I personally don't really like unless-else
 
   if (let a = 1; a + 1) {
   }
@@ -49,7 +71,7 @@ using System;
     hi();
   }
 
-  let awesome = if (1) {
+  let awesome = if (true) {
     a();
     13;
   } else {

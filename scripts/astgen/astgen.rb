@@ -80,7 +80,9 @@ module ASTGen
       end
 
       symbol_list = symbol_list.flatten do |name, syms, uses|
-        nodes = syms.map{|s, n| [s.node, n] }.to_h
+        nodes = LooseHash.new
+        syms.each{|s, n| nodes.addn(s.name, s.node, n: n) }
+        nodes = nodes.counted[name]
 
         @d.error("duplicate symbol #{@d.hl(name)} used #{uses} times in " <<
           (nodes.length > 1 ? "#{nodes.length} nodes: " : "node ") <<

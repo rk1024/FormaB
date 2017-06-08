@@ -126,14 +126,15 @@ ASTGen.run do
     end
 
     symbol do
-      rule :Expressions, me(:semi), :expr
-      rule :Expression, :expr
+      rule :Expressions, me(:semi), [:MetaSemiExpressionOptPart, :expr]
+      rule :Expression, [:MetaSemiExpressionOptPart, :expr]
     end
   end
 
   node :MetaSemiExpressionPart do
     let :MetaExpression, :expr
 
+    ctor :Empty, fmt: [";"]
     ctor [:Semi, :NonSemi], :expr
 
     fmt :Semi, :expr, ";"
@@ -143,9 +144,18 @@ ASTGen.run do
       [:Open, :Closed].each{|p| rule :self, [:"Meta#{p}SemiExpressionPart", :self] }
     end
 
+    symbol :MetaSemiExpressionOptPart do
+      [:Open, :Closed].each{|p| rule :self, [:"Meta#{p}SemiExpression#{:Opt if p == :Closed}Part", :self] }
+    end
+
+    symbol :MetaClosedSemiExpressionOptPart do
+      rule :Empty, ";"
+      rule :self, [:MetaClosedSemiExpressionPart, :self]
+    end
+
     [:Open, :Closed].each do |part|
       symbol :"Meta#{part}SemiExpressionPart" do
-        rule :Semi, [:"Meta#{part}SemiExpressionUnitOpt", :expr], ";" unless part == :Open
+        rule :Semi, [:"Meta#{part}SemiExpressionUnit", :expr], ";" unless part == :Open
         rule :NonSemi, [:"Meta#{part}NonSemiExpressionUnit", :expr]
       end
     end
@@ -158,28 +168,27 @@ ASTGen.run do
       let :MetaLoopExpression, :loop
       let :MetaBlockExpression, :block
       let :MetaLetExpression, :let
+      let :MetaAssignExpression, :assign
+      let :MetaKeywordExpression, :keyword
       let :MetaInfixExpression, :infix
     end
 
-    ctor :Empty, fmt: []
     ctor :Func, :func, fmt: :func
     ctor :Cond, :cond, fmt: :cond
     ctor :Loop, :loop, fmt: :loop
     ctor :Block, :block, fmt: :block
     ctor :Let, :let, fmt: :let
+    ctor :Assign, :assign, fmt: :assign
+    ctor :Keyword, :keyword, fmt: :keyword
     ctor :Infix, :infix, fmt: :infix
 
     [:Open, :Closed].each do |part|
-      symbol :"Meta#{part}SemiExpressionUnitOpt" do
-        rule :Empty
-        rule :self, [:"Meta#{part}SemiExpressionUnit", :self]
-      end unless part == :Open
-
       symbol :"Meta#{part}SemiExpressionUnit" do
         case part
           when :Closed
             rule :Func, [:MetaRecordExpression, :func]
             rule :Loop, [:MetaClosedDoWhileExpression, :loop]
+            rule :Assign, :assign
             rule :Infix, :infix
         end
       end unless part == :Open
@@ -192,6 +201,7 @@ ASTGen.run do
         rule :Loop, [:"Meta#{part}WhileExpression", :loop]
         rule :Loop, [:"Meta#{part}ForExpression", :loop]
         rule :Let, [:"Meta#{part}LetExpression", :let]
+        rule :Keyword, [:"Meta#{part}KeywordExpression", :keyword]
 
         case part
           when :Open
@@ -284,12 +294,12 @@ ASTGen.run do
       [:Unless, "unless"],
     ].each do |name, tok|
       symbol :"MetaOpen#{name}Expression" do
-        rule name, tok, "(", :cond, ")", :then
+        rule name, tok, "(", :cond, ")", [:MetaSemiExpressionOptPart, :then]
       end
 
       [:Open, :Closed].each do |part|
         symbol :"Meta#{part}#{name}ElseExpression" do
-          rule :"#{name}Else", tok, "(", :cond, ")", [:MetaClosedSemiExpressionPart, :then], "else", [:"Meta#{part}SemiExpressionPart", :otherwise]
+          rule :"#{name}Else", tok, "(", :cond, ")", [:MetaClosedSemiExpressionOptPart, :then], "else", [:"Meta#{part}SemiExpression#{:Opt if part == :Closed}Part", :otherwise]
         end
       end
     end
@@ -311,7 +321,7 @@ ASTGen.run do
     fmt :DoWhile, "do ", :body, " while (", :cond, ")"
 
     [:Open, :Closed].each do |part|
-      body = [:"Meta#{part}SemiExpressionPart", :body].freeze
+      body = [:"Meta#{part}SemiExpression#{:Opt if part == :Closed}Part", :body].freeze
 
       symbol :"Meta#{part}LoopExpression" do
         rule :Loop, "loop", body
@@ -327,7 +337,7 @@ ASTGen.run do
     end
 
     symbol :MetaClosedDoWhileExpression do
-      rule :DoWhile, "do", [:MetaClosedSemiExpressionPart, :body], "while", "(", :cond, ")"
+      rule :DoWhile, "do", [:MetaSemiExpressionOptPart, :body], "while", "(", :cond, ")"
     end
   end
 
@@ -379,6 +389,84 @@ ASTGen.run do
     [:Open, :Closed].each do |part|
       symbol :"Meta#{part}LetExpression" do
         rule :Let, "let", [:Identifier, :id], "=", [:"Meta#{part}SemiExpressionPart", :expr]
+      end
+    end
+  end
+
+  node :MetaAssignExpression do
+    union do
+      let :MetaMemberExpression, :memb
+      let :MetaInfixExpression, :infix
+    end
+
+    let :MetaAssignExpression, :assign
+
+    ctor [
+      :Assign,
+      :LogOr,
+      :LogAnd,
+      :BitOr,
+      :BitAnd,
+      :BitXor,
+      :Add,
+      :Sub,
+      :Mul,
+      :Div,
+      :Mod,
+    ], :memb, :assign
+    ctor :Infix, :infix, fmt: :infix
+
+    fmt :Assign, :memb, " = ", :assign
+    fmt :LogOr, :memb, " ||= ", :assign
+    fmt :LogAnd, :memb, " &&= ", :assign
+    fmt :BitOr, :memb, " |= ", :assign
+    fmt :BitAnd, :memb, " &= ", :assign
+    fmt :BitXor, :memb, " ^= ", :assign
+    fmt :Add, :memb, " += ", :assign
+    fmt :Sub, :memb, " -= ", :assign
+    fmt :Mul, :memb, " *= ", :assign
+    fmt :Div, :memb, " /= ", :assign
+    fmt :Mod, :memb, " %= ", :assign
+
+    symbol do
+      rule :Assign, :memb, "=", defer(:assign)
+      rule :LogOr, :memb, "||=", defer(:assign)
+      rule :LogAnd, :memb, "&&=", defer(:assign)
+      rule :BitOr, :memb, "|=", defer(:assign)
+      rule :BitAnd, :memb, "&=", defer(:assign)
+      rule :BitXor, :memb, "^=", defer(:assign)
+      rule :Add, :memb, "+=", defer(:assign)
+      rule :Sub, :memb, "-=", defer(:assign)
+      rule :Mul, :memb, "*=", defer(:assign)
+      rule :Div, :memb, "/=", defer(:assign)
+      rule :Mod, :memb, "%=", defer(:assign)
+    end
+
+    chain :MetaAssignRHS, with_rule: false do
+      rule :Infix, :infix
+      rule :self, [:MetaAssignExpression, :self]
+    end
+  end
+
+  node :MetaKeywordExpression do
+    let :MetaSemiExpressionPart, :expr
+
+    ctor [
+      :Break,
+      :Next,
+      :Return,
+    ], :expr
+
+    fmt :Break, "break", :expr
+    fmt :Next, "next", :expr
+    fmt :Return, "return", :expr
+
+    [:Open, :Closed].each do |part|
+      symbol :"Meta#{part}KeywordExpression" do
+        semi = [:"Meta#{part}SemiExpression#{:Opt if part == :Closed}Part", :expr]
+        rule :Break, "break", semi
+        rule :Next, "next", semi
+        rule :Return, "return", semi
       end
     end
   end

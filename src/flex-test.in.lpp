@@ -118,6 +118,7 @@ BQuote \`
 IDStart [a-zA-Z_]
 IDEscape @
 PPStart @#
+NumDecStart \.
 NumStart [0-9]
 OpStart [`~!#$%^&*=+|;:,<.>/?-]
 Identifier [0-9a-zA-Z_]
@@ -286,7 +287,7 @@ QLEscape \\.
 
   %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
-  %astgen-token Number /{NumStart}{Number}*/ { $SL $ML } capture
+  %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore this
 
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }

@@ -150,27 +150,24 @@ ASTGen.run do
     fmt :NonSemi, :expr
 
     symbol :MetaSemiExpressionOptPart do
-      rule :Empty, ";"
-      rule :self, [:MetaSemiExpressionPart, :self]
+      do_exprs.call{|p, t, o| rule :self, [:"Meta#{p}SemiExpression#{:Opt unless t == :Try || o == :Open}Part", :self] }
     end
 
     symbol do
       do_exprs.call{|p, *| rule :self, [:"Meta#{p}SemiExpressionPart", :self] }
     end
 
-
-
     try_parts.each do |try|
       symbol :"Meta#{try}SemiExpressionOptPart" do
-        open_parts.each{|o| rule :self, [:"Meta#{try}#{o}SemiExpression#{:Opt if try == :NonTry && o == :Closed}Part", :self] }
-      end
+        open_parts.each{|o| rule :self, [:"Meta#{try}#{o}SemiExpressionOptPart", :self] unless o == :Open }
+      end unless try == :Try
     end
 
     do_exprs.call do |part, try, open|
       symbol :"Meta#{part}SemiExpressionOptPart" do
         rule :Empty, ";"
         rule :self, [:"Meta#{part}SemiExpressionPart", :self]
-      end
+      end unless try == :Try || open == :Open
 
       symbol :"Meta#{part}SemiExpressionPart" do
         rule :Semi, [:"Meta#{part}SemiExpressionUnit", :expr], ";" unless try == :Try || open == :Open
@@ -230,10 +227,8 @@ ASTGen.run do
 
         case open
           when :Open
-            unless try == :Try # Not if try == :NonTry, in keeping with the above
-              rule :Cond, [:"Meta#{part}IfExpression", :cond]
-              rule :Cond, [:"Meta#{part}UnlessExpression", :cond]
-            end
+            rule :Cond, [:"Meta#{part}IfExpression", :cond]
+            rule :Cond, [:"Meta#{part}UnlessExpression", :cond]
           when :Closed
             if try == :NonTry
               rule :Struct, [:MetaStructExpression, :strukt]
@@ -367,24 +362,41 @@ ASTGen.run do
   end
 
   node :MetaCondExpression do
+    union do
+      let :MetaSemiExpressionPart, :then
+      let :MetaExpression, :exprThen
+    end
+
+    union do
+      let :MetaSemiExpressionPart, :otherwise
+      let :MetaExpression, :exprOtherwise
+    end
+
     let :MetaCondition, :cond
-    let :MetaSemiExpressionPart, :then
-    let :MetaSemiExpressionPart, :otherwise
 
     ctor [:Unless, :If], :cond, :then, fmt: ["if (", :cond, ") ", :then]
+    ctor [:UnlessInline, :IfInline], :cond, :exprThen, fmt: ["if (", :cond, ") ", :exprThen]
     ctor [:UnlessElse, :IfElse], :cond, :then, :otherwise, fmt: ["if (", :cond, ") ", :then, "\nelse ", :otherwise]
+    ctor [:UnlessElseInline, :IfElseInline], :cond, :then, :exprOtherwise, fmt: ["if (", :cond, ") ", :then, "\nelse ", :exprOtherwise]
 
     [
-      [:If, "if"],
-      [:Unless, "unless"],
-    ].each do |name, tok|
-      do_exprs.call do |part, try, open|
-        symbol :"Meta#{part}#{name}Expression" do
-          rule name, tok, "(", :cond, ")", [:"Meta#{try}SemiExpression#{:Opt if try == :NonTry}Part", :then]
-        end if try != :Try && open == :Open
+      [:"", :then, :otherwise, :Semi, :Part],
+      [:Inline, :exprThen, :exprOtherwise, :"", :""],
+    ].each do |inline, thn, otherwise, semi, xpart|
+      [
+        [:If, "if"],
+        [:Unless, "unless"],
+      ].each do |name, tok|
+        try_parts.each do |try|
+          symbol :"Meta#{try}Open#{inline}#{name}Expression" do
+            open_parts.each{|o| rule :"#{name}#{inline}", tok, "(", :cond, ")", [:"Meta#{try}#{o}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || o == :Open}#{xpart}", thn] }
+          end
+        end
 
-        symbol :"Meta#{part}#{name}ElseExpression" do
-          rule :"#{name}Else", tok, "(", :cond, ")", [:"Meta#{try}ClosedSemiExpression#{:Opt if try == :NonTry}Part", :then], "else", [:"Meta#{part}SemiExpression#{:Opt if try == :NonTry && open == :Closed}Part", :otherwise]
+        do_exprs.call do |part, try, open|
+          symbol :"Meta#{part}#{inline}#{name}ElseExpression" do
+            rule :"#{name}Else#{inline}", tok, "(", :cond, ")", [:"Meta#{try}ClosedSemiExpression#{:Opt unless inline == :Inline || try == :Try}Part", :then], "else", [:"Meta#{part}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || open == :Open}#{xpart}", otherwise]
+          end
         end
       end
     end
@@ -436,18 +448,14 @@ ASTGen.run do
     ctor :TryCatchFinally, :tri, :katch, :finally, fmt: ["try ", :tri, " ", :katch, " ", :finally]
 
     open_parts.each do |part|
-      tri = [ "try", [:MetaNonTrySemiExpressionOptPart, :tri]]
+      tri = ["try", [:MetaNonTrySemiExpressionOptPart, :tri]]
       katch = [:"Meta#{part}CatchExpression", :katch]
       finally = [:"Meta#{part}FinallyExpression", :finally]
 
       symbol :"Meta#{part}TryExpression" do
-        case part
-          when :Open
-            rule :TryCatch, *tri, katch
-            rule :TryFinally, *tri, finally
-          when :Closed
-            rule :TryCatchFinally, *tri, katch, finally
-        end
+        rule :TryCatch, *tri, katch
+        rule :TryFinally, *tri, finally
+        # rule :TryCatchFinally, *tri, katch, finally
       end
     end
   end
@@ -458,9 +466,9 @@ ASTGen.run do
 
     ctor :Catch, :body, fmt: ["catch ", :body]
 
-    open_parts.each do |part|
-      symbol :"Meta#{part}CatchExpression" do
-        rule :Catch, "catch", [:"MetaNonTry#{part}SemiExpressionOptPart", :body]
+    open_parts.each do |open|
+      symbol :"Meta#{open}CatchExpression" do
+        rule :Catch, "catch", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
       end
     end
   end
@@ -470,9 +478,9 @@ ASTGen.run do
 
     ctor :Finally, :body, fmt: ["finally ", :body]
 
-    open_parts.each do |part|
-      symbol :"Meta#{part}FinallyExpression" do
-        rule :Finally, "finally", [:"MetaNonTry#{part}SemiExpressionOptPart", :body]
+    open_parts.each do |open|
+      symbol :"Meta#{open}FinallyExpression" do
+        rule :Finally, "finally", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
       end
     end
   end

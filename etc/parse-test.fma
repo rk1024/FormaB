@@ -16,7 +16,7 @@ using System;
   let Point = struct {
     let int x;
     let int y;
-  };
+  }; @@ This is an empty statement
 
   let factorial = function(int x) =>
     if (x == 1) 1;
@@ -97,6 +97,8 @@ using System;
   }
 
   let pi = 3.14159;
+
+  let num = .3;
 
   let stuff = (pi + 1) / 2;
   (1 + 2 * 3).test()["hi"].x["some", stuff()](1, 2);

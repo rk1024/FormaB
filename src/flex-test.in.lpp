@@ -200,6 +200,7 @@ QLEscape \\.
   %astgen-token KWBreak "break" { $SL $ML }
   %astgen-token KWCase "case" { $SL $ML }
   %astgen-token KWCatch "catch" { $SL $ML }
+  %astgen-token KWDefault "default" { $SL $ML }
   %astgen-token KWDo "do" { $SL $ML }
   %astgen-token KWElse "else" { $SL $ML }
   %astgen-token KWFalse "false" { $SL $ML }

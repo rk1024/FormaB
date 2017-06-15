@@ -183,6 +183,7 @@ ASTGen.run do
       let :MetaCondExpression, :cond
       let :MetaLoopExpression, :loop
       let :MetaTryExpression, :tri
+      let :MetaSwitchExpression, :swich
       let :MetaBlockExpression, :block
       let :MetaLetExpression, :let
       let :MetaAssignExpression, :assign
@@ -195,6 +196,7 @@ ASTGen.run do
     ctor :Cond, :cond, fmt: :cond
     ctor :Loop, :loop, fmt: :loop
     ctor :Try, :tri, fmt: :tri
+    ctor :Switch, :swich, fmt: :swich
     ctor :Block, :block, fmt: :block
     ctor :Let, :let, fmt: :let
     ctor :Assign, :assign, fmt: :assign
@@ -231,8 +233,9 @@ ASTGen.run do
             rule :Cond, [:"Meta#{part}UnlessExpression", :cond]
           when :Closed
             if try == :NonTry
-              rule :Struct, [:MetaStructExpression, :strukt]
+              rule :Struct, :strukt
               rule :Func, [:MetaBlockFuncExpression, :func]
+              rule :Switch, :swich
               rule :Block, :block
             end
         end
@@ -482,6 +485,76 @@ ASTGen.run do
       symbol :"Meta#{open}FinallyExpression" do
         rule :Finally, "finally", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
       end
+    end
+  end
+
+  node :MetaSwitchExpression do
+    let :MetaExpression, :on
+    let :MetaCaseClauses, :body
+
+    ctor :Switch, :on, :body, fmt: ["switch (", :on, ") {\n", :body, "\n}"]
+
+    symbol do
+      rule :Switch, "switch", "(", :on, ")", "{", [:MetaCaseClausesOpt, :body], "}"
+    end
+  end
+
+  node :MetaCaseClauses do
+    let :MetaCaseClauses, :cases
+    let :MetaCaseClause, :kase
+
+    ctor :Empty, fmt: []
+    ctor :Cases, :cases, :kase, fmt: [:cases, "\n", :kase]
+    ctor :Case, :kase, fmt: :kase
+
+    symbol :MetaCaseClausesOpt do
+      rule :Empty
+      rule :self, [:MetaCaseClauses, :self]
+    end
+
+    symbol do
+      rule :Cases, :cases, :kase
+      rule :Case, :kase
+    end
+  end
+
+  node :MetaCaseClause do
+    let :MetaCaseHeader, :head
+    let :MetaSemiExpression, :expr
+
+    ctor :Case, :head, :expr, fmt: [:head, ":\n", :expr]
+
+    symbol do
+      rule :Case, :head, ":", [:MetaSemiExpressionOpt, :expr]
+    end
+  end
+
+  node :MetaCaseHeader do
+    let :MetaCasePattern, :pat
+
+    ctor :Case, :pat, fmt: ["case ", :pat]
+    ctor :Default, fmt: ["default"]
+
+    symbol do
+      rule :Case, "case", :pat
+      rule :Default, "default"
+    end
+  end
+
+  node :MetaCasePattern do
+    union do
+      let :MetaLiteral, :literal
+      let :Token, :id
+    end
+
+    let :MetaFunctionArguments, :args
+
+    ctor :Literal, :literal, fmt: :literal
+    ctor :Record, :id, :args, fmt: [:id, "(", :args, ")"]
+
+    symbol do
+      rule :Literal, :literal
+      rule :Record, [:Identifier, :id], "(", [:MetaFunctionArgumentsOpt, :args], ")"
     end
   end
 

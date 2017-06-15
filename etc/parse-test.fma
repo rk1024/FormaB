@@ -58,7 +58,7 @@ using System;
 
   while (x) ;
 
-  while (let x = 15; if (12 <= x) y; else z;) ;
+  while (let x = 15; if (12 <= x) y; @[<--Bad@] else z; @[<--Bad@]) ; @@ Too many semicolons here.
 
   do ; while (y);
 
@@ -86,6 +86,17 @@ using System;
 
   {
     hi();
+  }
+
+  let MyRecord = record(int a, char b);
+
+  switch (3) {
+    case 7:
+      break;
+    case MyRecord(int a, char b):
+      break;
+    default:
+      break;
   }
 
   let awesome = if (true) {

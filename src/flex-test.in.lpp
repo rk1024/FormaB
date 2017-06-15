@@ -118,6 +118,7 @@ BQuote \`
 IDStart [a-zA-Z_]
 IDEscape @
 PPStart @#
+NumDecStart \.
 NumStart [0-9]
 OpStart [`~!#$%^&*=+|;:,<.>/?-]
 Identifier [0-9a-zA-Z_]
@@ -199,6 +200,7 @@ QLEscape \\.
   %astgen-token KWBreak "break" { $SL $ML }
   %astgen-token KWCase "case" { $SL $ML }
   %astgen-token KWCatch "catch" { $SL $ML }
+  %astgen-token KWDefault "default" { $SL $ML }
   %astgen-token KWDo "do" { $SL $ML }
   %astgen-token KWElse "else" { $SL $ML }
   %astgen-token KWFalse "false" { $SL $ML }
@@ -210,7 +212,7 @@ QLEscape \\.
   %astgen-token KWLet "let" { $SL $ML }
   %astgen-token KWLoop "loop" { $SL $ML }
   %astgen-token KWNext "next" { $SL $ML }
-  %astgen-token KWNull "nil" { $SL $ML }
+  %astgen-token KWNil "nil" { $SL $ML }
   %astgen-token KWRecord "record" { $SL $ML }
   %astgen-token KWReturn "return" { $SL $ML }
   %astgen-token KWStruct "struct" { $SL $ML }
@@ -241,6 +243,7 @@ QLEscape \\.
   %astgen-token LessEq "<=" { $SL $ML }
   %astgen-token Minus "-" { $SL $ML }
   %astgen-token MinusAssign "-=" { $SL $ML }
+  %astgen-token MinusMinus "--" { $SL $ML }
   %astgen-token Mod "%" { $SL $ML }
   %astgen-token ModAssign "%=" { $SL $ML }
   %astgen-token Mul "*" { $SL $ML }
@@ -252,6 +255,7 @@ QLEscape \\.
   %astgen-token Period "." { $SL $ML }
   %astgen-token Plus "+" { $SL $ML }
   %astgen-token PlusAssign "+=" { $SL $ML }
+  %astgen-token PlusPlus "++" { $SL $ML }
   %astgen-token Quest "?" { $SL $ML }
   %astgen-token Semi ";" { $SL $ML }
   %astgen-token Xor "^" { $SL $ML }
@@ -284,7 +288,7 @@ QLEscape \\.
 
   %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
-  %astgen-token Number /{NumStart}{Number}*/ { $SL $ML } capture
+  %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore this
 
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }

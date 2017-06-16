@@ -326,7 +326,31 @@ module ASTGen
 
     def self.Namespace; @@Namespace end
 
-    def self.class_name(name) "Forma#{name}" end
+    def self.class_name(name)
+      "F#{[
+        *("M" if name =~ /^meta/i),
+        *("X" if name =~ /(?<!(?:^|^meta))expression$/i)
+      ].join}#{[
+        ["Argument", "Arg"],
+        ["Expression", "Expr"],
+        ["Function", "Func"],
+        ["Primary", "Prim", "Primaries"],
+        ["Statement", "Stmt"],
+      ].reduce(name.to_s.gsub(/(?:^meta|(?<!(?:^|^meta))expression$)/i, "")) do |str, (from, to, from_plur, to_plur)|
+        if from_plur
+          str
+            .gsub(/#{from}(?!\p{Ll})/, "#{to}\\1")
+            .gsub(/#{from_plur}(?!\p{Ll})/, "#{to_plur || "#{to}s"}")
+        else
+          str.gsub(/#{from}(s)?(?!\p{Ll})/, "#{to}\\1")
+        end
+        # .gsub(/Argument(s)?(?!\p{Ll})/, %q{Arg\1})
+        # .gsub(/Expression(?!\p{Ll})/, "Expr")
+        # .gsub(/Function(?!\p{Ll})/, "Func")
+        # .gsub(/Primaries(?!\p{Ll})/, "Prims")
+        # .gsub(/Primary(?!\p{Ll})/, "Prim")
+        end.to_sym}"
+    end
     def self.qual_class_name(name) "#{@@Namespace}::#{class_name(name)}" end
     def self.header_name(name) "ast/#{ASTGen.camel_name(name)}.hpp" end
     def self.field_name(name) "m_#{name}" end

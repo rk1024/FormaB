@@ -14,14 +14,38 @@ struct FormaParserError {
   std::string    str;
 
   void print(std::ostream &os) const {
+    os << "\x1b[1m";
+
     if (loc.begin.filename)
       os << *loc.begin.filename;
     else
       os << "???";
 
 
-    os << ":" << loc.begin.line << ":" << loc.begin.column << ": " << str
-       << std::endl;
+    os << ":" << loc.begin.line << ":" << loc.begin.column;
+
+    if (loc.end != loc.begin) os << "-";
+
+    if (loc.end.filename != loc.begin.filename) {
+      if (loc.end.filename)
+        os << *loc.end.filename;
+      else
+        os << "???";
+
+      os << ":";
+
+      goto diffLine;
+    } else if (loc.end.line != loc.begin.line) {
+    diffLine:
+      os << loc.end.line << ":";
+
+      goto diffCol;
+    } else if (loc.end.column != loc.begin.column) {
+    diffCol:
+      os << loc.end.column;
+    }
+
+    os << ": \x1b[38;5;9merror:\x1b[0m " << str << std::endl;
   }
 };
 

@@ -76,7 +76,9 @@ int main(int argc, char **argv) {
 
     std::cout << std::endl;
 
-    std::cerr << tag.errors().size() << " error(s)." << std::endl;
+    std::cerr << tag.errors().size() << " error";
+    if (tag.errors().size() != 1) std::cerr << "s";
+    std::cerr << "." << std::endl;
 
   } catch (std::exception &e) { std::cerr << e.what() << std::endl; }
 }

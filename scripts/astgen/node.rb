@@ -145,6 +145,7 @@ module ASTGen
         member_order.delete_if{|m| members.is_error?(m) }
 
         dep_types = Set.new(members.values)
+        dep_types.delete(@name)
 
         struct_members = @members.flatten
 
@@ -498,6 +499,20 @@ module ASTGen
             l << "const #{Node.class_name(type)} *#{name}() const;"
           end
 
+          if use_alts?
+            vis << :public
+            l << "#{@@AltEnumName} #{@@AltMembName}() const;"
+
+            l.sep
+          end
+
+          if use_syms?
+            vis << :public
+            l << "#{@@SymEnumName} #{@@SymMembName}() const;"
+
+            l.sep
+          end
+
           l.sep
 
           Node.emit_friends(nodes, self, l)
@@ -730,6 +745,24 @@ module ASTGen
             else
               l << "return #{Node.field_name(name)};"
             end
+          end
+          l.trim << "}"
+        end
+
+        if use_alts?
+          l.sep << "#{qual_name(@@AltEnumName)} #{qual_name(@@AltMembName)}() const {"
+
+          l.fmt with_indent: "  " do
+            l << "return #{Node.field_name(@@AltMembName)};"
+          end
+          l.trim << "}"
+        end
+
+        if use_syms?
+          l.sep << "#{qual_name(@@SymEnumName)} #{qual_name(@@SymMembName)}() const {"
+
+          l.fmt with_indent: "  " do
+            l << "return #{Node.field_name(@@SymMembName)};"
           end
           l.trim << "}"
         end

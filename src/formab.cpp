@@ -2,9 +2,11 @@
 
 #include <list>
 
-#include "bison-test.hpp"
 #include "lexerDriver.hpp"
+#include "parser.hpp"
 #include "parserTag.hpp"
+
+using namespace frma;
 
 int main(int argc, char **argv) {
   FILE *      infile;
@@ -72,6 +74,14 @@ int main(int argc, char **argv) {
         tag.prims->print(std::cout);
       else
         std::cerr << "WARNING: no output" << std::endl;
+
+      FPrims &prims = *tag.prims;
+
+      switch (prims.alt()) {
+      case FPrims::Empty: break;
+      case FPrims::Primaries: break;
+      case FPrims::Primary: break;
+      }
     }
 
     std::cout << std::endl;

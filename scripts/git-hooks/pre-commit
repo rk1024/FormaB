@@ -1,0 +1,17 @@
+#!/bin/sh
+
+GIT_DIR=$(git rev-parse --git-dir)
+BASENAME=$(basename $0)
+if [ -f $GIT_DIR/hooks/$BASENAME ]; then
+  $GIT_DIR/hooks/$BASENAME $@ || exit $?
+fi
+
+scripts/git-clang-format --test --staged
+RETCODE=$?
+
+[ $RETCODE -ne 0 ] && [ $RETCODE -ne 1 ] && exit $RETCODE
+
+if [ $RETCODE -eq 1 ]; then
+  echo "Some files are not yet formatted.  Run ./format.sh, then try again." >&2
+  exit 1
+fi

@@ -145,6 +145,7 @@ module ASTGen
         member_order.delete_if{|m| members.is_error?(m) }
 
         dep_types = Set.new(members.values)
+        dep_types.delete(@name)
 
         struct_members = @members.flatten
 
@@ -325,7 +326,31 @@ module ASTGen
 
     def self.Namespace; @@Namespace end
 
-    def self.class_name(name) "Forma#{name}" end
+    def self.class_name(name)
+      "F#{[
+        *("M" if name =~ /^meta/i),
+        *("X" if name =~ /(?<!(?:^|^meta))expression$/i)
+      ].join}#{[
+        ["Argument", "Arg"],
+        ["Expression", "Expr"],
+        ["Function", "Func"],
+        ["Primary", "Prim", "Primaries"],
+        ["Statement", "Stmt"],
+      ].reduce(name.to_s.gsub(/(?:^meta|(?<!(?:^|^meta))expression$)/i, "")) do |str, (from, to, from_plur, to_plur)|
+        if from_plur
+          str
+            .gsub(/#{from}(?!\p{Ll})/, "#{to}\\1")
+            .gsub(/#{from_plur}(?!\p{Ll})/, "#{to_plur || "#{to}s"}")
+        else
+          str.gsub(/#{from}(s)?(?!\p{Ll})/, "#{to}\\1")
+        end
+        # .gsub(/Argument(s)?(?!\p{Ll})/, %q{Arg\1})
+        # .gsub(/Expression(?!\p{Ll})/, "Expr")
+        # .gsub(/Function(?!\p{Ll})/, "Func")
+        # .gsub(/Primaries(?!\p{Ll})/, "Prims")
+        # .gsub(/Primary(?!\p{Ll})/, "Prim")
+        end.to_sym}"
+    end
     def self.qual_class_name(name) "#{@@Namespace}::#{class_name(name)}" end
     def self.header_name(name) "ast/#{ASTGen.camel_name(name)}.hpp" end
     def self.field_name(name) "m_#{name}" end
@@ -496,6 +521,20 @@ module ASTGen
           @members.each do |name, type|
             vis << :public
             l << "const #{Node.class_name(type)} *#{name}() const;"
+          end
+
+          if use_alts?
+            vis << :public
+            l << "#{@@AltEnumName} #{@@AltMembName}() const;"
+
+            l.sep
+          end
+
+          if use_syms?
+            vis << :public
+            l << "#{@@SymEnumName} #{@@SymMembName}() const;"
+
+            l.sep
           end
 
           l.sep
@@ -730,6 +769,24 @@ module ASTGen
             else
               l << "return #{Node.field_name(name)};"
             end
+          end
+          l.trim << "}"
+        end
+
+        if use_alts?
+          l.sep << "#{qual_name(@@AltEnumName)} #{qual_name(@@AltMembName)}() const {"
+
+          l.fmt with_indent: "  " do
+            l << "return #{Node.field_name(@@AltMembName)};"
+          end
+          l.trim << "}"
+        end
+
+        if use_syms?
+          l.sep << "#{qual_name(@@SymEnumName)} #{qual_name(@@SymMembName)}() const {"
+
+          l.fmt with_indent: "  " do
+            l << "return #{Node.field_name(@@SymMembName)};"
           end
           l.trim << "}"
         end

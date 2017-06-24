@@ -3,12 +3,12 @@
 #include "ast/astBase.hpp"
 
 namespace frma {
-class FormaToken : public FormaAST {
+class FToken : public FormaAST {
   std::string m_value;
 
 public:
-  FormaToken(const std::string &);
-  FormaToken(const char *);
+  FToken(const std::string &);
+  FToken(const char *);
 
   virtual void print(std::ostream &os) const override;
 

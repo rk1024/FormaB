@@ -1,0 +1,432 @@
+#!/usr/bin/env ruby
+
+require 'set'
+require 'subprocess'
+require 'strscan'
+
+module Git
+  class Handle
+    def initialize(str)
+      @str = str.clone.freeze
+    end
+
+    def eql?(other) @str == other.instance_variable_get(:@str) end
+    alias :== :eql?
+
+    def hash; @str.hash end
+
+    def exist?; Git.cat_file(:exists, @str) end
+
+    def id; @str end
+    def type; Git.cat_file(:typeof, @str).to_sym end
+    def size; Git.cat_file(:sizeof, @str).to_i end
+
+    def pretty; Git.cat_file(:pretty, @str) end
+
+    def to_s; @str.to_s end
+  end
+
+  class Diff
+    def initialize(str)
+      s = StringScanner.new(str)
+
+      while s.scan_until(/---\s*/)
+        puts "File"
+        a = s.scan_until(/\n/).rstrip!
+        s.scan_until(/\+\+\+\s*/)
+        b = s.scan_until(/\n/).rstrip!
+
+        puts "A: #{a.inspect}"
+        puts "B: #{b.inspect}"
+
+        s.scan_until(/@@\s*-/)
+
+        fs = s.scan(/\d+/).to_i
+
+        puts "-S: #{fs}"
+
+        if s.scan(/\s*,\s*/)
+          fc = s.scan(/\d+/).to_i
+
+          puts "-C: #{fc}"
+        else
+          fc = 1
+
+          puts "-C: (1)"
+        end
+
+        s.scan(/\s*\+/)
+
+        ts = s.scan(/\d+/).to_i
+
+        puts "+S: #{ts}"
+
+        if s.scan(/\s*,\s*/)
+          tc = s.scan(/\d+/).to_i
+
+          puts "+C: #{tc}"
+        else
+          tc = 1
+
+          puts "+C: (1)"
+        end
+
+        s.scan_until(/\s*@@\s*/)
+
+        group = s.scan_until(/\n/).rstrip!
+
+        puts "Group: #{group.inspect}"
+
+        body = ""
+
+        tc.times do
+          body << s.scan_until(/(\n|$)/)
+        end
+
+        puts "Body:\n#{body.rstrip}\nEND"
+      end
+    end
+  end
+
+  @@verbose = false
+
+  def self.verbose; @@verbose end
+  def self.verbose=(value) @@verbose = value end
+
+  def self.index; ENV.fetch("GIT_INDEX_FILE") { File.join(rev_parse(:git_dir), "index") } end
+
+
+  def self.arg(str, cond: str) str.to_s if cond end
+  def self.args(args) args.flat_map{|a| [*(arg a)] } end
+  def self.flag(str, cond: str) "--#{str.to_s.tr("_", "-")}" if cond end
+  def self.fl(str, cond: str) "-#{str.to_s.tr("_", "-")}" if cond end
+  def self.flags(flags) flags.flat_map{|f| [*(flag f)] } end
+  def self.kvf(key, *vals, cond: vals.any?) [flag(key, cond: true), *vals.map{|v| arg v }] if cond end
+  def self.kv(key, *vals, cond: vals.any?) [fl(key, cond: true), *vals.map{|v| arg v }] if cond end
+  def self.opt(key, val) "#{flag key}=#{val.to_s}" if val end
+  def self.op(key, val) "#{fl key}=#{val.to_s}" if val end
+
+  def self.run(*args, pipe_out: false, return_status: false)
+    cmd = ["git", *args.map{|a| a.to_s }]
+
+    raise "pipe_out and return_status cannot be used together" if pipe_out && return_status
+
+    $stderr << "> #{cmd.map{|a| a =~ /\s/ || a !~ /\S/ ? a.inspect : a }.join(" ")}\n" if @@verbose
+    Subprocess.popen(cmd, stdin: Subprocess::PIPE, stdout: (Subprocess::PIPE if pipe_out)) do |proc|
+      begin
+        yield proc if block_given?
+      ensure
+        proc.stdin.close if proc.stdin
+        proc.wait
+        raise "Git exited with status code #{proc.status} (#{Subprocess.status_to_s(proc.status)})" unless proc.status.success? || return_status
+      end
+
+      return proc.stdout if pipe_out
+      return proc.status if return_status
+      nil
+    end
+  end
+
+  def self.cat_file(op, *args, path: nil)
+    out = run(
+      :"cat-file",
+
+      *(catch(:break) do
+        o = {
+          typeof: :t,
+          sizeof: :s,
+          exists: :e,
+          pretty: :p,
+        }[op]
+        throw :break, (kv o) if o
+
+        throw :break, (kvf op) if [
+          :textconv,
+          :filters,
+        ].include?(op)
+
+        throw :break, args[0] if op == :as
+
+        raise "invalid cat-file operation #{op.inspect}"
+      end),
+      *args,
+      pipe_out: op != :exists,
+      return_status: op == :exists
+    )
+
+    case op
+      when :typeof, :sizeof; out.read.rstrip!
+      when :exists; out.success?
+      else out
+    end
+  end
+
+  def self.diff(
+    *paths,
+    mode: nil,
+    a: nil,
+    b: nil,
+    pipe_out: false,
+    **opts
+  )
+    raise "Unknown mode #{mode.inspect}" unless [
+      nil,
+      :cached,
+      :no_index,
+    ].include?(mode)
+
+    opts = diff_opts(**opts)
+
+    run(
+      :diff,
+      *(opts unless mode == :no_index),
+      *(flag mode),
+      *(opts if mode == :no_index),
+      *(arg a),
+      *(arg b),
+      "--",
+      *(args paths),
+      pipe_out: pipe_out
+    )
+  end
+
+  def self.diff_files(*paths, **opts)
+    opts = diff_opts(**opts)
+
+    run(
+      :"diff-files",
+      *opts,
+      "--",
+      *paths
+    )
+  end
+
+  def self.diff_opts(
+    display: nil,
+    filter: [],
+    context: nil
+  )
+    raise "invalid display mode #{display.inspect}" unless [
+      :name,
+      :name_status,
+      nil
+    ].include?(display)
+
+    filter = Set[*filter]
+
+    [
+      *(opt :unified, context),
+      *(flag ({
+        name: :name_only,
+        name_status: :name_status
+      }[display]) if display),
+      *(opt :diff_filter, filter.map{|f| {
+        add: :A,
+        copy: :C,
+        delete: :D,
+        modify: :M,
+        rename: :R,
+        type: :T,
+        unmerge: :U,
+        unknown: :X,
+        broken: :B,
+
+        no_add: :a,
+        no_copy: :c,
+        no_delete: :d,
+        no_modify: :m,
+        no_rename: :r,
+        no_type: :t,
+        no_unmerge: :u,
+        no_unknown: :x,
+        no_broken: :b
+      }[f] }.join unless filter.empty?)
+    ]
+  end
+
+  def self.diff_tree(*args, **opts)
+    opts = diff_opts(**opts)
+
+    run(
+      *opts,
+      "--",
+      *args
+    )
+  end
+
+  def self.ls_files(*args)
+    types = []
+    files = []
+
+    args.each do |arg|
+      case arg
+        when String; files << arg
+        when Symbol; types << arg
+      end
+    end
+
+    types.each do |type|
+      raise "Unknown type #{type.inspect}" unless [
+        :cached,
+        :deleted,
+        :others,
+        :ignored,
+        :stage,
+        :unmerged,
+        :killed,
+        :modified,
+      ].include?(type)
+    end
+
+    run(
+      :"ls-files",
+      *(flags types),
+      *(fl :z),
+      "--",
+      *(args files),
+      pipe_out: true
+    ).read.gsub!(/\0+$/, "").split("\0")
+  end
+
+  def self.read_tree(*objs, index_output: nil)
+    run(
+      :"read-tree",
+      *(opt :index_output, index_output),
+      *(flag :empty if objs.empty?),
+      *(args objs)
+    )
+  end
+
+  def self.rev_parse(
+    *args
+  )
+    run(
+      :"rev-parse",
+      *(args.flat_map do |rg|
+        case rg
+          when nil; []
+          when String; [*(arg rg)]
+          when Symbol; [*(flag rg)]
+          when Array; [*(opt(*rg))]
+          else raise "Bad argument #{rg.inspect}"
+        end
+      end),
+      pipe_out: true
+    ).read.gsub!(/\n+$/, "").split("\n")
+  end
+
+  def self.rm(
+    *files,
+    force: false,
+    recurse: false,
+    cached: false
+  )
+    run(
+      :rm,
+      *(flag :force if force),
+      *(fl :r if recurse),
+      *(flag :cached if cached),
+      "--",
+      *(args files)
+    )
+  end
+
+  def self.update_index(
+    *files,
+    add: false,
+    remove: false,
+    replace: false,
+    unmerged: false
+  )
+    files = files.flatten(1) if files.length == 1
+    run(
+      :"update-index",
+      *(flag :add if add),
+      *(flag (remove == :force ? :force_remove : :remove) if remove),
+      *(flag :replace if replace),
+      *(flag :unmerged if unmerged),
+      *(fl :z),
+      *(flag :stdin),
+    ) do |proc|
+      files.each do |file|
+        proc.stdin.write("#{file}\0")
+      end
+    end
+  end
+
+  def self.write_tree(prefix: nil)
+    Handle.new(run(
+      :"write-tree",
+      *(opt :prefix, prefix),
+      pipe_out: true
+    ).read.rstrip!)
+  end
+
+  def self.with_index(index)
+    old_index = ENV["GIT_INDEX_FILE"]
+
+    ENV["GIT_INDEX_FILE"] = index
+
+    begin
+      yield
+    ensure
+      if old_index
+        ENV["GIT_INDEX_FILE"] = old_index
+      else
+        ENV.delete("GIT_INDEX_FILE")
+      end
+    end
+  end
+
+  def self.with_tmp_index_file
+    index = catch(:break) do
+      dir = Git.rev_parse :git_dir
+
+      ret = nil
+
+      throw :break, ret unless File.exist?(ret = File.join(dir, "tmp_index"))
+
+      id = 1
+
+      while File.exist?(ret = File.join(dir, "tmp_index_#{id}"))
+        id += 1
+      end
+
+      ret
+    end
+
+    File.open(index, "w") {}
+
+    begin
+      yield index
+    ensure
+      File.delete(index) if File.exist?(index)
+    end
+  end
+end
+
+def main
+  Git.verbose = true
+
+  staged = Git.write_tree
+
+  Git.with_tmp_index_file do |index|
+    Git.read_tree staged, index_output: index
+
+    # diff = Git.diff(mode: :cached, context: 0, filter: :modify, pipe_out: true).read
+    diff = Git.diff(".", a: "HEAD~3", b: "HEAD", context: 0, pipe_out: true).read_nonblock
+    diff.rstrip!
+
+    d = Git::Diff.new(diff)
+
+    puts diff
+
+    puts d
+
+    # Git.with_index index do
+    #   Git.diff mode: :cached
+    # end
+  end
+end
+
+main

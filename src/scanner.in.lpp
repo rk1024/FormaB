@@ -26,7 +26,7 @@
 
 #include "parserTag.hpp"
 #include "lexerDriver.hpp"
-#include "bison-test.hpp"
+#include "parser.hpp"
 
 #define YYSTYPE frma::parser::semantic_type
 #define YYLTYPE frma::location
@@ -225,7 +225,6 @@ QLEscape \\.
 
   %astgen-token And "&" { $SL $ML }
   %astgen-token Assign "=" { $SL $ML }
-  %astgen-token Cascade ".." { $SL $ML }
   %astgen-token Colon ":" { $SL $ML }
   %astgen-token Comma "," { $SL $ML }
   %astgen-token Compl "!" { $SL $ML }
@@ -235,6 +234,7 @@ QLEscape \\.
   %astgen-token DisjAssign "||=" { $SL $ML }
   %astgen-token Div "/" { $SL $ML }
   %astgen-token DivAssign "/=" { $SL $ML }
+  %astgen-token DotDot ".." { $SL $ML }
   %astgen-token Equal "==" { $SL $ML }
   %astgen-token EqGT "=>" { $SL $ML }
   %astgen-token Greater ">" { $SL $ML }

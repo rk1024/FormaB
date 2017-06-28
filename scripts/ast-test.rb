@@ -1,6 +1,8 @@
 require_relative 'astgen/astgen'
 
 ASTGen.run do
+  export :PrimariesOpt
+
   node :Primaries do
     let :Primaries, :prims
     let :Primary, :prim
@@ -150,7 +152,8 @@ ASTGen.run do
     fmt :NonSemi, :expr
 
     symbol :MetaSemiExpressionOptPart do
-      do_exprs.call{|p, t, o| rule :self, [:"Meta#{p}SemiExpression#{:Opt unless t == :Try || o == :Open}Part", :self] }
+      do_exprs.call{|p, t, o| rule :self, [:"Meta#{p}SemiExpressionOptPart", :self] }
+      # do_exprs.call{|p, t, o| rule :self, [:"Meta#{p}SemiExpression#{:Opt unless t == :Try || o == :Open}Part", :self] }
     end
 
     symbol do
@@ -159,18 +162,19 @@ ASTGen.run do
 
     try_parts.each do |try|
       symbol :"Meta#{try}SemiExpressionOptPart" do
-        open_parts.each{|o| rule :self, [:"Meta#{try}#{o}SemiExpressionOptPart", :self] unless o == :Open }
-      end unless try == :Try
+        open_parts.each{|o| rule :self, [:"Meta#{try}#{o}SemiExpressionOptPart", :self] }
+        # open_parts.each{|o| rule :self, [:"Meta#{try}#{o}SemiExpressionOptPart", :self] unless o == :Open }
+      end # unless try == :Try
     end
 
     do_exprs.call do |part, try, open|
       symbol :"Meta#{part}SemiExpressionOptPart" do
-        rule :Empty, ";"
+        rule :Empty, ";" unless try == :Try || open == :Open
         rule :self, [:"Meta#{part}SemiExpressionPart", :self]
-      end unless try == :Try || open == :Open
+      end # unless try == :Try || open == :Open
 
       symbol :"Meta#{part}SemiExpressionPart" do
-        rule :Semi, [:"Meta#{part}SemiExpressionUnit", :expr], ";" unless try == :Try || open == :Open
+        rule :Semi, [:"Meta#{part}SemiExpressionUnit", :expr], ";" # unless try == :Try || open == :Open
         rule :NonSemi, [:"Meta#{part}NonSemiExpressionUnit", :expr]
       end
     end
@@ -214,7 +218,7 @@ ASTGen.run do
               rule :Infix, :infix
             end
         end
-      end unless try == :Try || open == :Open
+      end # unless try == :Try || open == :Open
 
       symbol :"Meta#{part}NonSemiExpressionUnit" do
         rule :Func, [:"Meta#{part}ArrowFuncExpression", :func]
@@ -223,7 +227,7 @@ ASTGen.run do
         rule :Loop, [:"Meta#{part}LoopExpression", :loop]
         rule :Loop, [:"Meta#{part}WhileExpression", :loop]
         rule :Loop, [:"Meta#{part}ForExpression", :loop]
-        rule :Try, [:"Meta#{open}TryExpression", :tri] unless try == :NonTry
+        rule :Try, [:"Meta#{open}TryExpression", :tri] if try == :Try
         rule :Let, [:"Meta#{part}LetExpression", :let]
         rule :Keyword, [:"Meta#{part}KeywordExpression", :keyword]
 
@@ -242,7 +246,7 @@ ASTGen.run do
       end
 
       symbol :"Meta#{part}Expression" do
-        rule :self, [:"Meta#{part}SemiExpressionUnit", :self] unless try == :Try || open == :Open
+        rule :self, [:"Meta#{part}SemiExpressionUnit", :self] # unless try == :Try || open == :Open
         rule :self, [:"Meta#{part}NonSemiExpressionUnit", :self]
       end
     end
@@ -392,13 +396,15 @@ ASTGen.run do
       ].each do |name, tok|
         try_parts.each do |try|
           symbol :"Meta#{try}Open#{inline}#{name}Expression" do
-            open_parts.each{|o| rule :"#{name}#{inline}", tok, "(", :cond, ")", [:"Meta#{try}#{o}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || o == :Open}#{xpart}", thn] }
+            open_parts.each{|o| rule :"#{name}#{inline}", tok, "(", :cond, ")", [:"Meta#{try}#{o}#{semi}Expression#{:Opt unless inline == :Inline}#{xpart}", thn] }
+            # open_parts.each{|o| rule :"#{name}#{inline}", tok, "(", :cond, ")", [:"Meta#{try}#{o}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || o == :Open}#{xpart}", thn] }
           end
         end
 
         do_exprs.call do |part, try, open|
           symbol :"Meta#{part}#{inline}#{name}ElseExpression" do
-            rule :"#{name}Else#{inline}", tok, "(", :cond, ")", [:"Meta#{try}ClosedSemiExpression#{:Opt unless inline == :Inline || try == :Try}Part", :then], "else", [:"Meta#{part}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || open == :Open}#{xpart}", otherwise]
+            rule :"#{name}Else#{inline}", tok, "(", :cond, ")", [:"Meta#{try}ClosedSemiExpression#{:Opt unless inline == :Inline}Part", :then], "else", [:"Meta#{part}#{semi}Expression#{:Opt unless inline == :Inline}#{xpart}", otherwise]
+            # rule :"#{name}Else#{inline}", tok, "(", :cond, ")", [:"Meta#{try}ClosedSemiExpression#{:Opt unless inline == :Inline || try == :Try}Part", :then], "else", [:"Meta#{part}#{semi}Expression#{:Opt unless inline == :Inline || try == :Try || open == :Open}#{xpart}", otherwise]
           end
         end
       end
@@ -421,7 +427,8 @@ ASTGen.run do
     fmt :DoWhile, "do ", :body, " while (", :cond, ")"
 
     do_exprs.call do |part, try, open|
-      body = [:"Meta#{part}SemiExpression#{:Opt if try == :NonTry && open == :Closed}Part", :body].freeze
+      body = [:"Meta#{part}SemiExpressionOptPart", :body].freeze
+      # body = [:"Meta#{part}SemiExpression#{:Opt if try == :NonTry && open == :Closed}Part", :body].freeze
 
       symbol :"Meta#{part}LoopExpression" do
         rule :Loop, "loop", body
@@ -471,7 +478,8 @@ ASTGen.run do
 
     open_parts.each do |open|
       symbol :"Meta#{open}CatchExpression" do
-        rule :Catch, "catch", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
+        rule :Catch, "catch", [:"MetaNonTry#{open}SemiExpressionOptPart", :body]
+        # rule :Catch, "catch", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
       end
     end
   end
@@ -483,7 +491,8 @@ ASTGen.run do
 
     open_parts.each do |open|
       symbol :"Meta#{open}FinallyExpression" do
-        rule :Finally, "finally", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
+        rule :Finally, "finally", [:"MetaNonTry#{open}SemiExpressionOptPart", :body]
+        # rule :Finally, "finally", [:"MetaNonTry#{open}SemiExpression#{:Opt unless open == :Open}Part", :body]
       end
     end
   end
@@ -632,11 +641,11 @@ ASTGen.run do
     ]
 
     ctor ops.map{|a, _| a }, :value
-    ctor :AssignExpr, :assign
-    ctor :Infix, :infix
+    ctor :AssignExpr, :assign, fmt: :assign
+    ctor :Infix, :infix, fmt: :infix
 
     ops.each do |alt, op|
-      fmt alt, " #{op}= ", :value
+      fmt alt, "#{op}= ", :value
     end
 
     symbol do
@@ -673,14 +682,15 @@ ASTGen.run do
       :Yield,
     ], :expr
 
-    fmt :Break, "break", :expr
-    fmt :Next, "next", :expr
-    fmt :Return, "return", :expr
-    fmt :Yield, "yield", :expr
+    fmt :Break, "break ", :expr
+    fmt :Next, "next ", :expr
+    fmt :Return, "return ", :expr
+    fmt :Yield, "yield ", :expr
 
     do_exprs.call do |part, try, open|
       symbol :"Meta#{part}KeywordExpression" do
-        semi = [:"Meta#{part}SemiExpression#{:Opt if try == :NonTry && open == :Closed}Part", :expr]
+        semi = [:"Meta#{part}SemiExpressionOptPart", :expr]
+        # semi = [:"Meta#{part}SemiExpression#{:Opt if try == :NonTry && open == :Closed}Part", :expr]
         rule :Break, "break", semi
         rule :Next, "next", semi
         rule :Return, "return", semi

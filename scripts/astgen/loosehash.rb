@@ -73,6 +73,26 @@ class ErrorableHash
 
   def values; @hash.values end
 
+  def rehash
+    new_hash = {}
+
+    key_set = Set.new
+    conflicts = Set.new
+
+    @hash.each do |key, val|
+      if new_hash.has_key?(key) && !new_hash[key].eql?(val)
+        yield(key, val) if conflicts.add?(key) && block_given?
+      else
+        new_hash[key] = val
+      end
+    end
+
+    @hash = new_hash
+    @errors = Set.new(@errors)
+
+    conflicts.each{|k| make_error(k) }
+  end
+
   def table; @hash.clone end
   def errors; @errors.clone end
 

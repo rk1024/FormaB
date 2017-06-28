@@ -11,8 +11,11 @@ module ASTGen
 
     def initialize(d)
       @d = d.fork
+      @no_elide = Set.new
       @nodes = LooseHash.new
     end
+
+    def export(symbol) @d.pos("export #{symbol.inspect}") { @no_elide << symbol } end
 
     def node(name, &block)
       @d.pos("node #{name.inspect}") do
@@ -80,15 +83,15 @@ module ASTGen
       end
 
       symbol_list = symbol_list.flatten do |name, syms, uses|
-        nodes = LooseHash.new
-        syms.each{|s, n| nodes.addn(s.name, s.node, n: n) }
-        nodes = nodes.counted[name]
+        node_uses = LooseHash.new
+        syms.each{|s, n| node_uses.addn(s.name, s.node, n: n) }
+        node_uses = node_uses.counted[name]
 
         @d.error("duplicate symbol #{@d.hl(name)} used #{uses} times in " <<
-          (nodes.length > 1 ? "#{nodes.length} nodes: " : "node ") <<
-          nodes.map do |sym, count|
+          (node_uses.length > 1 ? "#{node_uses.length} nodes: " : "node ") <<
+          node_uses.map do |sym, count|
             s = @d.hl(sym)
-            s << " (#{count} times)" if count > 1 && nodes.length > 1
+            s << " (#{count} times)" if count > 1 && node_uses.length > 1
             next s
           end.join(", "))
       end
@@ -96,8 +99,84 @@ module ASTGen
         !verify(sym.resolved?) { @d.error("unresolved defer() in symbol #{@d.hl(name)}") }
       end.each{|n, _| symbol_list.make_error(n) }
 
-      nodes = node_list.map{|m, b| [m, b.make_node(symbol_list)] }.to_h
-      symbols = symbol_list.map{|n, b| [n, b.make_symbol(nodes, symbol_list)] }.to_h
+      nodes = ErrorableHash.new(
+        node_list.map{|m, b| [m, b.make_node(symbol_list)] }.to_h,
+        node_list.errors
+      )
+      symbols = ErrorableHash.new(
+        symbol_list.map{|n, b| [n, b.make_symbol(nodes, symbol_list)] }.to_h,
+        symbol_list.errors
+      )
+
+      used_syms = Set[*@no_elide]
+      q = [*used_syms]
+
+      until q.empty?
+        symbols[q.shift].used_syms.each{|s| q.push(s) if symbols.isnt_error?(s) && used_syms.add?(s) }
+      end
+
+      symbols.each_valid_key.select{|s| !used_syms.include?(s) }.each do |sym|
+        @d.info_v("eliding unused symbol #{@d.hl(sym)}")
+        symbols.make_error(sym)
+      end
+
+      pass = 1
+
+      loop do
+        list = symbols.select do |name, sym|
+          sym.syntax.empty? || sym.syntax.all? do |syms, alts|
+            syms.any? do |sym2|
+              symbols.is_error?(case sym2
+                when Symbol; sym.node.members[sym2]
+                when Array; sym2[0] if (1...2) === sym2.length
+              end)
+            end
+          end
+        end
+
+        break if list.empty?
+
+        list.each do |sym, _|
+          @d.info_v("eliding empty symbol #{@d.hl(sym)}#{" (pass #{pass})" if pass > 1}")
+          symbols.make_error(sym)
+        end
+
+        symbols.each_value{|s| s.prune_syntax(symbols) }
+
+        pass += 1
+      end
+
+      elided_aliases = Set.new
+
+      symbols.each do |name, sym|
+        aliases = sym.alias_for(symbols)
+
+        if aliases
+          @d.info_v("symbol #{@d.hl(name)} aliases #{@d.hl(aliases)}")
+          elided_aliases << name
+        end
+      end
+
+      symbols.each_value{|s| s.expand_aliases(symbols) }
+
+      used_syms = Set[*@no_elide]
+      q = [*used_syms]
+
+      until q.empty?
+        symbols[q.shift].used_syms.each{|s| q.push(s) if symbols.isnt_error?(s) && used_syms.add?(s) }
+      end
+
+      symbols.each_valid_key.select{|s| !used_syms.include?(s) }.each do |sym|
+        @d.info_v("eliding symbol #{@d.hl(sym)}") unless elided_aliases.include?(sym)
+        symbols.make_error(sym)
+      end
+
+      used_nodes = Set.new
+
+      symbols.each_value{|s| used_nodes << s.node.name }
+
+      nodes.each{|m, n| n.unused = true unless used_nodes.include?(m) }
+
       tokens = Token.scan(data[:flexIn], @d)
 
       [nodes, symbols, tokens]
@@ -109,6 +188,7 @@ module ASTGen
   @@verbose = false
 
   def self.error!; @@errored = true end
+  def self.error?; @@errored end
   def self.quiet?; @@quiet end
   def self.verbose?; @@verbose end
 
@@ -311,7 +391,7 @@ module ASTGen
                       l << "%union {"
                       l.group.fmt with_indent: "  " do
                         nodes.each do |name, node|
-                          node.emit_bison_part(:union, l)
+                          node.emit_bison_part(:union, l) unless node.unused
                         end
 
                         Token.emit_bison_part(:union, l)
@@ -321,7 +401,7 @@ module ASTGen
                   when /^(\s*)%astgen-dtors\s*$/
                     f << LineWriter.lines(with_indent: $1) do |l|
                       nodes.each do |name, node|
-                        node.emit_bison_part(:dtor, l)
+                        node.emit_bison_part(:dtor, l) unless node.unused
                       end
 
                       Token.emit_bison_part(:dtor, l)
@@ -329,13 +409,13 @@ module ASTGen
                   when /^(\s*)%astgen-types\s*$/
                     f << LineWriter.lines(with_indent: $1) do |l|
                       symbols.each do |name, symbol|
-                        symbol.emit_bison_part(:type, l)
+                        symbol.emit_bison_part(:type, l) unless symbol.alias_for
                       end
                     end << "\n"
                   when /^(\s*)%astgen-rules\s*$/
                     f << LineWriter.lines(with_indent: $1) do |l|
                       symbols.each do |name, symbol|
-                        symbol.emit_bison_part(:rule, l)
+                        symbol.emit_bison_part(:rule, l) unless symbol.alias_for
                       end
                     end << "\n"
                   else

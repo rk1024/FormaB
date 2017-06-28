@@ -133,6 +133,10 @@ def main():
     astgenFlags.extend([
       "-v",
     ])
+
+    astgenTestFlags.extend([
+      "-v"
+    ])
   else:
     cxxflags.extend([
       "-Ofast",
@@ -200,11 +204,13 @@ def main():
     (build.path_b("scanner.cpp"), build.path_b("scanner.lpp")),
     (([build.path_b("parser.cpp")], build.paths_b(
       *[
-        "parser.hpp", "parser.output", "location.hh", "position.hh",
-        "stack.hh"
+        "parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"
       ]
     )), build.path_b("parser.ypp")),
-    (build.path_b("parse-test/flex-test.cpp"), "$builddir/parse-test/flex-test.lpp"),
+    (
+      build.path_b("parse-test/flex-test.cpp"),
+      "$builddir/parse-test/flex-test.lpp"
+    ),
     (([build.path_b("parse-test/bison-test.cpp")], build.paths_b(
       *[
         "parse-test/{}".format(s)
@@ -262,13 +268,14 @@ def main():
 
   sources = {
     "$bindir/formab": ([], flatten(
-      ["scanner.cpp", "parser.cpp"], "",
+      ["scanner.cpp", "parser.cpp"],
+      "",
       fnmatch.filter(astSources, "**/*.cpp"),
     ), ["formab.o", "ast/token.o"], []),
     "$bindir/parse-test": ([], flatten(
       ["parse-test/flex-test.cpp", "parse-test/bison-test.cpp"],
       fnmatch.filter(astTestSources, "**/*.cpp"),
-    ), ["parse-test/parseTest.o", "parse-test/ast/token.o"], ["parse-test"])
+    ), ["parse-test/parseTest.o", "parse-test/ast/token.o"], ["parse-test"]),
   }
 
   for args, p in [
@@ -278,7 +285,8 @@ def main():
     ), []),
     ((
       build.path_b("parse-test/parseTest.o"),
-      (["$srcdir/parse-test/parseTest.cpp"], ["$builddir/parse-test/bison-test.hpp"])
+      (["$srcdir/parse-test/parseTest.cpp"],
+       ["$builddir/parse-test/bison-test.hpp"])
     ), ["parse-test"]),
     ((
       build.path_b("ast/token.o"),
@@ -289,7 +297,10 @@ def main():
       (["$srcdir/ast/token.cpp"], ["$builddir/parse-test/ast/token.hpp"])
     ), ["parse-test"]),
   ]:
-    includes = "-I{} -I{}{}".format(path.join("$builddir", *p), path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else "")
+    includes = "-I{} -I{}{}".format(
+      path.join("$builddir", *p),
+      path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else ""
+    )
     build.edge(*args).set(flags = includes)
 
   build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
@@ -298,35 +309,46 @@ def main():
                "$srcdir/scanner.in.lpp",
                "$srcdir/ast/token.in.hpp",
              ], build.paths(*rglob("scripts/astgen", "*.rb"))))).set(
-               description = "ASTGen",
+               description = "ASTGen scripts/ast.rb",
                args = "$astgenFlags $rootdir/build/ast",
                restat = "true",
              )
 
-  build.edge((build.paths_b(*astTestSources), build.paths_b(*astTestImplSources)),
-             "ruby", ([build.path("scripts/ast-test.rb")], flatten([
-               "$srcdir/parse-test/bison-test.in.ypp",
-               "$srcdir/parse-test/flex-test.in.lpp",
-               "$srcdir/ast/token.in.hpp",
-             ], build.paths(*rglob("scripts/astgen", "*.rb"))))).set(
-               description = "ASTGen",
-               args = "$astgenTestFlags $rootdir/build/parse-test/ast",
-               restat = "true",
-             )
+  build.edge(
+    (build.paths_b(*astTestSources), build.paths_b(*astTestImplSources)),
+    "ruby", ([build.path("scripts/ast-test.rb")], flatten([
+      "$srcdir/parse-test/bison-test.in.ypp",
+      "$srcdir/parse-test/flex-test.in.lpp",
+      "$srcdir/ast/token.in.hpp",
+    ], build.paths(*rglob("scripts/astgen", "*.rb"))))
+  ).set(
+    description = "ASTGen scripts/ast-test.rb",
+    args = "$astgenTestFlags $rootdir/build/parse-test/ast",
+    restat = "true",
+  )
 
   for out, (ins, b_ins, objs, p) in sources.iteritems():
-    includes = "-I{} -I{}{}".format(path.join("$builddir", *p), path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else "")
+    includes = "-I{} -I{}{}".format(
+      path.join("$builddir", *p),
+      path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else ""
+    )
 
     for n in ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(n)[0])),
         "$srcdir/{}".format(n)
-      ).set(flags = includes)
+      ).set(
+        description = "compile {}".format(n),
+        flags = includes,
+      )
 
     for b in b_ins:
       build.edge(
         build.path_b("{}.o".format(path.splitext(b)[0])), build.path_b(b)
-      ).set(flags = includes)
+      ).set(
+        description = "compile {}".format(b),
+        flags = includes,
+      )
 
     build.edge(
       out,
@@ -336,6 +358,8 @@ def main():
           for n in it.chain(ins, b_ins, objs)
         ]
       )
+    ).set(
+      description = "link {}".format(path.basename(out)),
     )
 
   return build.run(".", "build", *sys.argv[1:])

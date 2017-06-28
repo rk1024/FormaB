@@ -44,6 +44,24 @@ module ASTGen
       end
 
       def resolved?; !@defer_handle || @defer_to end
+      # def has_syntax?(nodes, symbols)
+      #   node = nodes[@node]
+
+      #   @syntax.counted.any? do |syms, _|
+      #     syms.all? do |s|
+      #       s = case s
+      #         when Symbol; node.members[s]
+      #         when Array
+      #           case s.length
+      #             when 1, 2; s[0]
+      #             else nil
+      #           end
+      #         else nil
+      #       end
+      #       !symbols.has_key?(s) || verify(symbols.isnt_error?(s) && symbols[s].has_syntax?(nodes, symbols)) { @d.debug("symbol #{@d.hl(s)} not matchable") if Symbol === s }
+      #     end
+      #   end
+      # end
 
       def resolve(name) @defer_to = name end
 
@@ -127,7 +145,7 @@ module ASTGen
                         ctor_ok && verify(ctor_self ? name == :self : node.alt_ctors[alt].include?(name)) { @d.error("member #{@d.hl(name)} not in constructor #{@d.hl(alt)}") },
                         type == :Token || !symbols.has_key?(type) || (
                           !symbols.is_error?(type) &&
-                          !node.members.is_error?(name) &&
+                          (name == :self ? ctor_self : node.members.isnt_error?(name)) &&
                           verify(ctor_self ? symbols[type].node == node.name : symbols[type].node == node.members[name]) do
                             @d.error("symbol #{@d.hl(type)} (of type #{@d.hl(symbols[type].node)}) incompatible with " <<
                               if ctor_self
@@ -176,7 +194,73 @@ module ASTGen
       @d = d.fork
       @name = name
       @node = node
-      @syntax = {}
+      @syntax = ErrorableHash.new({}, Set.new)
+    end
+
+    def alias_for(symbols = nil, exclude = Set.new)
+      ignore = exclude + [@name]
+
+      return nil unless @syntax.length == 1
+
+      (syms, alt) = @syntax.first
+      return nil unless alt == :self && syms.length == 1
+
+      sym = syms.first
+      return nil unless Array === sym && sym.length == 2 && sym[1] == :self
+
+      return false if ignore.include?(sym[0])
+
+      if symbols && symbols.isnt_error?(sym[0])
+        aliases = symbols[sym[0]].alias_for(symbols, ignore)
+
+        return false if aliases == false # Propagate false but not nil
+
+        return aliases if aliases
+      end
+
+      return sym[0]
+    end
+
+    def symbol_from_spec(spec)
+      case spec
+        when Symbol; return @node.members[spec]
+        when Array; return spec[0] if (1..2) === spec.length
+      end
+      nil
+    end
+
+    def prune_syntax(symbols)
+      @syntax.select do |syms, _|
+        syms.any?{|s| symbols.is_error?(symbol_from_spec(s)) }
+      end.each{|s, _| @syntax.make_error(s) }
+    end
+
+    def expand_aliases(symbols)
+      @syntax.each_key do |syms|
+        syms.map! do |sym|
+          name = symbol_from_spec(sym)
+          aliases = symbols.isnt_error?(name) ? symbols[name].alias_for(symbols) : nil
+
+          case sym
+            when Symbol; sym = [aliases, sym] if aliases
+            when Array
+              if (1..2) === sym.length && aliases
+                sym = [*sym]
+                sym[0] = aliases
+              end
+          end
+
+          sym
+        end
+      end
+
+      @syntax.rehash do |key, val|
+        @d.warn("rule #{@d.hl(key)} causes conflicts")
+      end
+    end
+
+    def used_syms
+      Set[*@syntax.each_key.flat_map{|ss| ss.map{|s| symbol_from_spec(s) }.select{|s| s } }]
     end
 
     def emit_bison_part(part, l)
@@ -185,7 +269,10 @@ module ASTGen
           l << "%type <#{@node.bison_name}> #{@name}"
         when :rule
           l.sep << "#{@name}:"
-          l.peek << " %empty" if @syntax.empty?
+          if @syntax.empty?
+            l.peek << " %empty"
+            @d.warn("emitting empty syntax; this shouldn't happen")
+          end
 
           l.fmt with_indent: "  " do
             @syntax.each_with_index do |(syms, alt), i|

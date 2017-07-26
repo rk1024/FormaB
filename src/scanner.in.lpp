@@ -223,7 +223,7 @@ QLEscape \\.
   %astgen-token KWWhile "while" { $SL $ML }
   %astgen-token KWYield "yield" { $SL $ML }
 
-  %astgen-token And "&" { $SL $ML }
+  /* %astgen-token And "&" { $SL $ML } */
   %astgen-token Assign "=" { $SL $ML }
   %astgen-token Colon ":" { $SL $ML }
   %astgen-token Comma "," { $SL $ML }
@@ -248,23 +248,28 @@ QLEscape \\.
   %astgen-token ModAssign "%=" { $SL $ML }
   %astgen-token Mul "*" { $SL $ML }
   %astgen-token MulAssign "*=" { $SL $ML }
-  %astgen-token Not "~" { $SL $ML }
+  /* %astgen-token Not "~" { $SL $ML } */
   %astgen-token NotEqual "!=" { $SL $ML }
-  %astgen-token Or "|" { $SL $ML }
-  %astgen-token OrAssign "|=" { $SL $ML }
+  /* %astgen-token OrAssign "|=" { $SL $ML } */
   %astgen-token Period "." { $SL $ML }
+  %astgen-token Pipe "|" { $SL $ML }
   %astgen-token Plus "+" { $SL $ML }
   %astgen-token PlusAssign "+=" { $SL $ML }
   %astgen-token PlusPlus "++" { $SL $ML }
   %astgen-token Quest "?" { $SL $ML }
   %astgen-token Semi ";" { $SL $ML }
-  %astgen-token Xor "^" { $SL $ML }
+  /* %astgen-token Xor "^" { $SL $ML } */
   %astgen-token XorAssign "^=" { $SL $ML }
 }
 
-<SSRawBlock,SSMetaBlock>{
+<SSRawBlock>{
   /*{ignore me}*/
   <<EOF>> { $ML $BE $E("unterminated raw block") }
+}
+
+<SSMetaBlock>{
+  /*{ignore me}*/
+  <<EOF>> { $ML $E("unterminated meta block") }
 }
 
 <SSSyntaxExtArgs>{
@@ -287,6 +292,7 @@ QLEscape \\.
   %astgen-token RBrace "}" { $SL $ML }
 
   %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
+  %astgen-token UnescapedAtomKeyword /{IDStart}{Identifier}*:/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore this
 
@@ -296,6 +302,7 @@ QLEscape \\.
 <INITIAL,SSMetaBlock,SSSyntaxExtArgs,SSEscapedID>{
   /*{ignore me}*/
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
+  %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
 }
 
 <INITIAL,SSMetaBlock>{

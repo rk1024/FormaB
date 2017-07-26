@@ -1,0 +1,67 @@
+using System;
+
+@!somelanguage{
+  So, basically, I can just put whatever here. }}}]]]
+  '
+  "
+@}
+
+@!meta{
+  2 + 3;
+  2 * (3 + 5);
+  7 % (let x = 5; x);
+
+  23 * { 3; 4; [5 exp: 2]; };
+
+  "hi" + [23 toString];
+
+  "x + 3 is " + [(let x = 5; x + 3) toString];
+
+  ["hi" replace: "hi" with: "bye"];
+
+  [cout print: "hi"];
+
+  [Rect w: 16 h: 9];
+
+  let fn = [Rect curry: (2, 1)];
+
+  [assert
+    expected: [fn call: (7, 3)]
+    actual: [fn call: 7 | call: 3]
+  ];
+
+  [cout print: [1 toString | replace: "." with: "," | toLower]];
+
+  let myFn = (a:, b:) => {
+    [Kernel @return: 5];
+  };
+
+  let compare = (min:) =>
+    if (min) (a:, b:) => (if (a < b) a else b)
+    else (a:, b:) => (if (a > b) a else b);
+
+  let functional = () => 5;
+
+  let functionalWhere = () => (let x = 5; x);
+  let imperative = () => { let x = 5; x; }; @@ I haven't implemented keyword-prefixed statements yet
+
+  while (let i = 0; i < 100) {
+    [cout write: i];
+    [cout print: if (i % 2 == 0) " is even" else " is odd"];
+
+    ++i;
+  };
+@}
+
+@#pragma warning disable 3200
+
+@[
+  This is the entry point for our program.
+  The return value is the program's return status code.
+@]
+
+let main = function(int argc, char **argv) -> int {
+  print("Hi there!"); @@ Make sure this stuff works.
+
+  return 0;
+}

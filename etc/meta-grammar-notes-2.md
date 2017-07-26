@@ -234,6 +234,18 @@ ForExpression:
 
 ### Object Expressions
 
-* `Struct`
 * `Function`
 * `Record`
+* `Struct`
+* `Object`
+
+```
+FunctionExpression:
+  "function" "(" FunctionArgumentsOpt ")" FunctionBody
+
+StructMembers:
+  StructMember StructMembers;
+
+StructExpression:
+  "struct" "{" StructMembersOpt "}"
+```

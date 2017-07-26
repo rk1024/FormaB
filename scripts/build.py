@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import fnmatch
 import glob
 import itertools as it
@@ -58,6 +60,8 @@ def main():
   build.useRepo("https://www.github.com/rookie1024/ninja")
 
   debug = True
+  sanitize = False
+  afl = True
 
   cxxflags = [
     "-fcolor-diagnostics",
@@ -109,10 +113,12 @@ def main():
   ]
 
   def addPkgs(*args):
-    cxxflags.extend(pkcflags(*args))
+    cflags = pkcflags(*args)
+    cxxflags.extend(cflags)
+    cxxflags.extend([re.sub("^-I", "-isystem ", flag) for flag in cflags])
     ldflags.extend(pklibs(*args))
 
-  if debug:
+  if sanitize:
     sanflags = ["-fsanitize=%s" % (san) for san in [
       "address",
       "undefined",
@@ -121,10 +127,12 @@ def main():
     cxxflags.extend(sanflags)
     ldflags.extend(sanflags)
 
+  if debug:
     cxxflags.extend([
       "-g",
       "-O0",
       "-D_GLIBCXX_DEBUG",
+      "-D_GLIBCXX_DEBUG_PEDANTIC",
       "-D_LIBCPP_DEBUG",
       "-DDEBUG",
       "-D_DEBUG",
@@ -157,9 +165,9 @@ def main():
   build.set(
     srcdir = build.path("src"),
     bindir = build.path("bin"),
-    cxx = "clang++",
+    cxx = "afl-clang++" if afl else "clang++",
     flex = "flex",
-    bison = "bison",
+    bison = "scripts/run-bison.sh bison",
     ruby = "ruby",
     cxxflags = " ".join(cxxflags),
     ldflags = " ".join(ldflags),

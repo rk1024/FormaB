@@ -90,5 +90,9 @@ int main(int argc, char **argv) {
     if (tag.errors().size() != 1) std::cerr << "s";
     std::cerr << "." << std::endl;
 
-  } catch (std::exception &e) { std::cerr << e.what() << std::endl; }
+    return tag.errors().size() ? 1 : 0;
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return -1;
+  }
 }

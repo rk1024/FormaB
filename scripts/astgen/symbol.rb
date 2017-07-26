@@ -223,7 +223,7 @@ module ASTGen
 
     def symbol_from_spec(spec)
       case spec
-        when Symbol; return @node.members[spec]
+        when Symbol; return @node.members.is_error?(spec) ? nil : @node.members[spec]
         when Array; return spec[0] if (1..2) === spec.length
       end
       nil

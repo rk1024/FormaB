@@ -336,6 +336,7 @@ module ASTGen
       ["Argument", "Arg"],
       ["Expression", "Expr"],
       ["Function", "Func"],
+      ["Message", "Msg"],
       ["Primary", "Prim", "Primaries"],
       ["Statement", "Stmt"],
     ]
@@ -411,7 +412,7 @@ module ASTGen
         l << "namespace #{@@Namespace} {"
         l.group
 
-        @dep_types.each do |type|
+        @dep_types.select{|t| !nodes.is_error?(t) }.each do |type|
           l << "class #{Node.class_name(type)};"
         end
 
@@ -455,7 +456,7 @@ module ASTGen
             vis << :private
             l << "union {"
             l.fmt with_indent: "  " do
-              union.each do |key, val|
+              union.select{|_, v| !nodes.is_error?(v) }.each do |key, val|
                 l << "#{Node.class_name(val)} *#{Node.field_name(key)};"
               end
             end
@@ -464,7 +465,7 @@ module ASTGen
 
           l.sep
 
-          @struct_members.each do |key, val|
+          @struct_members.select{|_, v| !nodes.is_error?(v) }.each do |key, val|
             vis << :private
             l << "#{Node.class_name(val)} *#{Node.field_name(key)};"
           end
@@ -483,10 +484,11 @@ module ASTGen
 
           l.sep
 
-          @ctors.each do |sig, syms|
+          @ctors.select{|s, _| !s.any?{|a| nodes.is_error?(@members[a]) } }.each do |sig, syms|
             memb_args = sig.map{|a| "#{Node.class_name(@members[a])} *" }
 
             emit_ctor = lambda do |args|
+
               vis << :public
               l << "#{class_name}(#{[*args, *memb_args].join(", ")});"
             end
@@ -561,7 +563,7 @@ module ASTGen
 
         l.sep
 
-        @dep_types.each do |type|
+        @dep_types.select{|t| !nodes.is_error?(t) }.each do |type|
           l << "#include \"#{Node.header_name(type)}\""
         end
 

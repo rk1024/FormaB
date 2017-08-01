@@ -67,6 +67,10 @@ AtomKeyword:
 CommaOpt:
   %empty |
   ",";
+
+PipeOpt:
+  %empty |
+  "|";
 %%
 
 void frma::parser::error(const frma::location &loc, const std::string &msg) {

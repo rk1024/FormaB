@@ -337,6 +337,7 @@ module ASTGen
       ["Expression", "Expr"],
       ["Function", "Func"],
       ["Message", "Msg"],
+      ["Parameter", "Param"],
       ["Primary", "Prim", "Primaries"],
       ["Statement", "Stmt"],
     ]

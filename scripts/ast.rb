@@ -149,18 +149,20 @@ ASTGen.run do
   node :MetaStatement do
     union do
       let :MetaExpression, :expr
-      let :MetaLetStatement, :let
-      let :MetaControlExpression, :ctl
+      let :MetaBindStatement, :bind
+      let :MetaAssignStatement, :assign
+      let :MetaControlStatement, :ctl
     end
 
     ctor [:SemiExpr, :NonSemiExpr], :expr
-    ctor :Let, :let, fmt: [:let, ";"]
+    ctor :Bind, :bind, fmt: [:bind, ";"]
+    ctor :Assign, :assign, fmt: [:assign, ";"]
     ctor :Control, :ctl, fmt: :ctl
 
     fmt :SemiExpr, :expr, ";"
     fmt :NonSemiExpr, :expr
 
-    do_exprs.call do |parts|
+    do_exprs.call do |parts, open|
       symbol :"Meta#{parts}PureStatement" do
         rule :SemiExpr, [:"Meta#{parts}SemiExpression", :expr], ";"
         rule :NonSemiExpr, [:"Meta#{parts}NonSemiExpression", :expr]
@@ -168,8 +170,13 @@ ASTGen.run do
 
       symbol :"Meta#{parts}Statement" do
         rule :self, [:"Meta#{parts}PureStatement", :self]
-        rule :Let, [:"Meta#{parts}LetStatement", :let], ";"
+        rule :Bind, [:"Meta#{parts}BindStatement", :bind], ";"
         rule :Control, [:"Meta#{parts}ControlStatement", :ctl]
+
+        case open
+          when :Closed
+            rule :Assign, :assign, ";"
+        end
       end
     end
 
@@ -178,20 +185,108 @@ ASTGen.run do
     end
   end
 
-  node :MetaLetStatement do
-    let :Token, :id
-    let :MetaExpression, :expr
+  node :MetaBindStatement do
+    let :MetaBindings, :binds
 
-    ctor :Let, :id, :expr, fmt: ["let ", :id, " = ", :expr]
+    ctor [:Let, :Var], :binds
+
+    fmt :Let, "let ", :binds
+    fmt :Var, "var ", :binds
 
     do_exprs.call do |parts|
       symbol :"Meta#{parts}LetStatement" do
-        rule :Let, "let", [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+        rule :Let, "let", [:"Meta#{parts}Bindings", :binds]
+        # rule :Let, "let", [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+      end
+
+      symbol :"Meta#{parts}BindStatement" do
+        rule :self, [:"Meta#{parts}LetStatement", :self]
+        rule :Var, "var", [:"Meta#{parts}Bindings", :binds]
+        # rule :Var, "var", [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
       end
     end
 
-    symbol do
+    symbol :MetaLetStatement do
       do_exprs.call{|p| rule :self, [:"Meta#{p}LetStatement", :self] }
+    end
+
+    symbol do
+      do_exprs.call{|p| rule :self, [:"Meta#{p}BindStatement", :self] }
+    end
+  end
+
+  node :MetaBindings do
+    let :MetaBindings, :binds
+    let :MetaBinding, :bind
+
+    ctor :Bindings, :binds, :bind, fmt: [:binds, ", ", :bind]
+    ctor :Binding, :bind, fmt: :bind
+
+    do_exprs.call do |parts|
+      symbol :"Meta#{parts}BindingsPart" do
+        rule :Bindings, [:"Meta#{parts}BindingsPart", :binds], ",", [:"Meta#{parts}Binding", :bind]
+        rule :Binding, [:"Meta#{parts}Binding", :bind]
+      end
+
+      symbol :"Meta#{parts}Bindings" do
+        rule :self, [:"Meta#{parts}BindingsPart", :self], [:CommaOpt]
+      end
+    end
+  end
+
+  node :MetaBinding do
+    let :Token, :id
+    let :MetaExpression, :expr
+
+    ctor :Binding, :id, :expr, fmt: [:id, " = ", :expr]
+
+    do_exprs.call do |parts|
+      symbol :"Meta#{parts}Binding" do
+        rule :Binding, [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+      end
+    end
+  end
+
+  node :MetaAssignStatement do
+    let :MetaMemberExpression, :memb
+    let :MetaAssignValue, :value
+
+    ops = [
+      [:Assign, ""],
+      [:LogOr, "||"],
+      [:LogAnd, "&&"],
+      [:Add, "+"],
+      [:Sub, "-"],
+      [:Mul, "*"],
+      [:Div, "/"],
+      [:Mod, "%"],
+    ]
+
+    ctor ops.map{|a, _| a }, :memb, :value
+
+    ops.each do |alt, op|
+      fmt alt, :memb, " #{op}= ", :value
+    end
+
+    symbol do
+      ops.each do |alt, op|
+        rule alt, :memb, "#{op}=", :value
+      end
+    end
+  end
+
+  node :MetaAssignValue do
+    union do
+      let :MetaAssignStatement, :assign
+      let :MetaInfixExpression, :infix
+    end
+
+    ctor :Assign, :assign, fmt: :assign
+    ctor :Infix, :infix, fmt: :infix
+
+    symbol do
+      rule :Assign, :assign
+      rule :Infix, :infix
     end
   end
 
@@ -282,55 +377,47 @@ ASTGen.run do
     end
   end
 
-  node :MetaControlExpression do
-    # union do
+  [
+    [
+      :Statement,
+      true,
+      [
+        [:If, "if"],
+        [:Unless, "unless"],
+        [:While, "while"],
+        [:Until, "until"],
+      ],
+    ],
+    [
+      :Expression,
+      false,
+      [
+        [:If, "if"],
+        [:Unless, "unless"],
+      ]
+    ],
+  ].each do |expr, do_single, types|
+    node :"MetaControl#{expr}" do
       let :MetaParenExpression, :cond
-      # let :MetaForPreamble, :pream
-    # end
 
-    union do
-      let :MetaStatement, :then
-      let :MetaExpression, :thenExpr
-    end
+      let :"Meta#{expr}", :then
+      let :"Meta#{expr}", :otherwise
 
-    union do
-      let :MetaStatement, :otherwise
-      let :MetaExpression, :otherwiseExpr
-    end
+      types.each do |name, tok|
+        ctor name, :cond, :then, fmt: ["#{tok} ", :cond, " ", :then] if do_single
 
-    types = [
-      [:If, "if"],
-      [:Unless, "unless"],
-      [:While, "while"],
-      [:Until, "until"],
-    ]
-
-    types.each do |name, tok|
-      ctor name, :cond, :then, fmt: ["#{tok} ", :cond, " ", :then]
-      ctor :"#{name}Expr", :cond, :thenExpr, fmt: ["#{tok} ", :cond, " ", :thenExpr]
-
-      ctor :"#{name}Else", :cond, :then, :otherwise, fmt: ["#{tok} ", :cond, " ", :then, " else ", :otherwise]
-      ctor :"#{name}ElseExpr", :cond, :thenExpr, :otherwiseExpr, fmt: ["#{tok} ", :cond, " ", :thenExpr, " else ", :otherwiseExpr]
-    end
-
-    do_exprs.call do |parts, open|
-      symbol :"Meta#{parts}ControlStatement" do
-        types.each do |name, tok|
-          if open == :Open
-            open_parts.each{|o| rule name, tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, o.to_s)}Statement", :then] }
-          end
-
-          rule :"#{name}Else", tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, "Closed")}Statement", :then], "else", [:"Meta#{parts}Statement", :otherwise]
-        end
+        ctor :"#{name}#{:Else if do_single}", :cond, :then, :otherwise, fmt: ["#{tok} ", :cond, " ", :then, " else ", :otherwise]
       end
 
-      symbol :"Meta#{parts}ControlExpression" do
-        types.each do |name, tok|
-          if open == :Open
-            open_parts.each{|o| rule :"#{name}Expr", tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, o.to_s)}Expression", :thenExpr] }
-          end
+      do_exprs.call do |parts, open|
+        symbol :"Meta#{parts}Control#{expr}" do
+          types.each do |name, tok|
+            if open == :Open && do_single
+              open_parts.each{|o| rule name, tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, o.to_s)}#{expr}", :then] }
+            end
 
-          rule :"#{name}ElseExpr", tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, "Closed")}Expression", :thenExpr], "else", [:"Meta#{parts}Expression", :otherwiseExpr]
+            rule :"#{name}#{:Else if do_single}", tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, "Closed")}#{expr}", :then], "else", [:"Meta#{parts}#{expr}", :otherwise]
+          end
         end
       end
     end
@@ -470,6 +557,7 @@ ASTGen.run do
   node :MetaPrimaryExpression do
     union do
       let :Token, :tok
+      let :MetaBooleanExpression, :boolean
       let :MetaParenExpression, :paren
       let :MetaBlockExpression, :block
       let :MetaMessageExpression, :message
@@ -479,16 +567,18 @@ ASTGen.run do
       :Identifier,
       :Number,
       :SQLiteral,
-      :DQLiteral,
+      :DQLiteral
     ]
 
     ctor toks, :tok, fmt: :tok
+    ctor :Boolean, :boolean, fmt: :boolean
     ctor :Parens, :paren, fmt: :paren
     ctor :Block, :block, fmt: :block
     ctor :Message, :message, fmt: :message
 
     symbol :MetaNonIdentifierPrimaryExpression do
       toks.select{|t| t != :Identifier }.each{|t| rule t, [t, :tok] }
+      rule :Boolean, :boolean
       rule :Parens, :paren
       rule :Block, :block
       rule :Message, :message
@@ -500,6 +590,16 @@ ASTGen.run do
     end
   end
 
+  node :MetaBooleanExpression do
+    ctor :True, fmt: "true"
+    ctor :False, fmt: "false"
+
+    symbol do
+      rule :True, "true"
+      rule :False, "false"
+    end
+  end
+
   node :MetaParenExpression do
     union do
       let :MetaParenExpression, :paren
@@ -507,16 +607,16 @@ ASTGen.run do
       let :MetaExpressions, :exprs
     end
 
-    let :MetaLetStatement, :let
+    let :MetaBindStatement, :bind
 
     ctor :Paren, :paren, fmt: ["(", :paren, ")"]
 
-    ctor :Let, :let, :expr, fmt: [:let, "; ", :expr]
+    ctor :Where, :bind, :expr, fmt: [:bind, "; ", :expr]
     ctor :Tuple, :exprs, fmt: :exprs
 
     symbol :MetaParenExpressionBody do
       rule :Tuple, :exprs
-      rule :Let, :let, ";", :expr
+      rule :Where, :bind, ";", :expr
     end
 
     symbol do
@@ -553,14 +653,18 @@ ASTGen.run do
     ctor :Selectors, :sels, :sel, fmt: [:sels, " | ", :sel]
     ctor :Selector, :sel, fmt: :sel
 
-    symbol do
-      rule :Selectors, :sels, "|", :sel
-      rule :Selector, :sel
+    symbol :MetaMessageSelectorsOpt do
+      rule :Empty, [:PipeOpt]
+      rule :self, [:MetaMessageSelectors, :self]
     end
 
-    symbol :MetaMessageSelectorsOpt do
-      rule :Empty
-      rule :self, [:MetaMessageSelectors, :self]
+    symbol do
+      rule :self, [:MetaMessageSelectorsPart, :self], [:PipeOpt]
+    end
+
+    symbol :MetaMessageSelectorsPart do
+      rule :Selectors, [:MetaMessageSelectorsPart, :sels], "|", :sel
+      rule :Selector, :sel
     end
   end
 

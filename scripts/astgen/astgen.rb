@@ -335,6 +335,11 @@ module ASTGen
               end
             end
 
+            nodes.each_error do |name|
+              File.open(file_path(data[:astDir], name, "hpp"), "w") {|f| f << "// Node header omitted\n" }
+              File.open(file_path(data[:astDir], name, "cpp"), "w") {|f| f << "// Node body omitted\n" }
+            end
+
             File.open(File.join(data[:astDir], "ast.hpp"), "w") do |f|
               nodes.each do |name, node|
                 f << LineWriter.lines do |l|

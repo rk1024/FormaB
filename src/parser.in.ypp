@@ -41,9 +41,9 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 %token end 0 "end of file"
 
 %astgen-types
-
 %type <_primaries> Input
 %type <_token> Identifier
+%type <_token> AtomKeyword
 
 %start Input
 
@@ -57,12 +57,20 @@ Input: PrimariesOpt { $$ = $1; tag->prims = $1; };
 %astgen-rules
 
 Identifier:
-  UnescapedIdentifier[ident] { $$ = $ident; } |
-  EscapedIdentifier[ident] { $$ = $ident; };
+  UnescapedIdentifier[self] { $$ = $self; } |
+  EscapedIdentifier[self] { $$ = $self; };
+
+AtomKeyword:
+  UnescapedAtomKeyword[self] { $$ = $self; } |
+  EscapedAtomKeyword[self] { $$ = $self; };
 
 CommaOpt:
   %empty |
   ",";
+
+PipeOpt:
+  %empty |
+  "|";
 %%
 
 void frma::parser::error(const frma::location &loc, const std::string &msg) {

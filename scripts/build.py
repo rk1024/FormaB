@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import fnmatch
 import glob
 import itertools as it
@@ -58,6 +60,8 @@ def main():
   build.useRepo("https://www.github.com/rookie1024/ninja")
 
   debug = True
+  sanitize = True
+  afl = False
 
   cxxflags = [
     "-fcolor-diagnostics",
@@ -74,6 +78,7 @@ def main():
     "-Wmissing-variable-declarations",
     "-Wnewline-eof",
     "-Wshadow",
+    "-Wno-logical-op-parentheses",
     "-Wno-shorten-64-to-32",
     "-Wno-sign-compare",
     "-Wno-sign-conversion",
@@ -109,10 +114,12 @@ def main():
   ]
 
   def addPkgs(*args):
-    cxxflags.extend(pkcflags(*args))
+    cflags = pkcflags(*args)
+    cxxflags.extend(cflags)
+    cxxflags.extend([re.sub("^-I", "-isystem ", flag) for flag in cflags])
     ldflags.extend(pklibs(*args))
 
-  if debug:
+  if sanitize:
     sanflags = ["-fsanitize=%s" % (san) for san in [
       "address",
       "undefined",
@@ -121,10 +128,12 @@ def main():
     cxxflags.extend(sanflags)
     ldflags.extend(sanflags)
 
+  if debug:
     cxxflags.extend([
       "-g",
       "-O0",
       "-D_GLIBCXX_DEBUG",
+      "-D_GLIBCXX_DEBUG_PEDANTIC",
       "-D_LIBCPP_DEBUG",
       "-DDEBUG",
       "-D_DEBUG",
@@ -134,9 +143,7 @@ def main():
       "-v",
     ])
 
-    astgenTestFlags.extend([
-      "-v"
-    ])
+    astgenTestFlags.extend(["-v"])
   else:
     cxxflags.extend([
       "-Ofast",
@@ -157,9 +164,9 @@ def main():
   build.set(
     srcdir = build.path("src"),
     bindir = build.path("bin"),
-    cxx = "clang++",
+    cxx = "afl-clang++" if afl else "clang++",
     flex = "flex",
-    bison = "bison",
+    bison = "scripts/run-bison.sh bison",
     ruby = "ruby",
     cxxflags = " ".join(cxxflags),
     ldflags = " ".join(ldflags),
@@ -266,23 +273,62 @@ def main():
     ).split(" ")
   ]
 
+  # "binary": ([source files in src/ directory], [source files in build/ directory], [extra .o files], [include paths])
   sources = {
-    "$bindir/formab": ([], flatten(
-      ["scanner.cpp", "parser.cpp"],
-      "",
-      fnmatch.filter(astSources, "**/*.cpp"),
-    ), ["formab.o", "ast/token.o"], []),
-    "$bindir/parse-test": ([], flatten(
-      ["parse-test/flex-test.cpp", "parse-test/bison-test.cpp"],
-      fnmatch.filter(astTestSources, "**/*.cpp"),
-    ), ["parse-test/parseTest.o", "parse-test/ast/token.o"], ["parse-test"]),
+    "formab": (
+      #src/...
+      flatten(
+        ["formab.cpp"],
+        *[
+          rglob("src/{}".format(folder), "*.cpp", rel = "src/")
+          for folder in [
+            # "formaDumb",
+            "intermedia",
+            "util",
+          ]
+        ]
+      ),
+      #build/...
+      flatten(
+        [
+          "scanner.cpp",
+          "parser.cpp",
+        ],
+        fnmatch.filter(astSources, "**/*.cpp"),
+      ),
+      #objs
+      [
+        "ast/token.o",
+      ],
+      #includes
+      []
+    ),
+    "parse-test": (
+      #src/...
+      [],
+      #build/...
+      flatten(
+        [
+          "parse-test/flex-test.cpp",
+          "parse-test/bison-test.cpp",
+        ],
+        fnmatch.filter(astTestSources, "**/*.cpp"),
+      ),
+      #objs
+      [
+        "parse-test/parseTest.o",
+        "parse-test/ast/token.o",
+      ],
+      #includes
+      [
+        "parse-test",
+      ]
+    ),
   }
 
+  l.debug(sources)
+
   for args, p in [
-    ((
-      build.path_b("formab.o"),
-      (["$srcdir/formab.cpp"], ["$builddir/parser.hpp"])
-    ), []),
     ((
       build.path_b("parse-test/parseTest.o"),
       (["$srcdir/parse-test/parseTest.cpp"],
@@ -351,7 +397,7 @@ def main():
       )
 
     build.edge(
-      out,
+      path.join("$bindir", out),
       build.paths_b(
         *[
           "{}.o".format(path.splitext(n)[0])

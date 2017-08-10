@@ -2,6 +2,7 @@
 
 #include <list>
 
+#include "formaDumb/interpreter.hpp"
 #include "lexerDriver.hpp"
 #include "parser.hpp"
 #include "parserTag.hpp"
@@ -49,7 +50,9 @@ int main(int argc, char **argv) {
     return 1;
   }
 
+#ifdef _NDEBUG
   try {
+#endif
     frma::FormaParserTag tag(filename);
     frma::lexer          lex(tag);
     frma::parser         parse(&tag);
@@ -70,18 +73,13 @@ int main(int argc, char **argv) {
     for (auto r : tag.errors()) r.print(std::cerr);
 
     if (success) {
-      if (tag.prims)
-        tag.prims->print(std::cout);
-      else
-        std::cerr << "WARNING: no output" << std::endl;
+      FDumbInterpreter interp(tag.prims);
 
-      FPrims &prims = *tag.prims;
-
-      switch (prims.alt()) {
-      case FPrims::Empty: break;
-      case FPrims::Primaries: break;
-      case FPrims::Primary: break;
-      }
+      interp.run();
+      // if (tag.prims)
+      //   tag.prims->print(std::cout);
+      // else
+      //   std::cerr << "WARNING: no output" << std::endl;
     }
 
     std::cout << std::endl;
@@ -90,5 +88,11 @@ int main(int argc, char **argv) {
     if (tag.errors().size() != 1) std::cerr << "s";
     std::cerr << "." << std::endl;
 
-  } catch (std::exception &e) { std::cerr << e.what() << std::endl; }
+    return tag.errors().size() ? 1 : 0;
+#ifdef _NDEBUG
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return -1;
+  }
+#endif
 }

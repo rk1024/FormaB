@@ -1,0 +1,89 @@
+#!/bin/sh
+
+TIMEOUT=2000
+COUNT=0
+TMUX_SID=formab-afl
+
+if test $# -lt 1; then
+  echo "usage: $0 <threads> [session-id]"
+  exit -1
+fi
+
+i=1
+while test $# -gt 0; do
+  case $i in
+    1) COUNT=$1;;
+    2) TMUX_SID=$1;;
+  esac
+  i=$((i + 1))
+  shift
+done
+
+DIRNAME=$(dirname "$0")/..
+SYNCDIR=$DIRNAME/bin/formab-afl
+
+rm -rf $SYNCDIR
+
+if test $COUNT -gt 1; then
+  if tmux has-session -t "$TMUX_SID" 2>/dev/null; then
+    echo -n "Kill running tmux session? [y/N] "
+    read LINE
+    case $LINE in
+      y|Y) tmux kill-session -t "$TMUX_SID" ;;
+      *)
+        echo "Stopping."
+        exit 1 ;;
+    esac
+  fi
+
+  tmux new-session -d -s "$TMUX_SID"
+
+  NCOLS=$(ruby -e "puts Math.sqrt($COUNT).ceil")
+  NROWS=$(ruby -e "puts $COUNT / $NCOLS + ($COUNT % $NCOLS > 0 ? 1 : 0)")
+  LNCOLS=$(ruby -e "rem = $COUNT % $NCOLS; puts rem == 0 ? $NCOLS : rem")
+
+  echo "${NROWS}x$NCOLS"
+  echo "1,1: 0"
+
+  i=0
+  for DENOM in $(seq $NROWS -1 2); do
+    echo "$((i + 2)),1: $((i + 1))"
+    tmux split-window -v -p "$(ruby -e "puts (100 * (1 - 1.0 / $DENOM)).round")" -t "$TMUX_SID.$i"
+    i=$((i + 1))
+  done
+
+  i=0
+  j=$((NROWS - 1))
+  for r in $(seq 1 $NROWS); do
+    CNCOLS=$NCOLS
+    if test $r -eq $NROWS; then CNCOLS=$LNCOLS; fi
+
+    c=2
+    for DENOM in $(seq $CNCOLS -1 2); do
+      echo "$r,$c: $((j + 1))"
+      k=$j
+      if test $DENOM -eq $CNCOLS; then k=$i; fi
+
+      tmux split-window -h -p "$(ruby -e "puts (100 * (1 - 1.0 / $DENOM)).round")" -t "$TMUX_SID.$k"
+      j=$((j + 1))
+      c=$((c + 1))
+    done
+
+    i=$((i + 1))
+  done
+
+  for i in $(seq 0 $((COUNT - 1))); do
+    sleep .1
+
+    MS="S"
+    if test $i -eq 0; then MS="M"; fi
+
+    tmux send-keys -t "$TMUX_SID.$i" "AFL_SKIP_CPUFREQ=y afl-fuzz -i $DIRNAME/etc/formab-afl -o \"$SYNCDIR\" \"-$MS\" proc$(printf "%.3d" "$i") -t $TIMEOUT -- \"$DIRNAME/bin/formab\"" Enter
+  done
+
+  tmux select-pane -t "$TMUX_SID.0"
+
+  tmux -2 attach-session -t "$TMUX_SID.0"
+else
+
+fi

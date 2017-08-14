@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import absolute_import
 import fnmatch
 import glob
 import itertools as it
@@ -228,7 +229,7 @@ def main():
       ]
     )), "$builddir/parse-test/bison-test.ypp"),
     ("formab", "phony", "$bindir/formab", True),
-    ("parse-test", "phony", "$bindir/parse-test", True),
+    ("parse-test", "phony", "$bindir/parse-test", False),
   )
 
   build.util("ast-order", "ruby", build.path("scripts/ast.rb")).set(args = "-r")
@@ -301,7 +302,7 @@ def main():
         "ast/token.o",
       ],
       #includes
-      []
+      [],
     ),
     "parse-test": (
       #src/...
@@ -322,7 +323,7 @@ def main():
       #includes
       [
         "parse-test",
-      ]
+      ],
     ),
   }
 
@@ -349,31 +350,45 @@ def main():
     )
     build.edge(*args).set(flags = includes)
 
-  build.edge((build.paths_b(*astSources), build.paths_b(*astImplSources)),
-             "ruby", ([build.path("scripts/ast.rb")], flatten([
-               "$srcdir/parser.in.ypp",
-               "$srcdir/scanner.in.lpp",
-               "$srcdir/ast/token.in.hpp",
-             ], build.paths(*rglob("scripts/astgen", "*.rb"))))).set(
-               description = "ASTGen scripts/ast.rb",
-               args = "$astgenFlags $rootdir/build/ast",
-               restat = "true",
-             )
+  build.edge(
+    (build.paths_b(*astSources), build.paths_b(*astImplSources)),
+    "ruby",
+    ([
+      build.path("scripts/ast.rb"),
+    ], flatten(
+      [
+        "$srcdir/parser.in.ypp",
+        "$srcdir/scanner.in.lpp",
+        "$srcdir/ast/token.in.hpp",
+      ],
+      build.paths(*rglob("scripts/astgen", "*.rb")),
+    )),
+  ).set(
+    description = "ASTGen scripts/ast.rb",
+    args = "$astgenFlags $rootdir/build/ast",
+    restat = "true",
+  )
 
   build.edge(
     (build.paths_b(*astTestSources), build.paths_b(*astTestImplSources)),
-    "ruby", ([build.path("scripts/ast-test.rb")], flatten([
-      "$srcdir/parse-test/bison-test.in.ypp",
-      "$srcdir/parse-test/flex-test.in.lpp",
-      "$srcdir/ast/token.in.hpp",
-    ], build.paths(*rglob("scripts/astgen", "*.rb"))))
+    "ruby",
+    ([
+      build.path("scripts/ast-test.rb"),
+    ], flatten(
+      [
+        "$srcdir/parse-test/bison-test.in.ypp",
+        "$srcdir/parse-test/flex-test.in.lpp",
+        "$srcdir/ast/token.in.hpp",
+      ],
+      build.paths(*rglob("scripts/astgen", "*.rb")),
+    )),
   ).set(
     description = "ASTGen scripts/ast-test.rb",
     args = "$astgenTestFlags $rootdir/build/parse-test/ast",
     restat = "true",
   )
 
-  for out, (ins, b_ins, objs, p) in sources.iteritems():
+  for out, (ins, b_ins, objs, p) in sources.items():
     includes = "-I{} -I{}{}".format(
       path.join("$builddir", *p),
       path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else ""

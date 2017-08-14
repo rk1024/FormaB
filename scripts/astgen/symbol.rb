@@ -278,7 +278,7 @@ module ASTGen
             @syntax.each_with_index do |(syms, alt), i|
               l.peek << " |" if i > 0
 
-              l << "#{syms.length == 0 ? "%empty" : syms.map do |sym|
+              l << "#{syms.none? ? "%empty" : syms.map do |sym|
                 case sym
                   when String; sym.inspect
                   when Symbol; "#{sym == :self ? @name : @node.members[sym]}[#{sym}]"

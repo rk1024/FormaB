@@ -13,11 +13,11 @@ class LineWriter
     def <<(val)
       str = val.to_s
       str.rstrip!
-      relay str, is_first:@arr.length == 0
+      relay str, is_first: @arr.none?
     end
 
     def relay(str, is_first:)
-      if str.strip.length == 0
+      if str.strip.empty?
         @sep += 1
       else
         @sep = 0
@@ -29,7 +29,7 @@ class LineWriter
     end
 
     def sep(spacing, and_merge: true, unless_first: true)
-      return self if unless_first and @arr.length == 0
+      return self if unless_first and @arr.none?
 
       spacing -= @sep if and_merge
 
@@ -63,7 +63,7 @@ class LineWriter
     def relay(str, is_first:)
       sep @spacing if is_first
 
-      str.prepend(@indent) if str.length > 0
+      str.prepend(@indent) if !str.empty?
 
       @first = false if @first
 

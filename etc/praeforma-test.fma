@@ -6,7 +6,7 @@ using System;
   "
 @}
 
-@!meta{
+@!prae{
   let min = (of:, and:) => if (of < and) of else and,
     max = (of:, and:) => if (of > and) of else and,
     test = () => [cout print: "This is just a test."];

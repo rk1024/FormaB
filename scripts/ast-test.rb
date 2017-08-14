@@ -1,5 +1,32 @@
 require_relative 'astgen/astgen'
 
+module ASTGen
+  Node.namespace = "frma"
+  Node.class_prefix = "F"
+  Node.class_base = "frma::FormaAST"
+  Node.class_token = "frma::FToken"
+
+  Node.name_prefixes = {
+    meta: "M",
+  }
+
+  Node.name_suffixes = {
+    expression: "X",
+    literal: "L",
+    statement: "S",
+  }
+
+  Node.name_abbrevs = [
+    ["Argument", "Arg"],
+    ["Expression", "Expr"],
+    ["Function", "Func"],
+    ["Message", "Msg"],
+    ["Parameter", "Param"],
+    ["Primary", "Prim", "Primaries"],
+    ["Statement", "Stmt"],
+  ]
+end
+
 ASTGen.run do
   export :PrimariesOpt
 

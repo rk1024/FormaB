@@ -109,7 +109,7 @@ RawBlockClose @+\}
 RawBlockNoAt [^@\n]
 RawBlockAts @+[^\}\n]?
 
-MetaBlockID meta
+PraeBlockID prae
 
 SQuote \'
 DQuote \"
@@ -128,25 +128,38 @@ SQChar [^'\\]
 DQChar [^"\\]
 QLEscape \\.
 
+PraeNegative -
+PraeDecPoint \.
+PraeHexNumStart 0x
+PraeOctNumStart 0o
+PraeBinNumStart 0b
+PraeHexDigit [0-9a-fA-F]
+PraeDecDigit [0-9]
+PraeOctDigit [0-7]
+PraeBinDigit [01]
+PraeNumTypeSpec [a-zA-Z_]
+PraeNumExpon [eE]{PraeNegative}?{PraeDecDigit}+
+PraeNumEnd {PraeNumExpon}?{PraeNumTypeSpec}*
+
 %x SSBComment
 
 %x SSRawBlockStart
 %x SSRawBlockID
-%x SSMetaBlockID
+%x SSPraeBlockID
 %x SSRawBlock
-%x SSMetaBlock
+%x SSPraeBlock
 
 %x SSSyntaxExtArgs
 
 %x SSEscapedID
 
 %%
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   {Whitespace}+ { $SL $ML }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
@@ -166,7 +179,7 @@ QLEscape \\.
 
 <SSRawBlockStart>{
   /*{ignore me}*/
-  {MetaBlockID} { $SL $ML $SSBEGIN(MetaBlockID) }
+  {PraeBlockID} { $SL $ML $SSBEGIN(PraeBlockID) }
 
   %astgen-token RawBlockID /{IDStart}{Identifier}*/ { $SL $ML $SSBEGIN(RawBlockID) } capture
 }
@@ -176,9 +189,9 @@ QLEscape \\.
   {RawBlockOpen} { $SL $ML $SSBEGIN(RawBlock) $BS }
 }
 
-<SSMetaBlockID>{
+<SSPraeBlockID>{
   /*{ignore me}*/
-  %astgen-token MetaBlockStart /{RawBlockOpen}/ "@!meta{" { $SL $ML $SSBEGIN(MetaBlock) }
+  %astgen-token PraeBlockStart /{RawBlockOpen}/ "@!prae{" { $SL $ML $SSBEGIN(PraeBlock) }
 }
 
 <SSRawBlock>{
@@ -191,11 +204,17 @@ QLEscape \\.
   {RawBlockAts}+ { $ML $BW }
 }
 
-<SSMetaBlock>{
+<SSPraeBlock>{
   /*{ignore me}*/
-  %astgen-token MetaBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
+  %astgen-token PraeBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
+
+  %astgen-token PraeHexLiteral /{PraeNegative}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeDecLiteral /{PraeNegative}?{PraeDecDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeOctLiteral /{PraeNegative}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeBinLiteral /{PraeNegative}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeFloatLiteral /{PraeNegative}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
 
   %astgen-token KWBreak "break" { $SL $ML }
   %astgen-token KWCase "case" { $SL $ML }
@@ -268,9 +287,9 @@ QLEscape \\.
   <<EOF>> { $ML $BE $E("unterminated raw block") }
 }
 
-<SSMetaBlock>{
+<SSPraeBlock>{
   /*{ignore me}*/
-  <<EOF>> { $ML $E("unterminated meta block") }
+  <<EOF>> { $ML $E("unterminated Praeforma block") }
 }
 
 <SSSyntaxExtArgs>{
@@ -283,7 +302,9 @@ QLEscape \\.
   <<EOF>> { $ML $BE $E("unterminated syntax extension arguments") }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+%astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
+
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   %astgen-token LParen "(" { $SL $ML }
   %astgen-token RParen ")" { $SL $ML }
@@ -295,18 +316,17 @@ QLEscape \\.
   %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token UnescapedAtomKeyword /{IDStart}{Identifier}*:/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
-  %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore this
 
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs,SSEscapedID>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs,SSEscapedID>{
   /*{ignore me}*/
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
   %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
 }
 
-<INITIAL,SSMetaBlock>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   %astgen-token SQLiteral /{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}*/ { $SL $ML } capture
   %astgen-token DQLiteral /{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}*/ { $SL $ML } capture

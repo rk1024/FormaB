@@ -219,11 +219,11 @@ class Diagnostics
     end
   end
 
-  def debug(str) good("debug", "38;5;14;1", str) end
-  def info(str) good("info", "38;5;14;1", str) end
+  def debug(str) good("debug", "38;5;8;1", str) end
+  def info(str) good("info", "38;5;8;1", str) end
   def warn(str) good("warning", "38;5;13;1", str) end
-  def debug_v(str) verb("debug", "38;5;14;1", str) end
-  def info_v(str) verb("info", "38;5;14;1", str) end
+  def debug_v(str) verb("debug", "38;5;8;1", str) end
+  def info_v(str) verb("info", "38;5;8;1", str) end
   def warn_v(str) verb("warning", "38;5;13;1", str) end
   def error(str) bad("error", "38;5;1;1", str) end
   def fatal(str) bad("fatal", "38;5;1;1", str) end

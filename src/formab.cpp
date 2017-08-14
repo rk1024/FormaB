@@ -73,9 +73,9 @@ int main(int argc, char **argv) {
     for (auto r : tag.errors()) r.print(std::cerr);
 
     if (success) {
-      FDumbInterpreter interp(tag.prims);
+      // FDumbInterpreter interp(tag.prims);
 
-      interp.run();
+      // interp.run();
       // if (tag.prims)
       //   tag.prims->print(std::cout);
       // else

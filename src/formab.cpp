@@ -72,15 +72,16 @@ int main(int argc, char **argv) {
 
     for (auto r : tag.errors()) r.print(std::cerr);
 
-    if (success) {
-      // FDumbInterpreter interp(tag.prims);
+    if (tag.prims)
+      std::cout << tag.prims;
+    else if (success)
+      std::cerr << "WARNING: no output" << std::endl;
 
-      // interp.run();
-      // if (tag.prims)
-      //   tag.prims->print(std::cout);
-      // else
-      //   std::cerr << "WARNING: no output" << std::endl;
-    }
+    // if (success) {
+    //   // FDumbInterpreter interp(tag.prims);
+
+    //   // interp.run();
+    // }
 
     std::cout << std::endl;
 

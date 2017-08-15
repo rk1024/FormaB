@@ -86,9 +86,11 @@ ASTGen.run do
     let :Token, :body
 
     ctor :RawBlock, :id, :body, fmt: ["@!", :id, "{", :body, "@}"]
+    ctor :Error, :id, fmt: ["@!", :id, "{ <ERROR > @}"]
 
     symbol do
       rule :RawBlock, [:RawBlockID, :id], [:RawBlockBody, :body]
+      rule :Error, [:RawBlockID, :id], [:error], action: "yyerrok;"
     end
   end
 
@@ -96,9 +98,11 @@ ASTGen.run do
     let :PraeStatements, :expr
 
     ctor :PraeBlock, :expr, fmt: ["@!prae{\n", :expr, "\n@}"]
+    ctor :Error, fmt: "@!prae{ <ERROR> @}"
 
     symbol do
       rule :PraeBlock, [:PraeBlockStart], [:PraeStatementsOpt, :expr], [:PraeBlockEnd]
+      rule :Error, [:PraeBlockStart], [:error], [:PraeBlockEnd], action: "yyerrok;"
     end
   end
 
@@ -106,15 +110,24 @@ ASTGen.run do
     let :Primaries, :prims
 
     ctor [:PGroup, :KGroup, :CGroup], :prims
+    ctor [:PError, :KError, :CError]
 
     fmt :PGroup, "(", :prims, ")"
     fmt :KGroup, "{ ", :prims, " }"
     fmt :CGroup, "[", :prims, "]"
 
+    fmt :PError, "( <ERROR> )"
+    fmt :KError, "{ <ERROR> }"
+    fmt :CError, "[ <ERROR> ]"
+
     symbol do
       rule :PGroup, "(", :prims, ")"
       rule :KGroup, "{", :prims, "}"
       rule :CGroup, "[", :prims, "]"
+
+      rule :PError, "(", [:error], ")", action: "yyerrok;"
+      rule :KError, "{", [:error], "}", action: "yyerrok;"
+      rule :CError, "[", [:error], "]", action: "yyerrok;"
     end
   end
 
@@ -185,6 +198,7 @@ ASTGen.run do
     ctor :Bind, :bind, fmt: [:bind, ";"]
     ctor :Assign, :assign, fmt: [:assign, ";"]
     ctor :Control, :ctl, fmt: :ctl
+    ctor :Error, fmt: "<ERROR> ;"
 
     fmt :SemiExpr, :expr, ";"
     fmt :NonSemiExpr, :expr
@@ -193,6 +207,11 @@ ASTGen.run do
       symbol :"Prae#{parts}PureStatement" do
         rule :SemiExpr, [:"Prae#{parts}SemiExpression", :expr], ";"
         rule :NonSemiExpr, [:"Prae#{parts}NonSemiExpression", :expr]
+
+        case open
+          when :Closed
+            rule :Error, [:error], ";", action: "yyerrok;"
+        end
       end
 
       symbol :"Prae#{parts}Statement" do
@@ -376,6 +395,7 @@ ASTGen.run do
 
     ctor :List, :params, fmt: ["(", :params, ")"]
     ctor :Empty, fmt: []
+    ctor :Error, fmt: "( <ERROR> )"
     ctor :Parameters, :params, :param, fmt: [:params, ", ", :param]
     ctor :Parameter, :param, fmt: :param
 
@@ -391,6 +411,7 @@ ASTGen.run do
 
     symbol do
       rule :List, "(", [:PraeFunctionParametersPartOpt, :params], ")"
+      rule :Error, "(", [:error], ")", action: "yyerrok;"
     end
   end
 
@@ -653,6 +674,7 @@ ASTGen.run do
     let :PraeBindStatement, :bind
 
     ctor :Paren, :paren, fmt: ["(", :paren, ")"]
+    ctor :Error, fmt: "( <ERROR> )"
 
     ctor :Where, :bind, :expr, fmt: [:bind, "; ", :expr]
     ctor :Tuple, :exprs, fmt: :exprs
@@ -664,6 +686,7 @@ ASTGen.run do
 
     symbol do
       rule :Paren, "(", [:PraeParenExpressionBody, :paren], ")"
+      rule :Error, "(", [:error], ")", action: "yyerrok;"
     end
   end
 
@@ -671,9 +694,11 @@ ASTGen.run do
     let :PraeStatements, :stmts
 
     ctor :Block, :stmts, fmt: ["{\n", :stmts, "\n}"]
+    ctor :Error, fmt: "{ <ERROR> }"
 
     symbol do
       rule :Block, "{", [:PraeStatementsOpt, :stmts], "}"
+      rule :Error, "{", [:error], "}", action: "yyerrok;"
     end
   end
 
@@ -682,9 +707,11 @@ ASTGen.run do
     let :PraeMessageSelectors, :sels
 
     ctor :Message, :expr, :sels, fmt: ["[", :expr, " ", :sels, "]"]
+    ctor :Error, :expr, fmt: [:expr, "[ <ERROR> ]"]
 
     symbol do
       rule :Message, "[", :expr, :sels, "]"
+      rule :Error, :expr, "[", [:error], "]", action: "yyerrok;"
     end
   end
 

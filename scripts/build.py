@@ -60,6 +60,7 @@ def main():
 
   build.useRepo("https://www.github.com/rookie1024/ninja")
 
+  dashOFast = False
   debug = True
   sanitize = True
   afl = False
@@ -147,7 +148,7 @@ def main():
     astgenTestFlags.extend(["-v"])
   else:
     cxxflags.extend([
-      "-Ofast",
+      "-Ofast" if dashOFast else "-O3",
       "-DNDEBUG",
       "-D_NDEBUG",
     ])
@@ -208,31 +209,42 @@ def main():
     command = "$ruby $rubyflags $flags $in $args",
   )
 
-  build.edges(
-    (build.path_b("scanner.cpp"), build.path_b("scanner.lpp")),
-    (([build.path_b("parser.cpp")], build.paths_b(
-      *[
-        "parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"
-      ]
-    )), build.path_b("parser.ypp")),
-    (
-      build.path_b("parse-test/flex-test.cpp"),
-      "$builddir/parse-test/flex-test.lpp"
-    ),
-    (([build.path_b("parse-test/bison-test.cpp")], build.paths_b(
-      *[
-        "parse-test/{}".format(s)
-        for s in [
-          "bison-test.hpp", "bison-test.output", "location.hh", "position.hh",
-          "stack.hh"
-        ]
-      ]
-    )), "$builddir/parse-test/bison-test.ypp"),
-    ("formab", "phony", "$bindir/formab", True),
-    ("parse-test", "phony", "$bindir/parse-test", False),
+  build.edge(build.path_b("scanner.cpp"), build.path_b("scanner.lpp")).set(
+    description = "flex scanner.lpp",
   )
 
-  build.util("ast-order", "ruby", build.path("scripts/ast.rb")).set(args = "-r")
+  build.edge(([build.path_b("parser.cpp")], build.paths_b(
+    *["parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"]
+  )), build.path_b("parser.ypp")).set(
+    description = "bison parser.ypp",
+  )
+
+  build.edge(
+    build.path_b("parse-test/flex-test.cpp"),
+    "$builddir/parse-test/flex-test.lpp"
+  ).set(
+    description = "flex flex-test.lpp",
+  )
+
+  build.edge(([build.path_b("parse-test/bison-test.cpp")], build.paths_b(
+    *[
+      "parse-test/{}".format(s)
+      for s in [
+        "bison-test.hpp", "bison-test.output", "location.hh", "position.hh",
+        "stack.hh"
+      ]
+    ]
+  )), "$builddir/parse-test/bison-test.ypp").set(
+    description = "bison bison-test.ypp",
+  )
+
+  build.edge("formab", "phony", "$bindir/formab", True).set(
+    description = "BUILD formab",
+  )
+
+  build.edge("parse-test", "phony", "$bindir/parse-test", False).set(
+    description = "BUILD parse-test",
+  )
 
   astSources = [
     path.relpath(src.strip(), "build")

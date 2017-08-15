@@ -37,10 +37,10 @@ typedef frma::parser::token tk;
 
 #define $x yyg->yyextra_r
 
-#define $E(value) do { \
-  $x->error(*yylloc, std::string("lexical error: ") + value); \
-  $x->lexFail = true; \
-  $x->lexFailPos = *yylloc; \
+#define $E(value) $x->error(*yylloc, std::string("lexical error: ") + value);
+
+#define $F(value) do { \
+  $E(value); \
   yyterminate(); \
 } while (false);
 

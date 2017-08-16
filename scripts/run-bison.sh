@@ -1,3 +1,5 @@
 #!/bin/sh
 DIRNAME=$(dirname $0)
-"$DIRNAME/pipe-bison.sh" $@ | "$DIRNAME/colorize-bison.rb"
+BISON=$1
+[ "$#" -gt 0 ] && shift
+$BISON $@ 2>&1 | "$DIRNAME/colorize-bison.rb"

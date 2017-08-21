@@ -4,3 +4,6 @@
 [submodule "scripts/RNinja"]
 	path = scripts/RNinja
 	url = git@github.com:rk1024/RNinja.git
+[submodule "tools/re2c"]
+	path = tools/re2c
+	url = https://github.com/skvadrik/re2c.git

@@ -86,7 +86,7 @@ ASTGen.run do
     let :Token, :body
 
     ctor :RawBlock, :id, :body, fmt: ["@!", :id, "{", :body, "@}"]
-    ctor :Error, :id, fmt: ["@!", :id, "{ <ERROR > @}"]
+    ctor :Error, :id, fmt: ["@!", :id, "{ <ERROR> @}"]
 
     symbol do
       rule :RawBlock, [:RawBlockID, :id], [:RawBlockBody, :body]
@@ -95,13 +95,13 @@ ASTGen.run do
   end
 
   node :PraeBlock do
-    let :PraeStatements, :expr
+    let :PraeStatements, :stmts
 
-    ctor :PraeBlock, :expr, fmt: ["@!prae{\n", :expr, "\n@}"]
+    ctor :PraeBlock, :stmts, fmt: ["@!prae{\n", :stmts, "\n@}"]
     ctor :Error, fmt: "@!prae{ <ERROR> @}"
 
     symbol do
-      rule :PraeBlock, [:PraeBlockStart], [:PraeStatementsOpt, :expr], [:PraeBlockEnd]
+      rule :PraeBlock, [:PraeBlockStart], [:PraeStatementsOpt, :stmts], [:PraeBlockEnd]
       rule :Error, [:PraeBlockStart], [:error], [:PraeBlockEnd], action: "yyerrok;"
     end
   end
@@ -151,10 +151,16 @@ ASTGen.run do
     ctor :Empty, fmt: []
     ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
     ctor :Statement, :stmt, fmt: :stmt
+    # ctor :Error, :stmts, fmt: [:stmts, "\n<ERROR>"]
+
+    symbol :PraeStatementsPart do
+      rule :Statements, [:PraeStatementsPart, :stmts], :stmt
+      rule :Statement, :stmt
+    end
 
     symbol do
-      rule :Statements, :stmts, :stmt
-      rule :Statement, :stmt
+      rule :self, [:PraeStatementsPart, :self]
+      # rule :Error, [:PraeStatementsPart, :stmts], [:error], action: "yyerrok;"
     end
 
     symbol :PraeStatementsOpt do
@@ -299,8 +305,8 @@ ASTGen.run do
 
     ops = [
       [:Assign, ""],
-      [:LogOr, "||"],
-      [:LogAnd, "&&"],
+      [:Con, "||"],
+      [:Dis, "&&"],
       [:Add, "+"],
       [:Sub, "-"],
       [:Mul, "*"],
@@ -480,14 +486,14 @@ ASTGen.run do
     let :PraeInfixExpression, :infixl
 
     ctor [
-      :Disjunct,
-      :Conjunct,
-      :Equal,
-      :NotEqual,
-      :Greater,
-      :Less,
-      :GreaterEq,
-      :LessEq,
+      :Dis,
+      :Con,
+      :Eql,
+      :Neq,
+      :Grt,
+      :Lss,
+      :Geq,
+      :Leq,
       :Add,
       :Sub,
       :Mul,
@@ -496,14 +502,14 @@ ASTGen.run do
     ctor :Mod, :infixl, :unary
     ctor :Unary, :unary, fmt: :unary
 
-    fmt :Conjunct, :infixl, " || ", :infixr
-    fmt :Disjunct, :infixl, " && ", :infixr
-    fmt :Equal, :infixl, " == ", :infixr
-    fmt :NotEqual, :infixl, " != ", :infixr
-    fmt :Greater, :infixl, " > ", :infixr
-    fmt :Less, :infixl, " < ", :infixr
-    fmt :GreaterEq, :infixl, " >= ", :infixr
-    fmt :LessEq, :infixl, " <= ", :infixr
+    fmt :Con, :infixl, " || ", :infixr
+    fmt :Dis, :infixl, " && ", :infixr
+    fmt :Eql, :infixl, " == ", :infixr
+    fmt :Neq, :infixl, " != ", :infixr
+    fmt :Grt, :infixl, " > ", :infixr
+    fmt :Lss, :infixl, " < ", :infixr
+    fmt :Geq, :infixl, " >= ", :infixr
+    fmt :Leq, :infixl, " <= ", :infixr
     fmt :Add, :infixl, " + ", :infixr
     fmt :Sub, :infixl, " - ", :infixr
     fmt :Mul, :infixl, " * ", :infixr
@@ -513,21 +519,21 @@ ASTGen.run do
     symbol do end # Does something because of chaining (i.e. DON'T REMOVE THIS)
 
     chain :PraeDisjunctExpression do
-      rule :Disjunct, me(:infixl), "||", defer(:infixr)
+      rule :Dis, me(:infixl), "||", defer(:infixr)
     end
 
     chain :PraeConjunctExpression do
-      rule :Conjunct, me(:infixl), "&&", defer(:infixr)
+      rule :Con, me(:infixl), "&&", defer(:infixr)
     end
 
     chain :PraeComparisonExpression do
       [
-        [:Equal, "=="],
-        [:NotEqual, "!="],
-        [:Greater, ">"],
-        [:Less, "<"],
-        [:GreaterEq, ">="],
-        [:LessEq, "<="],
+        [:Eql, "=="],
+        [:Neq, "!="],
+        [:Grt, ">"],
+        [:Lss, "<"],
+        [:Geq, ">="],
+        [:Leq, "<="],
       ].each do |name, op|
         rule name, me(:infixl), op, defer(:infixr)
       end
@@ -562,7 +568,7 @@ ASTGen.run do
     end
 
     ctor [
-      :LogNot,
+      :Inv,
       :Pos,
       :Neg,
       :Inc,
@@ -570,14 +576,14 @@ ASTGen.run do
     ], :unary
     ctor :Member, :memb, fmt: :memb
 
-    fmt :LogNot, "!", :unary
+    fmt :Inv, "!", :unary
     fmt :Pos, "+", :unary
     fmt :Neg, "-", :unary
     fmt :Inc, "++", :unary
     fmt :Dec, "--", :unary
 
     symbol do
-      rule :LogNot, "!", :unary
+      rule :Inv, "!", :unary
       rule :Pos, "+", :unary
       rule :Neg, "-", :unary
       rule :Inc, "++", :unary
@@ -703,38 +709,15 @@ ASTGen.run do
   end
 
   node :PraeMessageExpression do
-    let :PraeExpression, :expr
-    let :PraeMessageSelectors, :sels
+    let :PraePrimaryExpression, :expr
+    let :PraeMessageSelector, :sel
 
-    ctor :Message, :expr, :sels, fmt: ["[", :expr, " ", :sels, "]"]
+    ctor :Message, :expr, :sel, fmt: [:expr, "[", :sel, "]"]
     ctor :Error, :expr, fmt: [:expr, "[ <ERROR> ]"]
 
     symbol do
-      rule :Message, "[", :expr, :sels, "]"
+      rule :Message, :expr, "[", :sel, "]"
       rule :Error, :expr, "[", [:error], "]", action: "yyerrok;"
-    end
-  end
-
-  node :PraeMessageSelectors do
-    let :PraeMessageSelectors, :sels
-    let :PraeMessageSelector, :sel
-
-    ctor :Empty, fmt: []
-    ctor :Selectors, :sels, :sel, fmt: [:sels, " | ", :sel]
-    ctor :Selector, :sel, fmt: :sel
-
-    symbol :PraeMessageSelectorsOpt do
-      rule :Empty, [:PipeOpt]
-      rule :self, [:PraeMessageSelectors, :self]
-    end
-
-    symbol do
-      rule :self, [:PraeMessageSelectorsPart, :self], [:PipeOpt]
-    end
-
-    symbol :PraeMessageSelectorsPart do
-      rule :Selectors, [:PraeMessageSelectorsPart, :sels], "|", :sel
-      rule :Selector, :sel
     end
   end
 

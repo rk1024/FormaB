@@ -395,37 +395,38 @@ FEntity FDumbInterpreter::run(const FPXPrim *prim, FClosure closure) {
 
 FEntity FDumbInterpreter::run(const FPXMsg *msg, FClosure closure) {
   std::vector<const FPMsgSelector *> selectors;
-  getSelectors(msg->sels(), selectors);
+  // getSelectors(msg->sels(), selectors);
 
   FEntity ent = run(msg->expr(), closure);
 
-  for (auto sel : selectors) {
-    switch (sel->alt()) {
-    case FPMsgSelector::Keyword: {
-      std::vector<std::pair<FAtom, FEntity>> keywords;
-      getKeywords(sel->kws(), keywords, closure);
+  // for (auto sel : selectors) {
+  switch (msg->sel()->alt()) {
+  case FPMsgSelector::Keyword: {
+    std::vector<std::pair<FAtom, FEntity>> keywords;
+    getKeywords(msg->sel()->kws(), keywords, closure);
 
-      if (!ent)
-        throw std::runtime_error(keywords.at(0).first.toString() +
-                                 ": Attempt to pass message to void");
+    if (!ent)
+      throw std::runtime_error(keywords.at(0).first.toString() +
+                               ": Attempt to pass message to void");
 
-      ent = ent->dispatch(keywords);
-      break;
+    ent = ent->dispatch(keywords);
+    break;
     }
     case FPMsgSelector::Unary:
-      ent = ent->dispatch(FAtom::intern(std::string(sel->tok()->value())));
+      ent =
+          ent->dispatch(FAtom::intern(std::string(msg->sel()->tok()->value())));
       break;
     }
-  }
+    // }
 
-  // std::cout << "  \x1b[1m[DEBUG]\x1b[0m Result: ";
-  // if (ent)
-  //   std::cout << "\x1b[38;5;4m" << ent->toString();
-  // else
-  //   std::cout << "\x1b[38;5;9m(void)";
-  // std::cout << "\x1b[0m" << std::endl;
+    // std::cout << "  \x1b[1m[DEBUG]\x1b[0m Result: ";
+    // if (ent)
+    //   std::cout << "\x1b[38;5;4m" << ent->toString();
+    // else
+    //   std::cout << "\x1b[38;5;9m(void)";
+    // std::cout << "\x1b[0m" << std::endl;
 
-  return ent;
+    return ent;
 }
 
 FEntity FDumbInterpreter::run(const FPXParen *paren, FClosure closure) {
@@ -456,14 +457,15 @@ FEntity FDumbInterpreter::runScopedWhere(const FPXParen *paren,
   return run(paren->expr(), closure);
 }
 
-void FDumbInterpreter::getSelectors(
-    const FPMsgSelectors *sels, std::vector<const FPMsgSelector *> &selectors) {
-  switch (sels->alt()) {
-  case FPMsgSelectors::Empty: return;
-  case FPMsgSelectors::Selectors: getSelectors(sels->sels(), selectors);
-  case FPMsgSelectors::Selector: selectors.push_back(sels->sel()); break;
-  }
-}
+// void FDumbInterpreter::getSelectors(
+//     const FPMsgSelectors *sels, std::vector<const FPMsgSelector *>
+//     &selectors) {
+//   switch (sels->alt()) {
+//   case FPMsgSelectors::Empty: return;
+//   case FPMsgSelectors::Selectors: getSelectors(sels->sels(), selectors);
+//   case FPMsgSelectors::Selector: selectors.push_back(sels->sel()); break;
+//   }
+// }
 
 void FDumbInterpreter::getKeywords(
     const FPMsgKeywords *kws,

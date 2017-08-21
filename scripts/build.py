@@ -65,6 +65,29 @@ def main():
   sanitize = True
   afl = False
 
+  astgenFlags = [
+    "-f$rootdir/src/scanner.in.lpp:$builddir/scanner.lpp",
+    "-b$rootdir/src/parser.in.ypp:$builddir/parser.ypp",
+    "-t$rootdir/src/ast/token.in.hpp:$builddir/ast/token.hpp",
+  ]
+
+  flexflags = [
+    "--ecs",
+    "--full",
+  ]
+
+  bisonflags = [
+    "--warnings=all",
+    "--report=all",
+  ]
+
+  re2cflags = [
+    "--empty-class error",
+    "-T",
+    "-W",
+    "-Werror-undefined-control-flow",
+  ]
+
   cxxflags = [
     "-fcolor-diagnostics",
     "-fno-elide-type",
@@ -92,28 +115,6 @@ def main():
   ]
 
   ldflags = []
-
-  flexflags = [
-    "--ecs",
-    "--full",
-  ]
-
-  bisonflags = [
-    "--warnings=all",
-    "--report=all",
-  ]
-
-  astgenFlags = [
-    "-f$rootdir/src/scanner.in.lpp:$builddir/scanner.lpp",
-    "-b$rootdir/src/parser.in.ypp:$builddir/parser.ypp",
-    "-t$rootdir/src/ast/token.in.hpp:$builddir/ast/token.hpp",
-  ]
-
-  astgenTestFlags = [
-    "-f$rootdir/src/parse-test/flex-test.in.lpp:$builddir/parse-test/flex-test.lpp",
-    "-b$rootdir/src/parse-test/bison-test.in.ypp:$builddir/parse-test/bison-test.ypp",
-    "-t$rootdir/src/ast/token.in.hpp:$builddir/parse-test/ast/token.hpp",
-  ]
 
   def addPkgs(*args):
     cflags = pkcflags(*args)
@@ -144,8 +145,6 @@ def main():
     astgenFlags.extend([
       "-v",
     ])
-
-    astgenTestFlags.extend(["-v"])
   else:
     cxxflags.extend([
       "-Ofast" if dashOFast else "-O3",
@@ -158,24 +157,42 @@ def main():
     for flag in astgenFlags
   ]
 
-  astgenTestFlagsInternal = [
-    flag.replace("$rootdir", ".").replace("$builddir", "build")
-    for flag in astgenTestFlags
-  ]
-
   build.set(
     srcdir = build.path("src"),
     bindir = build.path("bin"),
-    cxx = "afl-clang++" if afl else "clang++",
+    ruby = "ruby",
     flex = "flex",
     bison = "scripts/run-bison.sh bison",
-    ruby = "ruby",
-    cxxflags = " ".join(cxxflags),
-    ldflags = " ".join(ldflags),
+    re2c = "$rootdir/tools/re2c/re2c/re2c",
+    cxx = "afl-clang++" if afl else "clang++",
+    astgenFlags = " ".join(astgenFlags),
     flexflags = " ".join(flexflags),
     bisonflags = " ".join(bisonflags),
-    astgenFlags = " ".join(astgenFlags),
-    astgenTestFlags = " ".join(astgenTestFlags),
+    re2cflags = " ".join(re2cflags),
+    cxxflags = " ".join(cxxflags),
+    ldflags = " ".join(ldflags),
+  )
+
+  build.rule("ruby").set(
+    command = "$ruby $rubyflags $flags $in $args",
+  )
+
+  build.rule(
+    "flex", targets = (".cpp"), deps = (".lpp")
+  ).set(
+    command = "$flex $flexflags $flags -o $out $in",
+  )
+
+  build.rule(
+    "bison", targets = (".cpp"), deps = (".ypp")
+  ).set(
+    command = "$bison $bisonflags $flags -o $out $in",
+  )
+
+  build.rule(
+    "re2c", targets = (".cpp"), deps = (".re")
+  ).set(
+    command = "$re2c $re2cflags $flags -o $out $in",
   )
 
   build.rule(
@@ -193,22 +210,6 @@ def main():
     command = "$cxx $ldflags $flags -o $out $in",
   )
 
-  build.rule(
-    "flex", targets = (".cpp"), deps = (".lpp")
-  ).set(
-    command = "$flex $flexflags $flags -o $out $in",
-  )
-
-  build.rule(
-    "bison", targets = (".cpp"), deps = (".ypp")
-  ).set(
-    command = "$bison $bisonflags $flags -o $out $in",
-  )
-
-  build.rule("ruby").set(
-    command = "$ruby $rubyflags $flags $in $args",
-  )
-
   build.edge(build.path_b("scanner.cpp"), build.path_b("scanner.lpp")).set(
     description = "flex scanner.lpp",
   )
@@ -219,33 +220,17 @@ def main():
     description = "bison parser.ypp",
   )
 
-  build.edge(
-    build.path_b("parse-test/flex-test.cpp"),
-    "$builddir/parse-test/flex-test.lpp"
-  ).set(
-    description = "flex flex-test.lpp",
-  )
-
-  build.edge(([build.path_b("parse-test/bison-test.cpp")], build.paths_b(
-    *[
-      "parse-test/{}".format(s)
-      for s in [
-        "bison-test.hpp", "bison-test.output", "location.hh", "position.hh",
-        "stack.hh"
-      ]
-    ]
-  )), "$builddir/parse-test/bison-test.ypp").set(
-    description = "bison bison-test.ypp",
-  )
+  # build.edge([build.path_b("util/lexNum.cpp")],
+  #            ["$srcdir/util/lexNum.re"]).set(
+  #              description = "re2c util/lexNum.in.cpp",
+  #              flags = "-T"
+  #            )
 
   build.edge("formab", "phony", "$bindir/formab", True).set(
     description = "BUILD formab",
   )
 
-  build.edge("parse-test", "phony", "$bindir/parse-test", False).set(
-    description = "BUILD parse-test",
-  )
-
+  # Explicit dependencies created by ASTGen
   astSources = [
     path.relpath(src.strip(), "build")
     for src in str(
@@ -256,16 +241,7 @@ def main():
     ).split(" ")
   ]
 
-  astTestSources = [
-    path.relpath(src.strip(), "build")
-    for src in str(
-      sp.check_output(
-        flatten(["ruby", "scripts/ast-test.rb", "-l", "build/parse-test/ast"],
-                astgenTestFlagsInternal)
-      )
-    ).split(" ")
-  ]
-
+  # Implicit dependencies created by ASTGen
   astImplSources = [
     path.relpath(src.strip(), "build")
     for src in str(
@@ -276,26 +252,25 @@ def main():
     ).split(" ")
   ]
 
-  astTestImplSources = [
-    path.relpath(src.strip(), "build")
-    for src in str(
-      sp.check_output(
-        flatten(["ruby", "scripts/ast-test.rb", "-i", "build/parse-test/ast"],
-                astgenTestFlagsInternal)
-      )
-    ).split(" ")
-  ]
-
-  # "binary": ([source files in src/ directory], [source files in build/ directory], [extra .o files], [include paths])
+  # "binary": ([source files in src/ directory], [.re files in src/ directory], [source files in build/ directory], [extra .o files], [include path])
   sources = {
     "formab": (
       #src/...
+      flatten([
+        "formab.cpp",
+        "ast/token.cpp",
+      ], *[
+        rglob("src/{}".format(folder), "*.cpp", rel = "src/")
+        for folder in [
+          "intermedia",
+          "util",
+        ]
+      ]),
+      #src/... .re
       flatten(
-        ["formab.cpp"],
         *[
-          rglob("src/{}".format(folder), "*.cpp", rel = "src/")
+          rglob("src/{}".format(folder), "*.re", rel = "src/")
           for folder in [
-            # "formaDumb",
             "intermedia",
             "util",
           ]
@@ -306,61 +281,26 @@ def main():
         [
           "scanner.cpp",
           "parser.cpp",
+          "util/lexNum.cpp",
         ],
         fnmatch.filter(astSources, "**/*.cpp"),
       ),
       #objs
-      [
-        "ast/token.o",
-      ],
-      #includes
       [],
-    ),
-    "parse-test": (
-      #src/...
-      [],
-      #build/...
-      flatten(
-        [
-          "parse-test/flex-test.cpp",
-          "parse-test/bison-test.cpp",
-        ],
-        fnmatch.filter(astTestSources, "**/*.cpp"),
-      ),
-      #objs
-      [
-        "parse-test/parseTest.o",
-        "parse-test/ast/token.o",
-      ],
-      #includes
-      [
-        "parse-test",
-      ],
+      #include
+      "",
     ),
   }
 
   l.debug(sources)
 
-  for args, p in [
-    ((
-      build.path_b("parse-test/parseTest.o"),
-      (["$srcdir/parse-test/parseTest.cpp"],
-       ["$builddir/parse-test/bison-test.hpp"])
-    ), ["parse-test"]),
-    ((
-      build.path_b("ast/token.o"),
-      (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])
-    ), []),
-    ((
-      build.path_b("parse-test/ast/token.o"),
-      (["$srcdir/ast/token.cpp"], ["$builddir/parse-test/ast/token.hpp"])
-    ), ["parse-test"]),
-  ]:
-    includes = "-I{} -I{}{}".format(
-      path.join("$builddir", *p),
-      path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else ""
-    )
-    build.edge(*args).set(flags = includes)
+  # for args in [
+  #   (
+  #     build.path_b("ast/token.o"),
+  #     (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])
+  #   ),
+  # ]:
+  #   build.edge(*args).set(flags = "-I$builddir -I$srcdir")
 
   build.edge(
     (build.paths_b(*astSources), build.paths_b(*astImplSources)),
@@ -381,30 +321,29 @@ def main():
     restat = "true",
   )
 
-  build.edge(
-    (build.paths_b(*astTestSources), build.paths_b(*astTestImplSources)),
-    "ruby",
-    ([
-      build.path("scripts/ast-test.rb"),
-    ], flatten(
-      [
-        "$srcdir/parse-test/bison-test.in.ypp",
-        "$srcdir/parse-test/flex-test.in.lpp",
-        "$srcdir/ast/token.in.hpp",
-      ],
-      build.paths(*rglob("scripts/astgen", "*.rb")),
-    )),
-  ).set(
-    description = "ASTGen scripts/ast-test.rb",
-    args = "$astgenTestFlags $rootdir/build/parse-test/ast",
-    restat = "true",
-  )
+  for out, (ins, re_ins, b_ins, objs, p) in sources.items():
+    _p = p
+    p = p.split("/") if len(p) else []
 
-  for out, (ins, b_ins, objs, p) in sources.items():
     includes = "-I{} -I{}{}".format(
       path.join("$builddir", *p),
       path.join("$srcdir", *p), " -I$builddir -I$srcdir" if len(p) else ""
     )
+
+    for r in re_ins:
+      build.edge(build.path_b("{}.cpp".format(r)), "$srcdir/{}".format(r)).set(
+        description = "re2c {}".format(r),
+      )
+
+      build.edge(
+        build.path_b("{}.o".format(r)), build.path_b("{}.cpp".format(r))
+      ).set(
+        description = "compile {}.cpp".format(r),
+        flags = "{}{}".format(
+          includes,
+          " -I$srcdir/{}".format(path.dirname(r)) if len(path.dirname(r)) else ""
+        )
+      )
 
     for n in ins:
       build.edge(
@@ -426,10 +365,11 @@ def main():
     build.edge(
       path.join("$bindir", out),
       build.paths_b(
-        *[
-          "{}.o".format(path.splitext(n)[0])
-          for n in it.chain(ins, b_ins, objs)
-        ]
+        *flatten(
+          ["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_ins)],
+          ["{}.o".format(n) for n in it.chain(re_ins)],
+          objs,
+        )
       )
     ).set(
       description = "link {}".format(path.basename(out)),

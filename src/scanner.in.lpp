@@ -133,13 +133,14 @@ PraeDecPoint \.
 PraeHexNumStart 0x
 PraeOctNumStart 0o
 PraeBinNumStart 0b
-PraeHexDigit [0-9a-fA-F]
-PraeDecDigit [0-9]
-PraeOctDigit [0-7]
+PraeHexDigit [0-9a-fA-F_]
+PraeDecDigit [0-9_]
+PraeOctDigit [0-7_]
 PraeBinDigit [01]
-PraeNumTypeSpec [a-zA-Z_]
+PraeNumTypeSpecInt [uU]?[lLsS]
+PraeNumTypeSpecFloat [fFdD]
+PraeNumTypeSpecDec ({PraeNumTypeSpecInt}|{PraeNumTypeSpecFloat})
 PraeNumExpon [eE]{PraeNegative}?{PraeDecDigit}+
-PraeNumEnd {PraeNumExpon}?{PraeNumTypeSpec}*
 
 %x SSBComment
 
@@ -210,76 +211,71 @@ PraeNumEnd {PraeNumExpon}?{PraeNumTypeSpec}*
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
-  %astgen-token PraeHexLiteral /{PraeNegative}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeDecLiteral /{PraeNegative}?{PraeDecDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeOctLiteral /{PraeNegative}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeBinLiteral /{PraeNegative}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeFloatLiteral /{PraeNegative}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumEnd}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeHexLiteral /{PraeNegative}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeDecLiteral /{PraeNegative}?{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecDec}?/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeOctLiteral /{PraeNegative}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeBinLiteral /{PraeNegative}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeFloatLiteral /{PraeNegative}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}?/ { $SL $ML } capture //: ignore me
 
-  %astgen-token KWBreak "break" { $SL $ML }
-  %astgen-token KWCase "case" { $SL $ML }
-  %astgen-token KWCatch "catch" { $SL $ML }
-  %astgen-token KWDefault "default" { $SL $ML }
-  %astgen-token KWDo "do" { $SL $ML }
-  %astgen-token KWElse "else" { $SL $ML }
-  %astgen-token KWFalse "false" { $SL $ML }
-  %astgen-token KWFinally "finally" { $SL $ML }
-  %astgen-token KWFor "for" { $SL $ML }
-  %astgen-token KWFunction "function" { $SL $ML }
-  %astgen-token KWIf "if" { $SL $ML }
+  %astgen-token KWBreak     "break"     { $SL $ML }
+  %astgen-token KWCase      "case"      { $SL $ML }
+  %astgen-token KWCatch     "catch"     { $SL $ML }
+  %astgen-token KWDefault   "default"   { $SL $ML }
+  %astgen-token KWDo        "do"        { $SL $ML }
+  %astgen-token KWElse      "else"      { $SL $ML }
+  %astgen-token KWFalse     "false"     { $SL $ML }
+  %astgen-token KWFinally   "finally"   { $SL $ML }
+  %astgen-token KWFor       "for"       { $SL $ML }
+  /* %astgen-token KWFunction  "function"  { $SL $ML } */
+  %astgen-token KWIf        "if"        { $SL $ML }
   %astgen-token KWInterface "interface" { $SL $ML }
-  %astgen-token KWLet "let" { $SL $ML }
-  %astgen-token KWLoop "loop" { $SL $ML }
-  %astgen-token KWNext "next" { $SL $ML }
-  %astgen-token KWNil "nil" { $SL $ML }
-  %astgen-token KWRecord "record" { $SL $ML }
-  %astgen-token KWReturn "return" { $SL $ML }
-  %astgen-token KWStruct "struct" { $SL $ML }
-  %astgen-token KWSwitch "switch" { $SL $ML }
-  %astgen-token KWTrue "true" { $SL $ML }
-  %astgen-token KWTry "try" { $SL $ML }
-  %astgen-token KWUnless "unless" { $SL $ML }
-  %astgen-token KWVar "var" { $SL $ML }
-  %astgen-token KWWhile "while" { $SL $ML }
-  %astgen-token KWYield "yield" { $SL $ML }
+  %astgen-token KWLet       "let"       { $SL $ML }
+  %astgen-token KWLoop      "loop"      { $SL $ML }
+  %astgen-token KWNext      "next"      { $SL $ML }
+  %astgen-token KWNil       "nil"       { $SL $ML }
+  %astgen-token KWRecord    "record"    { $SL $ML }
+  %astgen-token KWReturn    "return"    { $SL $ML }
+  %astgen-token KWStruct    "struct"    { $SL $ML }
+  %astgen-token KWSwitch    "switch"    { $SL $ML }
+  %astgen-token KWTrue      "true"      { $SL $ML }
+  %astgen-token KWTry       "try"       { $SL $ML }
+  %astgen-token KWUnless    "unless"    { $SL $ML }
+  %astgen-token KWVar       "var"       { $SL $ML }
+  %astgen-token KWWhile     "while"     { $SL $ML }
+  %astgen-token KWYield     "yield"     { $SL $ML }
 
-  /* %astgen-token And "&" { $SL $ML } */
-  %astgen-token Assign "=" { $SL $ML }
-  %astgen-token Colon ":" { $SL $ML }
-  %astgen-token Comma "," { $SL $ML }
-  %astgen-token Compl "!" { $SL $ML }
-  %astgen-token Conj "&&" { $SL $ML }
-  %astgen-token ConjAssign "&&=" { $SL $ML }
-  %astgen-token Disj "||" { $SL $ML }
-  %astgen-token DisjAssign "||=" { $SL $ML }
-  %astgen-token Div "/" { $SL $ML }
-  %astgen-token DivAssign "/=" { $SL $ML }
-  %astgen-token DotDot ".." { $SL $ML }
-  %astgen-token Equal "==" { $SL $ML }
-  %astgen-token EqGT "=>" { $SL $ML }
-  %astgen-token Greater ">" { $SL $ML }
-  %astgen-token GreaterEq ">=" { $SL $ML }
-  %astgen-token Less "<" { $SL $ML }
-  %astgen-token LessEq "<=" { $SL $ML }
-  %astgen-token Minus "-" { $SL $ML }
-  %astgen-token MinusAssign "-=" { $SL $ML }
-  %astgen-token MinusMinus "--" { $SL $ML }
-  %astgen-token Mod "%" { $SL $ML }
-  %astgen-token ModAssign "%=" { $SL $ML }
-  %astgen-token Mul "*" { $SL $ML }
-  %astgen-token MulAssign "*=" { $SL $ML }
-  /* %astgen-token Not "~" { $SL $ML } */
-  %astgen-token NotEqual "!=" { $SL $ML }
-  /* %astgen-token OrAssign "|=" { $SL $ML } */
-  %astgen-token Period "." { $SL $ML }
-  %astgen-token Pipe "|" { $SL $ML }
-  %astgen-token Plus "+" { $SL $ML }
-  %astgen-token PlusAssign "+=" { $SL $ML }
-  %astgen-token PlusPlus "++" { $SL $ML }
-  %astgen-token Quest "?" { $SL $ML }
-  %astgen-token Semi ";" { $SL $ML }
-  /* %astgen-token Xor "^" { $SL $ML } */
-  %astgen-token XorAssign "^=" { $SL $ML }
+  %astgen-token Asg      "="   { $SL $ML }
+  %astgen-token Colon    ":"   { $SL $ML }
+  %astgen-token Comma    ","   { $SL $ML }
+  %astgen-token Con      "&&"  { $SL $ML }
+  %astgen-token ConAsg   "&&=" { $SL $ML }
+  %astgen-token Dis      "||"  { $SL $ML }
+  %astgen-token DisAsg   "||=" { $SL $ML }
+  %astgen-token Div      "/"   { $SL $ML }
+  %astgen-token DivAsg   "/="  { $SL $ML }
+  %astgen-token DotDot   ".."  { $SL $ML }
+  %astgen-token Eql      "=="  { $SL $ML }
+  %astgen-token FatArrow "=>"  { $SL $ML }
+  %astgen-token Grt      ">"   { $SL $ML }
+  %astgen-token Geq      ">="  { $SL $ML }
+  %astgen-token Inv      "!"   { $SL $ML }
+  %astgen-token Lss      "<"   { $SL $ML }
+  %astgen-token Leq      "<="  { $SL $ML }
+  %astgen-token Sub      "-"   { $SL $ML }
+  %astgen-token SubAsg   "-="  { $SL $ML }
+  %astgen-token Dec      "--"  { $SL $ML }
+  %astgen-token Mod      "%"   { $SL $ML }
+  %astgen-token ModAsg   "%="  { $SL $ML }
+  %astgen-token Mul      "*"   { $SL $ML }
+  %astgen-token MulAsg   "*="  { $SL $ML }
+  %astgen-token Neq      "!="  { $SL $ML }
+  %astgen-token Period   "."   { $SL $ML }
+  %astgen-token Pipe     "|"   { $SL $ML }
+  %astgen-token Add      "+"   { $SL $ML }
+  %astgen-token AddAsg   "+="  { $SL $ML }
+  %astgen-token Inc      "++"  { $SL $ML }
+  %astgen-token Quest    "?"   { $SL $ML }
+  %astgen-token Semi     ";"   { $SL $ML }
 }
 
 <SSRawBlock>{

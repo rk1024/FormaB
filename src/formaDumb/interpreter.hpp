@@ -32,8 +32,8 @@ class FDumbInterpreter {
 
   FEntity runScopedWhere(const FPXParen *, FClosure);
 
-  void getSelectors(const FPMsgSelectors *,
-                    std::vector<const FPMsgSelector *> &);
+  // void getSelectors(const FPMsgSelectors *,
+  //                   std::vector<const FPMsgSelector *> &);
 
   void getKeywords(const FPMsgKeywords *,
                    std::vector<std::pair<FAtom, FEntity>> &,

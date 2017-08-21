@@ -2,12 +2,14 @@
 
 #include <list>
 
-#include "formaDumb/interpreter.hpp"
+// #include "formaDumb/interpreter.hpp"
+#include "intermedia/praeCompiler.hpp"
 #include "lexerDriver.hpp"
 #include "parser.hpp"
 #include "parserTag.hpp"
 
 using namespace frma;
+using namespace fie;
 
 int main(int argc, char **argv) {
   FILE *      infile;
@@ -73,9 +75,19 @@ int main(int argc, char **argv) {
     for (auto r : tag.errors()) r.print(std::cerr);
 
     if (tag.prims)
-      std::cout << tag.prims;
+      std::cout << tag.prims << std::endl;
     else if (success)
       std::cerr << "WARNING: no output" << std::endl;
+
+    if (success && tag.prims) {
+      FIPraeCompiler compiler;
+
+      auto assem = compiler->registerAssembly();
+
+      auto body = compiler->compileBlocks(assem, tag.prims);
+
+      compiler->dump(std::cerr);
+    }
 
     // if (success) {
     //   // FDumbInterpreter interp(tag.prims);

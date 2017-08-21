@@ -7,3 +7,4 @@
 [submodule "tools/re2c"]
 	path = tools/re2c
 	url = https://github.com/skvadrik/re2c.git
+	ignore = dirty

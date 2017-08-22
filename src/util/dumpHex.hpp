@@ -19,8 +19,10 @@ public:
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const _dumpHex<T> &&dh) {
+  auto f = os.flags();
   os << std::hex << std::setfill('0')
      << std::setw(sizeof(T) / sizeof(std::int8_t) * 2);
+  os.flags(f);
 
   constexpr bool is_char =
       std::is_same<std::make_signed<T>, signed char>::value;

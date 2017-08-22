@@ -55,6 +55,19 @@ using System;
     cout[print: i + (if (i % 2 == 0) " is even" else " is odd")];
     ++i;
   };
+
+  {
+    let a = 123,
+      b = 0xa07FFffFu,
+      bad = 255y,
+      c = 1e5,
+      d = 0b1e3,
+      e = 0o711_644,
+      @@ f = 2.75f,
+      @@ g = 8.3419521813242314d
+      h = -1
+      ;
+  };
 @}
 
 @@ @!prae{

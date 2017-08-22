@@ -83,7 +83,6 @@ def main():
 
   re2cflags = [
     "--empty-class error",
-    "-T",
     "-W",
     "-Werror-undefined-control-flow",
   ]
@@ -219,12 +218,6 @@ def main():
   )), build.path_b("parser.ypp")).set(
     description = "bison parser.ypp",
   )
-
-  # build.edge([build.path_b("util/lexNum.cpp")],
-  #            ["$srcdir/util/lexNum.re"]).set(
-  #              description = "re2c util/lexNum.in.cpp",
-  #              flags = "-T"
-  #            )
 
   build.edge("formab", "phony", "$bindir/formab", True).set(
     description = "BUILD formab",

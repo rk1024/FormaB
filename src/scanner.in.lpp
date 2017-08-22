@@ -128,7 +128,7 @@ SQChar [^'\\]
 DQChar [^"\\]
 QLEscape \\.
 
-PraeNegative -
+PraeNumSign [-+]
 PraeDecPoint \.
 PraeHexNumStart 0x
 PraeOctNumStart 0o
@@ -136,11 +136,11 @@ PraeBinNumStart 0b
 PraeHexDigit [0-9a-fA-F_]
 PraeDecDigit [0-9_]
 PraeOctDigit [0-7_]
-PraeBinDigit [01]
-PraeNumTypeSpecInt [uU]?[lLsS]
-PraeNumTypeSpecFloat [fFdD]
-PraeNumTypeSpecDec ({PraeNumTypeSpecInt}|{PraeNumTypeSpecFloat})
-PraeNumExpon [eE]{PraeNegative}?{PraeDecDigit}+
+PraeBinDigit [01_]
+PraeNumTypeSpecInt [usUS]?[yhilYHIL]?
+PraeNumTypeSpecDec [usUS]?[fdFDyhilYHIL]?
+PraeNumTypeSpecFloat [fdFD]?
+PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
 
 %x SSBComment
 
@@ -211,11 +211,11 @@ PraeNumExpon [eE]{PraeNegative}?{PraeDecDigit}+
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
-  %astgen-token PraeHexLiteral /{PraeNegative}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeDecLiteral /{PraeNegative}?{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecDec}?/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeOctLiteral /{PraeNegative}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeBinLiteral /{PraeNegative}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}?/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeFloatLiteral /{PraeNegative}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}?/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeOctLiteral /{PraeNumSign}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeBinLiteral /{PraeNumSign}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeFloatLiteral /{PraeNumSign}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}/ { $SL $ML } capture //: ignore me
 
   %astgen-token KWBreak     "break"     { $SL $ML }
   %astgen-token KWCase      "case"      { $SL $ML }

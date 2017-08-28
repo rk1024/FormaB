@@ -60,10 +60,12 @@ def main():
 
   build.useRepo("https://www.github.com/rookie1024/ninja")
 
-  dashOFast = False
-  debug = True
-  sanitize = True
-  afl = False
+  afl = True # Compile with afl-fuzz instrumentation
+  debug = True or afl # Compile debuggable binaries
+  diagnostic = False # Add extra diagnostic warnings
+  sanitize = True and not afl # Compile with sanitizers enabled
+  optimize = False or afl # Perform optimizations
+  dashOFast = False and not afl # Use -Ofast
 
   astgenFlags = [
     "-f$rootdir/src/scanner.in.lpp:$builddir/scanner.lpp",
@@ -89,13 +91,13 @@ def main():
 
   cxxflags = [
     "-fcolor-diagnostics",
-    "-fno-elide-type",
     "-std=c++14",
     "-Wall",
     "-Wconversion",
     "-Wdeprecated",
     "-Wextra",
     "-Wimplicit",
+    "-Wimplicit-fallthrough",
     "-Winvalid-noreturn",
     "-Wmissing-noreturn",
     "-Wmissing-prototypes",
@@ -106,6 +108,7 @@ def main():
     "-Wno-shorten-64-to-32",
     "-Wno-sign-compare",
     "-Wno-sign-conversion",
+    "-Wtautological-compare",
     "-Wthread-safety",
     "-Wunreachable-code-aggressive",
     "-Wunused",
@@ -113,13 +116,29 @@ def main():
     "-Werror=return-type",
   ]
 
-  ldflags = []
+  ldflags = [
+  ]
 
   def addPkgs(*args):
     cflags = pkcflags(*args)
     cxxflags.extend(cflags)
     cxxflags.extend([re.sub("^-I", "-isystem ", flag) for flag in cflags])
     ldflags.extend(pklibs(*args))
+
+  if diagnostic:
+    cxxflags.extend([
+      "-fdiagnostics-show-template-tree",
+      "-Wswitch-bool",
+      "-Wswitch-enum",
+
+      # Anti-spam measures:
+      "-fno-caret-diagnostics",
+      "-fno-diagnostics-fixit-info",
+    ])
+  else:
+    cxxflags.extend([
+      "-fno-elide-type",
+    ])
 
   if sanitize:
     sanflags = ["-fsanitize=%s" % (san) for san in [
@@ -146,9 +165,13 @@ def main():
     ])
   else:
     cxxflags.extend([
-      "-Ofast" if dashOFast else "-O3",
       "-DNDEBUG",
       "-D_NDEBUG",
+    ])
+
+  if optimize:
+    cxxflags.extend([
+      "-Ofast" if dashOFast else "-O3",
     ])
 
   astgenFlagsInternal = [
@@ -333,8 +356,8 @@ def main():
       ).set(
         description = "compile {}.cpp".format(r),
         flags = "{}{}".format(
-          includes,
-          " -I$srcdir/{}".format(path.dirname(r)) if len(path.dirname(r)) else ""
+          includes, " -I$srcdir/{}".format(path.dirname(r))
+          if len(path.dirname(r)) else ""
         )
       )
 

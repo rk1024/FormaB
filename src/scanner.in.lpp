@@ -13,6 +13,7 @@
 
 %top{
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
 #pragma clang diagnostic ignored "-Wold-style-cast"
 #pragma clang diagnostic ignored "-Wunreachable-code"
 #pragma clang diagnostic ignored "-Wunused-function"
@@ -141,6 +142,10 @@ PraeNumTypeSpecInt [usUS]?[yhilYHIL]?
 PraeNumTypeSpecDec [usUS]?[fdFDyhilYHIL]?
 PraeNumTypeSpecFloat [fdFD]?
 PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
+PraeSQChar [^'\\\n]
+PraeDQChar [^"\\\n]
+PraeQLEscape \\[^\n]
+PraeQLLineEsc \\\n
 
 %x SSBComment
 
@@ -149,6 +154,8 @@ PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
 %x SSPraeBlockID
 %x SSRawBlock
 %x SSPraeBlock
+%x SSPraeSQLiteral
+%x SSPraeDQLiteral
 
 %x SSSyntaxExtArgs
 
@@ -226,7 +233,6 @@ PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
   %astgen-token KWFalse     "false"     { $SL $ML }
   %astgen-token KWFinally   "finally"   { $SL $ML }
   %astgen-token KWFor       "for"       { $SL $ML }
-  /* %astgen-token KWFunction  "function"  { $SL $ML } */
   %astgen-token KWIf        "if"        { $SL $ML }
   %astgen-token KWInterface "interface" { $SL $ML }
   %astgen-token KWLet       "let"       { $SL $ML }
@@ -324,8 +330,31 @@ PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
 
 <INITIAL,SSPraeBlock>{
   /*{ignore me}*/
-  %astgen-token SQLiteral /{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}*/ { $SL $ML } capture
-  %astgen-token DQLiteral /{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}*/ { $SL $ML } capture
+
+  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BSW }
+  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BSW }
+}
+
+<SSPraeSQLiteral>{
+  /*{ignore me}*/
+  {Newline}+ { $WL $BW }
+
+  {PraeSQChar}+ { $ML $BW }
+  {PraeQLEscape}+ { $ML $BW }
+  {PraeQLLineEsc}+ { $WL $BW }
+
+  %astgen-token SQLiteral /{SQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
+}
+
+<SSPraeDQLiteral>{
+  /*{ignore me}*/
+  {Newline}+ { $WL $BW }
+
+  {PraeDQChar}+ { $ML $BW }
+  {PraeQLEscape}+ { $ML $BW }
+  {PraeQLLineEsc}+ { $WL $BW }
+
+  %astgen-token DQLiteral /{DQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
 }
 
 %astgen-token Operator /{OpStart}{Operator}*/ { $SL $ML } capture

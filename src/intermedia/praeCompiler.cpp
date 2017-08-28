@@ -10,28 +10,6 @@
 using namespace frma;
 
 namespace fie {
-// bool _FIPraeCompiler::emitLoadCtl(FuncClosure &closure, const FPXControl
-// *ctl) {
-//   switch (ctl->alt()) {
-//   case FPXControl::If: break;
-//   case FPXControl::IfElse: break;
-//   case FPXControl::IfExpr: break;
-//   case FPXControl::IfElseExpr: break;
-//   case FPXControl::Unless: break;
-//   case FPXControl::UnlessElse: break;
-//   case FPXControl::UnlessExpr: break;
-//   case FPXControl::UnlessElseExpr: break;
-//   case FPXControl::While: break;
-//   case FPXControl::WhileElse: break;
-//   case FPXControl::WhileExpr: break;
-//   case FPXControl::WhileElseExpr: break;
-//   case FPXControl::Until: break;
-//   case FPXControl::UntilElse: break;
-//   case FPXControl::UntilExpr: break;
-//   case FPXControl::UntilElseExpr: break;
-//   }
-// }
-
 std::uint32_t _FIPraeCompiler::emitLoadExprs(FuncClosure &  closure,
                                              const FPExprs *exprs,
                                              bool           tuple) {
@@ -39,7 +17,9 @@ std::uint32_t _FIPraeCompiler::emitLoadExprs(FuncClosure &  closure,
 
   switch (exprs->alt()) {
   case FPExprs::Empty: return 0;
-  case FPExprs::Exprs: count = emitLoadExprs(closure, exprs->exprs(), false);
+  case FPExprs::Exprs:
+    count = emitLoadExprs(closure, exprs->exprs(), false);
+    [[clang::fallthrough]];
   case FPExprs::Expr:
     if (emitLoadExpr(closure, exprs->expr())) ++count;
 
@@ -243,21 +223,20 @@ bool _FIPraeCompiler::emitLoadXUnary(FuncClosure &   closure,
 void _FIPraeCompiler::emitStmts(FuncClosure &closure, const FPStmts *stmts) {
   switch (stmts->alt()) {
   case FPStmts::Empty: return;
-  case FPStmts::Statements: emitStmts(closure, stmts->stmts());
+  case FPStmts::Statements:
+    emitStmts(closure, stmts->stmts());
+    [[clang::fallthrough]];
   case FPStmts::Statement: emitStmt(closure, stmts->stmt()); return;
+  default: assert(false);
   }
-
-  assert(false);
 }
 
 void _FIPraeCompiler::emitStmt(FuncClosure &closure, const FPStmt *stmt) {
   switch (stmt->alt()) {
-  // case FPStmt::Assign: break;
+  case FPStmt::Assign: assert(false);
   case FPStmt::Bind: emitSBind(closure, stmt->bind()); return;
-  case FPStmt::Control:
-    emitSControl(closure, stmt->ctl());
-    return;
-  // case FPStmt::Error: break;
+  case FPStmt::Control: emitSControl(closure, stmt->ctl()); return;
+  case FPStmt::Error: assert(false);
   case FPStmt::NonSemiExpr:
   case FPStmt::SemiExpr:
     if (emitLoadExpr(closure, stmt->expr())) closure.emit(FIOpcode::Pop);
@@ -345,7 +324,9 @@ void _FIPraeCompiler::emitBindings(FuncClosure &     closure,
                                    const FPBindings *binds,
                                    bool              mut) {
   switch (binds->alt()) {
-  case FPBindings::Bindings: emitBindings(closure, binds->binds(), mut);
+  case FPBindings::Bindings:
+    emitBindings(closure, binds->binds(), mut);
+    [[clang::fallthrough]];
   case FPBindings::Binding: emitBinding(closure, binds->bind(), mut); return;
   }
 
@@ -448,6 +429,9 @@ void _FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Cgtu: os << "cgtu"; break;
         case FIOpcode::Clt: os << "clt"; break;
         case FIOpcode::Cltu: os << "cltu"; break;
+
+        case FIOpcode::Con: os << "con"; break;
+        case FIOpcode::Dis: os << "dis"; break;
 
         case FIOpcode::Inv: os << "inv"; break;
 

@@ -140,7 +140,7 @@ ASTGen.run do
   do_exprs = lambda do |&block|
     expr_parts.reduce([nil]) {|c, p| c.product(p) }.each do |n, *parts|
       abort unless n == nil
-      block.call(:"#{parts.join}", *parts)
+      block.(:"#{parts.join}", *parts)
     end
   end
 
@@ -209,7 +209,7 @@ ASTGen.run do
     fmt :SemiExpr, :expr, ";"
     fmt :NonSemiExpr, :expr
 
-    do_exprs.call do |parts, open|
+    do_exprs.() do |parts, open|
       symbol :"Prae#{parts}PureStatement" do
         rule :SemiExpr, [:"Prae#{parts}SemiExpression", :expr], ";"
         rule :NonSemiExpr, [:"Prae#{parts}NonSemiExpression", :expr]
@@ -233,7 +233,7 @@ ASTGen.run do
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Prae#{p}Statement", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}Statement", :self] }
     end
   end
 
@@ -245,7 +245,7 @@ ASTGen.run do
     fmt :Let, "let ", :binds
     fmt :Var, "var ", :binds
 
-    do_exprs.call do |parts|
+    do_exprs.() do |parts|
       symbol :"Prae#{parts}LetStatement" do
         rule :Let, "let", [:"Prae#{parts}Bindings", :binds]
         # rule :Let, "let", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
@@ -259,11 +259,11 @@ ASTGen.run do
     end
 
     symbol :PraeLetStatement do
-      do_exprs.call{|p| rule :self, [:"Prae#{p}LetStatement", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}LetStatement", :self] }
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Prae#{p}BindStatement", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}BindStatement", :self] }
     end
   end
 
@@ -274,7 +274,7 @@ ASTGen.run do
     ctor :Bindings, :binds, :bind, fmt: [:binds, ", ", :bind]
     ctor :Binding, :bind, fmt: :bind
 
-    do_exprs.call do |parts|
+    do_exprs.() do |parts|
       symbol :"Prae#{parts}BindingsPart" do
         rule :Bindings, [:"Prae#{parts}BindingsPart", :binds], ",", [:"Prae#{parts}Binding", :bind]
         rule :Binding, [:"Prae#{parts}Binding", :bind]
@@ -292,7 +292,7 @@ ASTGen.run do
 
     ctor :Binding, :id, :expr, fmt: [:id, " = ", :expr]
 
-    do_exprs.call do |parts|
+    do_exprs.() do |parts|
       symbol :"Prae#{parts}Binding" do
         rule :Binding, [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
@@ -353,7 +353,7 @@ ASTGen.run do
     ctor :Infix, :infix, fmt: :infix
     ctor :Control, :ctl, fmt: :ctl
 
-    do_exprs.call do |parts, open|
+    do_exprs.() do |parts, open|
       symbol :"Prae#{parts}SemiExpression" do
         case open
           when :Open
@@ -378,7 +378,7 @@ ASTGen.run do
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Prae#{p}Expression", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}Expression", :self] }
     end
   end
 
@@ -388,7 +388,7 @@ ASTGen.run do
 
     ctor :Function, :params, :expr, fmt: [:params, " => ", :expr]
 
-    do_exprs.call do |parts|
+    do_exprs.() do |parts|
       symbol :"Prae#{parts}FunctionExpression" do
         rule :Function, :params, "=>", [:"Prae#{parts}Expression", :expr]
       end
@@ -463,7 +463,7 @@ ASTGen.run do
         ctor :"#{name}#{:Else if do_single}", :cond, :then, :otherwise, fmt: ["#{tok} ", :cond, " ", :then, " else ", :otherwise]
       end
 
-      do_exprs.call do |parts, open|
+      do_exprs.() do |parts, open|
         symbol :"Prae#{parts}Control#{expr}" do
           types.each do |name, tok|
             if open == :Open && do_single

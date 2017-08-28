@@ -300,7 +300,7 @@ module ASTGen
                     end
                 end
               end.join(" ")} { #{"do { #{@actions[alt]} } while (false); " if @actions[alt]}$$ = #{alt == :self ? "$self" :
-                lambda do
+                begin
                   ctor = @node.alt_ctors[alt]
                   syms = @node.ctors[ctor]
                   "new #{@node.qual_class_name}(#{[
@@ -308,7 +308,7 @@ module ASTGen
                     *("#{@node.qual_class_name}::#{@node.sym_name(@name)}" if syms.each_key.any?{|k| k && k.length > 1 }),
                     *@node.alt_ctors[alt].map{|a| "$#{a}" },
                   ].join(", ")})"
-                end.call}; }"
+                end}; }"
             end
           end
 

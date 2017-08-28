@@ -15,7 +15,6 @@ public:
   T *operator->() const { return m_ptr.operator->(); }
   operator bool() const { return m_ptr.operator bool(); }
 
-  // template<typename T2>
   friend struct std::hash<fun::EnableRefCount<T>>;
 };
 
@@ -30,7 +29,6 @@ public:
 
   EnableRefCount<T> lock() const { return m_ptr.lock(); }
 
-  // template<typename T>
   friend struct std::hash<fun::EnableWeakRefCount<T>>;
 };
 }

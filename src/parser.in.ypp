@@ -28,6 +28,7 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 
 %code {
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
 #pragma clang diagnostic ignored "-Wunreachable-code"
 }
 

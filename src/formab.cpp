@@ -68,16 +68,14 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    bool success = !parse.parse();
-
-    success = success && tag.errors().empty();
+    bool success = !parse.parse() && tag.errors().empty();
 
     for (auto r : tag.errors()) r.print(std::cerr);
 
-    if (tag.prims)
-      std::cout << tag.prims << std::endl;
-    else if (success)
-      std::cerr << "WARNING: no output" << std::endl;
+    // if (tag.prims)
+    //   std::cout << tag.prims << std::endl;
+    // else if (success)
+    //   std::cerr << "WARNING: no output" << std::endl;
 
     if (success && tag.prims) {
       FIPraeCompiler compiler;

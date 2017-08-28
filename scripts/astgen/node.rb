@@ -552,18 +552,18 @@ module ASTGen
             end
 
             if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
-              emit_ctor.call([]) if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
+              emit_ctor.([]) if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
             else
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@AltEnumName}",
                 "#{@@SymEnumName}",
               ]) if syms.any?{|k, v| k && k.length > 1 && v.length > 1 }
 
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@SymEnumName}",
               ]) if syms.any?{|k, v| k && k.length > 1 && v.length <= 1 }
 
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@AltEnumName}",
               ]) if syms.any?{|k, v| !k || k.length <= 1 }
             end
@@ -658,13 +658,13 @@ module ASTGen
           end
 
           if syms.length <= 1 && syms.all? {|k, v| (!k || k.length <= 1) && v.length <= 1 }
-            emit_ctor.call([], [
+            emit_ctor.([], [
               *("#{Node.field_name(@@AltMembName)}(#{syms.first[1].first})" if use_alts?),
               *("#{Node.field_name(@@SymMembName)}(#{sym_name(syms.first[0].first)})" if use_syms?),
             ]) unless syms.empty?
           else
             items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@AltEnumName} #{@@AltMembName}",
               "#{@@SymEnumName} #{@@SymMembName}",
             ], [
@@ -673,7 +673,7 @@ module ASTGen
             ]) unless items.empty?
 
             items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@SymEnumName} #{@@SymMembName}",
             ], [
               "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
@@ -692,7 +692,7 @@ module ASTGen
             end unless items.empty?
 
             items = syms.select{|k, v| !k || k.length <= 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@AltEnumName} #{@@AltMembName}",
             ], [
               "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
@@ -781,14 +781,14 @@ module ASTGen
                       formats.each do |sym, fmt|
                         c << "case #{sym_name(sym)}:"
 
-                        emit_format.call(fmt)
+                        emit_format.(fmt)
                       end
 
                       c << "default: break;" if formats.length < format_syms.length
                     end
                     l.trim << "}"
                   else
-                    formats.each_value{|f| emit_format.call(f) }
+                    formats.each_value{|f| emit_format.(f) }
                   end
                   l << "break;"
                 end
@@ -796,7 +796,7 @@ module ASTGen
               l.trim << "}"
             else
               @format.each_key do |formats|
-                formats.each_value{|f| emit_format.call(f) }
+                formats.each_value{|f| emit_format.(f) }
               end
             end
           end

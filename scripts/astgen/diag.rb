@@ -40,18 +40,18 @@ class Diagnostics
   end
 
   def good(lvl, fmt, str)
-    ctrace(lvl, fmt, str) unless @quiet && @quiet.call
+    ctrace(lvl, fmt, str) unless @quiet && @quiet.()
     str
   end
 
   def verb(lvl, fmt, str)
-    ctrace(lvl, fmt, str) if @verbose && @verbose.call
+    ctrace(lvl, fmt, str) if @verbose && @verbose.()
     str
   end
 
   def bad(lvl, fmt, str)
     ctrace(lvl, fmt, str)
-    @on_error.call if @on_error
+    @on_error.() if @on_error
     str
   end
 
@@ -92,17 +92,17 @@ class Diagnostics
             return false if obj.length <= 1
 
             remain -= 2 * [1, obj.length].max
-            obj.each{|e| count.call(e) }
+            obj.each{|e| count.(e) }
           when Hash
             return false if obj.length <= 1
 
             remain -= 2 + (obj.empty? ? 0 : 2) + 4 * [0, obj.length - 2].max
-            obj.each{|k, v| count.call(k); count.call(v) }
+            obj.each{|k, v| count.(k); count.(v) }
           when Set
             return false if obj.length <= 1
 
             remain -= 1 + obj.class.name.length + 2 * [1, obj.length].max
-            obj.each{|e| count.call(e) }
+            obj.each{|e| count.(e) }
           else
             has_no_inspect = obj.class.method_defined?(:diag_no_inspect)
             if obj.method(:inspect).owner == Kernel || has_no_inspect
@@ -120,12 +120,12 @@ class Diagnostics
                 else 5 end
 
                 true
-              end.each{|e| count.call(obj.instance_variable_get(e)) }
+              end.each{|e| count.(obj.instance_variable_get(e)) }
             else remain -= obj.inspect.length end
         end
       end
 
-      count.call(obj)
+      count.(obj)
     end
 
     return remain <= 0

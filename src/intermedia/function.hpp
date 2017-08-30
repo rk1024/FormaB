@@ -4,18 +4,15 @@
 #include <vector>
 
 #include "opcode.hpp"
-#include "util/enableRefCount.hpp"
+#include "util/object.hpp"
 
 namespace fie {
-class _FIFunction {
+class FIFunction : public fun::FObject {
   FIBytecode m_body;
 
 public:
   const FIBytecode &body() const { return m_body; }
 
-  _FIFunction(const FIBytecode);
+  FIFunction(const FIBytecode);
 };
-
-using FIFunction  = fun::EnableRefCount<_FIFunction>;
-using WFIFunction = fun::EnableWeakRefCount<_FIFunction>;
 }

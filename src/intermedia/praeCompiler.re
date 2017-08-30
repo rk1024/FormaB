@@ -1,4 +1,5 @@
 #include "praeCompiler.hpp"
+#include "praeCompilerClosures.hpp"
 
 #include <cassert>
 #include <functional>
@@ -6,6 +7,7 @@
 #include <string>
 
 using namespace frma;
+using namespace fie::pc;
 
 namespace fie {
 enum class NumFormat {
@@ -31,7 +33,8 @@ static bool isSignNegative(const char *sg) {
 
 template <typename T>
 static typename std::enable_if<std::is_integral<T>::value, T>::type
-readIntBasic(std::uint8_t                         radix,
+readIntBasic(fun::FPtr<_FuncClosure>              closure,
+             std::uint8_t                         radix,
              std::int16_t                         expon,
              typename std::make_unsigned<T>::type max,
              typename std::make_unsigned<T>::type negMax,
@@ -81,13 +84,14 @@ readIntBasic(std::uint8_t                         radix,
     return static_cast<T>(num);
 
   overflow:
-    throw std::runtime_error("integer literal '" + std::string(d0, d1) +
-                             "' causes an overflow");
+    closure->error("integer literal '" + std::string(d0, d1) +
+                   "' causes an overflow");
   }
 }
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value, T>::type readInt(
+    fun::FPtr<_FuncClosure>              closure,
     std::uint8_t                         radix,
     std::int16_t                         expon,
     bool                                 unsign,
@@ -97,11 +101,11 @@ typename std::enable_if<std::is_integral<T>::value, T>::type readInt(
     const char *                         d1) {
   if (!unsign) max >>= 1;
 
-  return readIntBasic<T>(radix, expon, max, max + 1, sg, d0, d1);
+  return readIntBasic<T>(closure, radix, expon, max, max + 1, sg, d0, d1);
 }
 
-bool _FIPraeCompiler::emitLoadLNumeric(FuncClosure &     closure,
-                                       const FPLNumeric *numeric) {
+bool FIPraeCompiler::emitLoadLNumeric(fun::FPtr<_FuncClosure> closure,
+                                       const FPLNumeric *      numeric) {
   const char *_str = numeric->tok()->value().c_str(), *str = _str, *YYMARKER,
              *sg, *d0, *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr,
              *e1 = nullptr, *tu = nullptr, *tl
@@ -150,7 +154,7 @@ bool _FIPraeCompiler::emitLoadLNumeric(FuncClosure &     closure,
     float = sign      float_digits float_expon float_type_spec;
 
     * {
-      throw std::runtime_error(
+      closure->error(
         "invalid numeric literal '" + numeric->tok()->value() + "'"
         " (note: this probably shouldn't happen)");
     }
@@ -222,28 +226,31 @@ emit:
     }
   }
 
-  std::int16_t expon =
-      e0 ? readIntBasic<std::int16_t>(10u, 0, 0x3ff, 0x3fe, es, e0, e1) : 0;
+  std::int16_t expon = e0 ? readIntBasic<std::int16_t>(
+                                closure, 10u, 0, 0x3ff, 0x3fe, es, e0, e1) :
+                            0;
 
   switch (fmt) {
   case NumFormat::I1:
-    closure.emit(FIOpcode::Ldci4,
-                 readInt<std::int32_t>(radix, expon, unsign, 0xff, sg, d0, d1));
+    closure->emit(
+        FIOpcode::Ldci4,
+        readInt<std::int32_t>(closure, radix, expon, unsign, 0xff, sg, d0, d1));
     goto convI4;
   case NumFormat::I2:
-    closure.emit(
-        FIOpcode::Ldci4,
-        readInt<std::int32_t>(radix, expon, unsign, 0xffff, sg, d0, d1));
+    closure->emit(FIOpcode::Ldci4,
+                  readInt<std::int32_t>(
+                      closure, radix, expon, unsign, 0xffff, sg, d0, d1));
     goto convI4;
   case NumFormat::I4:
-    closure.emit(
-        FIOpcode::Ldci4,
-        readInt<std::int32_t>(radix, expon, unsign, 0xffffffff, sg, d0, d1));
+    closure->emit(FIOpcode::Ldci4,
+                  readInt<std::int32_t>(
+                      closure, radix, expon, unsign, 0xffffffff, sg, d0, d1));
     goto convI4;
   case NumFormat::I8:
-    closure.emit(FIOpcode::Ldci4,
-                 readInt<std::int64_t>(
-                     radix, expon, unsign, 0xffffffffffffffffl, sg, d0, d1));
+    closure->emit(
+        FIOpcode::Ldci4,
+        readInt<std::int64_t>(
+            closure, radix, expon, unsign, 0xffffffffffffffffl, sg, d0, d1));
     goto convI8;
   case NumFormat::R4: goto emitR4;
   case NumFormat::R8: goto emitR8;
@@ -252,13 +259,13 @@ emit:
 convI4:
   switch (fmt) {
   case NumFormat::I1:
-    closure.emit(unsign ? FIOpcode::Cvu1 : FIOpcode::Cvi1);
+    closure->emit(unsign ? FIOpcode::Cvu1 : FIOpcode::Cvi1);
     break;
   case NumFormat::I2:
-    closure.emit(unsign ? FIOpcode::Cvu2 : FIOpcode::Cvi2);
+    closure->emit(unsign ? FIOpcode::Cvu2 : FIOpcode::Cvi2);
     break;
   case NumFormat::I4:
-    if (unsign) closure.emit(FIOpcode::Cvu4);
+    if (unsign) closure->emit(FIOpcode::Cvu4);
     break;
   default: assert(false);
   }
@@ -267,7 +274,7 @@ convI4:
 convI8:
   switch (fmt) {
   case NumFormat::I8:
-    if (unsign) closure.emit(FIOpcode::Cvu8);
+    if (unsign) closure->emit(FIOpcode::Cvu8);
     break;
   default: assert(false);
   }

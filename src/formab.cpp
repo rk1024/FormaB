@@ -78,11 +78,10 @@ int main(int argc, char **argv) {
     //   std::cerr << "WARNING: no output" << std::endl;
 
     if (success && tag.prims) {
-      FIPraeCompiler compiler;
+      fun::FPtr<FIPraeCompiler> compiler = fnew<FIPraeCompiler>();
 
       auto assem = compiler->registerAssembly();
-
-      auto body = compiler->compileBlocks(assem, tag.prims);
+      auto blocks = compiler->compileBlocks(assem, tag.prims);
 
       compiler->dump(std::cerr);
     }

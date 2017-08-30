@@ -4,17 +4,23 @@
 #include <sstream>
 #include <string>
 
+#include "location.hh"
+
 namespace frma {
 class FormaAST {
 protected:
   bool m_rooted = false;
+  location m_loc;
 
 public:
+  inline bool            rooted() const { return m_rooted; }
+  inline const location &loc() const { return m_loc; }
+
+  FormaAST(const location &loc) : m_loc(loc) {}
+
   virtual ~FormaAST() {}
 
   virtual void print(std::ostream &) const {}
-
-  inline bool rooted() const { return m_rooted; }
 
   std::string toString() const {
     std::ostringstream oss;

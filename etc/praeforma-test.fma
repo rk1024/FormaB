@@ -51,6 +51,8 @@ using System;
   let functionalWhere = () => (let x = 5; x);
   let imperative = () => { let x = 5; x; };
 
+  let tmp = if (true) 3 else { };
+
   while (var i = 0; i < 100) {
     cout[print: i + (if (i % 2 == 0) " is even" else " is odd")];
     ++i;

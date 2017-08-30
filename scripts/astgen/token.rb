@@ -142,7 +142,7 @@ module ASTGen
             l.peek << " yylval->#{Token.bison_name} = new #{Token.qual_class_name}(" << case @capture
               when :text; "yytext"
               when :buf, :buf_end; "yyg->yyextra_r->buf().str()"
-            end << ");"
+            end << ", *yylloc);"
 
             if @capture == :buf_end
               l.peek << " yyg->yyextra_r->bufEnd();"

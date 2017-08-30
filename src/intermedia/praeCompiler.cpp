@@ -1,4 +1,5 @@
 #include "praeCompiler.hpp"
+#include "praeCompilerClosures.hpp"
 
 #include <cassert>
 #include <iomanip>
@@ -8,11 +9,16 @@
 #include "util/dumpHex.hpp"
 
 using namespace frma;
+using namespace fie::pc;
+
+#define MOVE_(closure, to) auto ctx = closure->move(to);
+#define MOVE(to) MOVE_(closure, to);
 
 namespace fie {
-std::uint32_t _FIPraeCompiler::emitLoadExprs(FuncClosure &  closure,
-                                             const FPExprs *exprs,
-                                             bool           tuple) {
+std::uint32_t FIPraeCompiler::emitLoadExprs(fun::FPtr<_FuncClosure> closure,
+                                            const FPExprs *         exprs,
+                                            bool                    tuple) {
+  MOVE(exprs)
   std::uint32_t count = 0;
 
   switch (exprs->alt()) {
@@ -24,7 +30,7 @@ std::uint32_t _FIPraeCompiler::emitLoadExprs(FuncClosure &  closure,
     if (emitLoadExpr(closure, exprs->expr())) ++count;
 
     if (count > 1 && tuple) {
-      closure.emit(FIOpcode::Tpl, count);
+      closure->emit(FIOpcode::Tpl, count);
 
       return -1;
     }
@@ -35,7 +41,9 @@ std::uint32_t _FIPraeCompiler::emitLoadExprs(FuncClosure &  closure,
   assert(false);
 }
 
-bool _FIPraeCompiler::emitLoadExpr(FuncClosure &closure, const FPExpr *expr) {
+bool FIPraeCompiler::emitLoadExpr(fun::FPtr<_FuncClosure> closure,
+                                  const FPExpr *          expr) {
+  MOVE(expr)
   switch (expr->alt()) {
   case FPExpr::Control: return emitLoadXControl(closure, expr->ctl());
   case FPExpr::Function: return emitLoadXFunc(closure, expr->func());
@@ -44,19 +52,23 @@ bool _FIPraeCompiler::emitLoadExpr(FuncClosure &closure, const FPExpr *expr) {
   }
 }
 
-bool _FIPraeCompiler::emitLoadLBoolean(FuncClosure &     closure,
-                                       const FPLBoolean *boolean) {
+bool FIPraeCompiler::emitLoadLBoolean(fun::FPtr<_FuncClosure> closure,
+                                      const FPLBoolean *      boolean) {
+  MOVE(boolean)
   switch (boolean->alt()) {
-  case FPLBoolean::False: closure.emit<std::int32_t>(FIOpcode::Ldci4, 0); break;
-  case FPLBoolean::True: closure.emit<std::int32_t>(FIOpcode::Ldci4, 1); break;
+  case FPLBoolean::False:
+    closure->emit<std::int32_t>(FIOpcode::Ldci4, 0);
+    break;
+  case FPLBoolean::True: closure->emit<std::int32_t>(FIOpcode::Ldci4, 1); break;
   default: assert(false);
   }
 
   return true;
 }
 
-bool _FIPraeCompiler::emitLoadXBlock(FuncClosure &   closure,
-                                     const FPXBlock *block) {
+bool FIPraeCompiler::emitLoadXBlock(fun::FPtr<_FuncClosure> closure,
+                                    const FPXBlock *        block) {
+  MOVE(block)
   switch (block->alt()) {
   case FPXBlock::Error: break;
   case FPXBlock::Block:
@@ -67,8 +79,9 @@ bool _FIPraeCompiler::emitLoadXBlock(FuncClosure &   closure,
   assert(false);
 }
 
-bool _FIPraeCompiler::emitLoadXControl(FuncClosure &     closure,
-                                       const FPXControl *ctl) {
+bool FIPraeCompiler::emitLoadXControl(fun::FPtr<_FuncClosure> closure,
+                                      const FPXControl *      ctl) {
+  MOVE(ctl)
   bool invert = false;
 
   switch (ctl->alt()) {
@@ -77,80 +90,89 @@ bool _FIPraeCompiler::emitLoadXControl(FuncClosure &     closure,
   default: assert(false);
   }
 
-  auto lblElse = closure.beginLabel();
+  auto lblElse = closure->beginLabel();
 
-  if (!emitLoadXParen(closure, ctl->cond(), true))
-    throw std::runtime_error("condition must load value");
+  if (!emitLoadXParen(closure, ctl->cond(), true)) {
+    MOVE(ctl->cond())
+    closure->error("condition must load value");
+  }
 
-  closure.emit(
+  closure->emit(
       FIInstruction::brLbl(invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
 
   bool thenLoad = emitLoadExpr(closure, ctl->then());
 
-  closure.label(lblElse);
+  closure->label(lblElse);
 
-  if (emitLoadExpr(closure, ctl->otherwise()) != thenLoad)
-    throw std::runtime_error("not all paths load a value");
+  if (emitLoadExpr(closure, ctl->otherwise()) != thenLoad) {
+    std::cerr << "hi '" << closure->curr() << "'" << std::endl;
+    closure->error("not all paths load a value");
+  }
 
   return thenLoad;
 }
 
-bool _FIPraeCompiler::emitLoadXFunc(FuncClosure &closure, const FPXFunc *func) {
-  FIBytecode  body;
-  FuncClosure closure2(closure.assem(), body);
+bool FIPraeCompiler::emitLoadXFunc(fun::FPtr<_FuncClosure> closure,
+                                   const FPXFunc *         func) {
+  MOVE(func)
+  FIBytecode body;
+  auto       closure2 = fnew<_FuncClosure>(closure->assem(), body, func);
+
+  emitFuncParams(closure2, func->params());
 
   emitLoadExpr(closure2, func->expr());
 
-  if (closure2.body()->instructions.empty() ||
-      closure2.body()
-              ->instructions.at(closure2.body()->instructions.size() - 1)
+  if (closure2->body()->instructions.empty() ||
+      closure2->body()
+              ->instructions.at(closure2->body()->instructions.size() - 1)
               .op != FIOpcode::Ret)
-    closure2.emit(FIOpcode::Ret);
+    closure2->emit(FIOpcode::Ret);
 
-  FIFunction fiFunc(body);
+  auto fiFunc = fnew<FIFunction>(body);
+  auto tok    = closure->assem()->funcs().intern(fiFunc);
 
-  auto tok = closure.assem()->funcs().intern(fiFunc);
-
-  closure.emit(FIOpcode::Ldfun, tok);
+  closure->emit(FIOpcode::Ldfun, tok);
 
   return true;
 }
 
-bool _FIPraeCompiler::emitLoadXInfix(FuncClosure &   closure,
-                                     const FPXInfix *infix) {
+bool FIPraeCompiler::emitLoadXInfix(fun::FPtr<_FuncClosure> closure,
+                                    const FPXInfix *        infix) {
+  MOVE(infix)
   if (infix->alt() == FPXInfix::Unary)
     return emitLoadXUnary(closure, infix->unary());
 
   if (!(infix->alt() == FPXInfix::Mod ?
             emitLoadXUnary(closure, infix->unary()) :
             emitLoadXInfix(closure, infix->infixl())))
-    throw std::runtime_error("first operand must load value");
+    closure->error("first operand must load value");
 
   if (!emitLoadXInfix(closure, infix->infixr()))
-    throw std::runtime_error("second operand must load value");
+    closure->error("second operand must load value");
 
   switch (infix->alt()) {
-  case FPXInfix::Add: closure.emit(FIOpcode::Add); break;
-  case FPXInfix::Con: closure.emit(FIOpcode::Con); break;
-  case FPXInfix::Dis: closure.emit(FIOpcode::Dis); break;
-  case FPXInfix::Div: closure.emit(FIOpcode::Div); break;
-  case FPXInfix::Eql: closure.emit(FIOpcode::Ceq); break;
-  case FPXInfix::Grt: closure.emit(FIOpcode::Cgt); break;
-  case FPXInfix::Geq: closure.emit(FIOpcode::Clt).emit(FIOpcode::Inv); break;
-  case FPXInfix::Lss: closure.emit(FIOpcode::Clt); break;
-  case FPXInfix::Leq: closure.emit(FIOpcode::Cgt).emit(FIOpcode::Inv); break;
-  case FPXInfix::Mod: closure.emit(FIOpcode::Mod); break;
-  case FPXInfix::Mul: closure.emit(FIOpcode::Mul); break;
-  case FPXInfix::Neq: closure.emit(FIOpcode::Ceq).emit(FIOpcode::Inv); break;
-  case FPXInfix::Sub: closure.emit(FIOpcode::Sub); break;
+  case FPXInfix::Add: closure->emit(FIOpcode::Add); break;
+  case FPXInfix::Con: closure->emit(FIOpcode::Con); break;
+  case FPXInfix::Dis: closure->emit(FIOpcode::Dis); break;
+  case FPXInfix::Div: closure->emit(FIOpcode::Div); break;
+  case FPXInfix::Eql: closure->emit(FIOpcode::Ceq); break;
+  case FPXInfix::Grt: closure->emit(FIOpcode::Cgt); break;
+  case FPXInfix::Geq: closure->emit(FIOpcode::Clt).emit(FIOpcode::Inv); break;
+  case FPXInfix::Lss: closure->emit(FIOpcode::Clt); break;
+  case FPXInfix::Leq: closure->emit(FIOpcode::Cgt).emit(FIOpcode::Inv); break;
+  case FPXInfix::Mod: closure->emit(FIOpcode::Mod); break;
+  case FPXInfix::Mul: closure->emit(FIOpcode::Mul); break;
+  case FPXInfix::Neq: closure->emit(FIOpcode::Ceq).emit(FIOpcode::Inv); break;
+  case FPXInfix::Sub: closure->emit(FIOpcode::Sub); break;
   default: assert(false);
   }
 
   return true;
 }
 
-bool _FIPraeCompiler::emitLoadXMember(FuncClosure &    closure,
-                                      const FPXMember *memb) {
+bool FIPraeCompiler::emitLoadXMember(fun::FPtr<_FuncClosure> closure,
+                                     const FPXMember *       memb) {
+  MOVE(memb)
   switch (memb->alt()) {
   case FPXMember::Member: /* emitLoadXMember(closure, memb->memb()); */ break;
   case FPXMember::Primary: return emitLoadXPrim(closure, memb->prim());
@@ -159,28 +181,37 @@ bool _FIPraeCompiler::emitLoadXMember(FuncClosure &    closure,
   assert(false);
 }
 
-bool _FIPraeCompiler::emitLoadXParen(FuncClosure &   closure,
-                                     const FPXParen *paren,
-                                     bool /* scoped */) {
+bool FIPraeCompiler::emitLoadXParen(fun::FPtr<_FuncClosure> closure,
+                                    const FPXParen *        paren,
+                                    bool                    scoped) {
+  MOVE(paren)
   switch (paren->alt()) {
   case FPXParen::Error: break;
   case FPXParen::Paren: return emitLoadXParen(closure, paren->paren());
   case FPXParen::Tuple: return emitLoadExprs(closure, paren->exprs());
   case FPXParen::Where:
+    if (scoped) closure->beginScope();
     emitSBind(closure, paren->bind());
-    return emitLoadExpr(closure, paren->expr());
+    auto ret = emitLoadExpr(closure, paren->expr());
+    if (scoped) closure->endScope();
+    return ret;
   }
 
   assert(false);
 }
 
-bool _FIPraeCompiler::emitLoadXPrim(FuncClosure &closure, const FPXPrim *prim) {
+bool FIPraeCompiler::emitLoadXPrim(fun::FPtr<_FuncClosure> closure,
+                                   const FPXPrim *         prim) {
+  MOVE(prim)
   switch (prim->alt()) {
   case FPXPrim::Block: return emitLoadXBlock(closure, prim->block());
   case FPXPrim::Boolean: return emitLoadLBoolean(closure, prim->boolean());
   case FPXPrim::DQLiteral: break;
-  case FPXPrim::Identifier: closure.emit(FIOpcode::PH_LdVar); return true;
-  case FPXPrim::Message: closure.emit(FIOpcode::PH_Msg); return true;
+  case FPXPrim::Identifier:
+    closure->emit(FIOpcode::Ldvar,
+                  closure->scope()->get(prim->tok()->value(), false));
+    return true;
+  case FPXPrim::Message: closure->emit(FIOpcode::PH_Msg); return true;
   case FPXPrim::Numeric: return emitLoadLNumeric(closure, prim->numeric());
   case FPXPrim::Parens: return emitLoadXParen(closure, prim->paren());
   case FPXPrim::SQLiteral: break;
@@ -189,29 +220,30 @@ bool _FIPraeCompiler::emitLoadXPrim(FuncClosure &closure, const FPXPrim *prim) {
   assert(false);
 }
 
-bool _FIPraeCompiler::emitLoadXUnary(FuncClosure &   closure,
-                                     const FPXUnary *unary) {
+bool FIPraeCompiler::emitLoadXUnary(fun::FPtr<_FuncClosure> closure,
+                                    const FPXUnary *        unary) {
+  MOVE(unary)
   const std::uint8_t I_Inc = 1, I_Dec = 2;
 
   if (unary->alt() == FPXUnary::Member)
     return emitLoadXMember(closure, unary->memb());
 
   if (!emitLoadXUnary(closure, unary->unary()))
-    throw std::runtime_error("unary operand must laod value");
+    closure->error("unary operand must laod value");
 
   std::uint8_t inc = 0;
 
   switch (unary->alt()) {
   case FPXUnary::Dec: inc = I_Dec; break;
   case FPXUnary::Inc: inc = I_Inc; break;
-  case FPXUnary::Inv: closure.emit(FIOpcode::Inv); break;
-  case FPXUnary::Neg: closure.emit(FIOpcode::Neg); break;
-  case FPXUnary::Pos: closure.emit(FIOpcode::Pos); break;
+  case FPXUnary::Inv: closure->emit(FIOpcode::Inv); break;
+  case FPXUnary::Neg: closure->emit(FIOpcode::Neg); break;
+  case FPXUnary::Pos: closure->emit(FIOpcode::Pos); break;
   default: assert(false);
   }
 
   if (inc) {
-    closure.emit<std::int32_t>(FIOpcode::Ldci4, 1)
+    closure->emit<std::int32_t>(FIOpcode::Ldci4, 1)
         .emit(inc == I_Inc ? FIOpcode::Add : FIOpcode::Sub)
         .emit(FIOpcode::Dup)
         .emit(FIOpcode::PH_Bind);
@@ -220,43 +252,72 @@ bool _FIPraeCompiler::emitLoadXUnary(FuncClosure &   closure,
   return true;
 }
 
-void _FIPraeCompiler::emitStmts(FuncClosure &closure, const FPStmts *stmts) {
+void FIPraeCompiler::emitFuncParams(fun::FPtr<_FuncClosure> closure,
+                                    const FPFuncParams *    params) {
+  MOVE(params)
+  switch (params->alt()) {
+  case FPFuncParams::Empty: break;
+  case FPFuncParams::Error: assert(false);
+  case FPFuncParams::List: emitFuncParams(closure, params->params()); break;
+  case FPFuncParams::Parameters:
+    emitFuncParams(closure, params->params());
+    [[clang::fallthrough]];
+  case FPFuncParams::Parameter: emitFuncParam(closure, params->param()); break;
+  default: assert(false);
+  }
+}
+
+void FIPraeCompiler::emitFuncParam(fun::FPtr<_FuncClosure> closure,
+                                   const FPFuncParam *     param) {
+  MOVE(param)
+  // NB: param->id()->value() ends with a colon (i.e. 'var:' instead of 'var')
+  closure->scope()->bind(
+      std::string(param->id()->value(), 0, param->id()->value().size() - 1),
+      false);
+}
+
+void FIPraeCompiler::emitStmts(fun::FPtr<_FuncClosure> closure,
+                               const FPStmts *         stmts) {
+  MOVE(stmts)
   switch (stmts->alt()) {
-  case FPStmts::Empty: return;
+  case FPStmts::Empty: break;
   case FPStmts::Statements:
     emitStmts(closure, stmts->stmts());
     [[clang::fallthrough]];
-  case FPStmts::Statement: emitStmt(closure, stmts->stmt()); return;
+  case FPStmts::Statement: emitStmt(closure, stmts->stmt()); break;
   default: assert(false);
   }
 }
 
-void _FIPraeCompiler::emitStmt(FuncClosure &closure, const FPStmt *stmt) {
+void FIPraeCompiler::emitStmt(fun::FPtr<_FuncClosure> closure,
+                              const FPStmt *          stmt) {
+  MOVE(stmt)
   switch (stmt->alt()) {
   case FPStmt::Assign: assert(false);
-  case FPStmt::Bind: emitSBind(closure, stmt->bind()); return;
-  case FPStmt::Control: emitSControl(closure, stmt->ctl()); return;
+  case FPStmt::Bind: emitSBind(closure, stmt->bind()); break;
+  case FPStmt::Control: emitSControl(closure, stmt->ctl()); break;
   case FPStmt::Error: assert(false);
   case FPStmt::NonSemiExpr:
   case FPStmt::SemiExpr:
-    if (emitLoadExpr(closure, stmt->expr())) closure.emit(FIOpcode::Pop);
-
-    return;
+    if (emitLoadExpr(closure, stmt->expr())) closure->emit(FIOpcode::Pop);
+    break;
   default: assert(false);
   }
 }
 
-void _FIPraeCompiler::emitSBind(FuncClosure &closure, const FPSBind *bind) {
+void FIPraeCompiler::emitSBind(fun::FPtr<_FuncClosure> closure,
+                               const FPSBind *         bind) {
+  MOVE(bind)
   switch (bind->alt()) {
-  case FPSBind::Let: emitBindings(closure, bind->binds(), false); return;
-  case FPSBind::Var: emitBindings(closure, bind->binds(), true); return;
+  case FPSBind::Let: emitBindings(closure, bind->binds(), false); break;
+  case FPSBind::Var: emitBindings(closure, bind->binds(), true); break;
+  default: assert(false);
   }
-
-  assert(false);
 }
 
-void _FIPraeCompiler::emitSControl(FuncClosure &     closure,
-                                   const FPSControl *ctl) {
+void FIPraeCompiler::emitSControl(fun::FPtr<_FuncClosure> closure,
+                                  const FPSControl *      ctl) {
+  MOVE(ctl)
   const std::uint8_t C_Else = 0x1, C_Invert = 0x2, C_Loop = 0x4, C_Do = 0x8;
 
   std::uint8_t type = 0;
@@ -269,90 +330,92 @@ void _FIPraeCompiler::emitSControl(FuncClosure &     closure,
   case FPSControl::While: type      = C_Loop; break;
   case FPSControl::WhileElse: type  = C_Loop | C_Else; break;
   case FPSControl::Until: type      = C_Loop | C_Invert; break;
-  case FPSControl::UntilElse:
-    type = C_Loop | C_Invert | C_Else;
-    break;
-
-  // case FPSControl::DoWhile: type      = C_Do | C_Loop; break;
-  // case FPSControl::DoWhileElse: type  = C_Do | C_Loop | C_Else; break;
-  // case FPSControl::DoUntil: type      = C_Do | C_Loop | C_Invert; break;
-  // case FPSControl::DoUntilElse: type  = C_Do | C_Loop | C_Invert | C_Else;
-  // break;
+  case FPSControl::UntilElse: type  = C_Loop | C_Invert | C_Else; break;
   default: assert(false);
   }
 
   if (type & C_Loop) {
-    std::uint16_t lblDo = closure.beginLabel(), lblTest = closure.beginLabel(),
-                  lblBreak = closure.beginLabel();
+    std::uint16_t lblDo    = closure->beginLabel(),
+                  lblTest  = closure->beginLabel(),
+                  lblBreak = closure->beginLabel();
 
     if (!(type & C_Do))
-      closure.emit(FIInstruction::brLbl(FIOpcode::Br, lblTest));
+      closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblTest));
 
-    closure.label(lblDo);
+    closure->label(lblDo);
 
     emitStmt(closure, ctl->then());
 
-    closure.label(lblTest);
+    closure->label(lblTest);
 
     if (!emitLoadXParen(closure, ctl->cond(), !(type & C_Do)))
-      throw std::runtime_error("condition must load value");
+      closure->error("condition must load value");
 
-    closure.emit(FIInstruction::brLbl(
+    closure->emit(FIInstruction::brLbl(
         type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz, lblDo));
 
     if (type & C_Else) emitStmt(closure, ctl->otherwise());
 
-    closure.label(lblBreak);
+    closure->label(lblBreak);
   } else {
-    std::uint16_t lblElse = closure.beginLabel();
+    std::uint16_t lblElse = closure->beginLabel();
 
     if (!emitLoadXParen(closure, ctl->cond(), true))
-      throw std::runtime_error("condition must load value");
+      closure->error("condition must load value");
 
-    closure.emit(FIInstruction::brLbl(
+    closure->emit(FIInstruction::brLbl(
         type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
 
     emitStmt(closure, ctl->then());
 
-    closure.label(lblElse);
+    closure->label(lblElse);
 
     if (type & C_Else) emitStmt(closure, ctl->otherwise());
   }
 }
 
-void _FIPraeCompiler::emitBindings(FuncClosure &     closure,
-                                   const FPBindings *binds,
-                                   bool              mut) {
+void FIPraeCompiler::emitBindings(fun::FPtr<_FuncClosure> closure,
+                                  const FPBindings *      binds,
+                                  bool                    mut) {
+  MOVE(binds)
   switch (binds->alt()) {
   case FPBindings::Bindings:
     emitBindings(closure, binds->binds(), mut);
     [[clang::fallthrough]];
-  case FPBindings::Binding: emitBinding(closure, binds->bind(), mut); return;
+  case FPBindings::Binding: emitBinding(closure, binds->bind(), mut); break;
+  default: assert(false);
   }
-
-  assert(false);
 }
 
-void _FIPraeCompiler::emitBinding(FuncClosure &    closure,
-                                  const FPBinding *bind,
-                                  bool) {
+void FIPraeCompiler::emitBinding(fun::FPtr<_FuncClosure> closure,
+                                 const FPBinding *       bind,
+                                 bool                    mut) {
+  MOVE(bind)
   if (!emitLoadExpr(closure, bind->expr()))
-    throw std::runtime_error("bind expression must load value");
+    closure->error("bind expression must load value");
 
-  closure.emit(FIOpcode::PH_Bind); // TODO: Actually bind this
+  closure->emit<std::uint32_t>(
+      FIOpcode::Stvar, closure->scope()->bind(bind->id()->value(), mut));
 }
 
-// FIFunction _FIPraeCompiler::compile(const FPXFunc *func) {
-//   FIBytecode body;
+std::uint16_t FIPraeCompiler::compileEntryPoint(
+    decltype(m_assems.emplace()) assem, const FPStmts *stmts) {
+  FIBytecode body;
+  auto       closure = fnew<_FuncClosure>(m_assems.value(assem), body, stmts);
 
-//   FuncClosure closure(body);
+  emitStmts(closure, stmts);
 
-//   emitFunc(closure, func);
+  if (closure->body()->instructions.empty() ||
+      closure->body()
+              ->instructions.at(closure->body()->instructions.size() - 1)
+              .op != FIOpcode::Ret)
+    closure->emit(FIOpcode::Ret);
 
-//   return FIFunction(body);
-// }
+  return m_assems.value(assem)->funcs().emplace(fnew<FIFunction>(body));
+}
 
-std::vector<std::pair<const FPBlock *, std::uint16_t>> _FIPraeCompiler::
+
+std::vector<std::pair<const FPBlock *, std::uint16_t>> FIPraeCompiler::
     compileBlocks(std::size_t assem, const FPrims *prims) {
   std::stack<const FPrim *> stack;
 
@@ -383,18 +446,18 @@ std::vector<std::pair<const FPBlock *, std::uint16_t>> _FIPraeCompiler::
   return ret;
 }
 
-void _FIPraeCompiler::dump(std::ostream &os) const {
+void FIPraeCompiler::dump(std::ostream &os) const {
   for (std::size_t i = 0; i < m_assems.size(); ++i) {
     auto assem = m_assems.value(i);
 
     os << "Assembly " << i << ":" << std::endl;
 
     for (std::uint16_t j = 0; j < assem->funcs().size(); ++j) {
-      os << "  Function " << i << "." << j << ":" << std::endl;
-
       auto func = assem->funcs().value(j);
-
       auto body = func->body();
+
+      os << "  Function " << i << "." << j << " (" << body.instructions.size()
+         << "):" << std::endl;
 
       for (std::size_t k = 0; k < body.instructions.size(); ++k) {
         os << "    ";
@@ -453,8 +516,14 @@ void _FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Ldcr4: os << "ldcr4 " << ins.r4; break;
         case FIOpcode::Ldcr8: os << "ldcr8 " << ins.r8; break;
 
+        case FIOpcode::Ldnil: os << "ldnil"; break;
+
+        case FIOpcode::Ldvar: os << "ldvar " << body.vars.value(ins.u4); break;
+
         case FIOpcode::Ldstr: os << "ldstr " << fun::dumpHex(ins.u2); break;
         case FIOpcode::Ldfun: os << "ldfun " << fun::dumpHex(ins.u2); break;
+
+        case FIOpcode::Stvar: os << "stvar " << body.vars.value(ins.u4); break;
 
         case FIOpcode::Cvi1: os << "cvi1"; break;
         case FIOpcode::Cvi2: os << "cvi2"; break;
@@ -472,7 +541,6 @@ void _FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::PH_Bind: os << "<BIND>"; break;
         case FIOpcode::PH_LdInt: os << "<LD_INT>"; break;
         case FIOpcode::PH_LdReal: os << "<LD_REAL>"; break;
-        case FIOpcode::PH_LdVar: os << "<LD_VAR>"; break;
         case FIOpcode::PH_Msg: os << "<MSG>"; break;
 
         default: assert(false);

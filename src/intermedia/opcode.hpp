@@ -7,7 +7,7 @@
 
 namespace fie {
 enum class FIOpcode : std::int8_t {
-  Nop = 0, // nop             [ -> ]
+  Nop = 0, // nop [ -> ]
 
   Dup, // dup [value -> value, value]
   Pop, // pop [value -> ]
@@ -37,13 +37,19 @@ enum class FIOpcode : std::int8_t {
   Bez, // bez <addr:i2> [cond -> ]
   Bnz, // bnz <addr:i2> [cond -> ]
 
-  Ldci4, // ldci4  <i4  :i4> [ -> i4]
-  Ldci8, // ldci8  <i8  :i8> [ -> i8]
-  Ldcr4, // ldcr4  <r4  :i4> [ -> r4]
-  Ldcr8, // ldcr8  <r8  :i8> [ -> r8]
+  Ldci4, // ldci4 <i4:i4> [ -> i4]
+  Ldci8, // ldci8 <i8:i8> [ -> i8]
+  Ldcr4, // ldcr4 <r4:i4> [ -> r4]
+  Ldcr8, // ldcr8 <r8:i8> [ -> r8]
+
+  Ldnil, // ldnil [ -> nil]
+
+  Ldvar, // ldvar <var:u4> [ -> var]
 
   Ldstr, // ldstr <atom:u2> [ -> str]
   Ldfun, // ldfun <atom:u2> [ -> fun]
+
+  Stvar, // stvar <var:u4> [var -> ]
 
   Cvi1, // cvi1 [val -> i1]
   Cvi2, // cvi2 [val -> i2]
@@ -61,7 +67,6 @@ enum class FIOpcode : std::int8_t {
   PH_Bind,
   PH_LdInt,
   PH_LdReal,
-  PH_LdVar,
   PH_Msg,
 };
 
@@ -115,7 +120,7 @@ struct FIInstruction {
 
 struct FIBytecode {
   std::vector<FIInstruction> instructions;
-
   std::vector<FILabel> labels;
+  fun::FAtomStore<std::string, std::uint32_t> vars;
 };
 }

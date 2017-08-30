@@ -60,11 +60,11 @@ def main():
 
   build.useRepo("https://www.github.com/rookie1024/ninja")
 
-  afl = True # Compile with afl-fuzz instrumentation
+  afl = False # Compile with afl-fuzz instrumentation
   debug = True or afl # Compile debuggable binaries
   diagnostic = False # Add extra diagnostic warnings
   sanitize = True and not afl # Compile with sanitizers enabled
-  optimize = False or afl # Perform optimizations
+  optimize = False # Perform optimizations
   dashOFast = False and not afl # Use -Ofast
 
   astgenFlags = [
@@ -138,6 +138,7 @@ def main():
   else:
     cxxflags.extend([
       "-fno-elide-type",
+      "-ftemplate-backtrace-limit=0",
     ])
 
   if sanitize:

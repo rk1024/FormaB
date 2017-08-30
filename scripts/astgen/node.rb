@@ -548,7 +548,7 @@ module ASTGen
             emit_ctor = lambda do |args|
 
               vis << :public
-              l << "#{class_name}(#{[*args, *memb_args].join(", ")});"
+              l << "#{class_name}(#{[*args, *memb_args, "const location &"].join(", ")});"
             end
 
             if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
@@ -638,10 +638,12 @@ module ASTGen
             l.sep << "#{qual_name(class_name)}(#{[
               *args,
               *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
+              "const location &loc"
             ].join(", ")})"
             l.peek << " {" if memb_inits.empty? && inits.empty?
             l.fmt with_indent: "  " do
               l << ": #{[
+                "FormaAST(loc)",
                 *memb_inits,
                 *inits,
               ].join(", ")} {" unless memb_inits.empty? && inits.empty?

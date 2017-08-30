@@ -9,8 +9,8 @@ class FToken : public FormaAST {
   std::string m_value;
 
 public:
-  FToken(const std::string &);
-  FToken(const char *);
+  FToken(const std::string &, const location &loc);
+  FToken(const char *, const location &loc);
 
   virtual void print(std::ostream &os) const override;
 

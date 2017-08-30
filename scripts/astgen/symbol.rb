@@ -307,6 +307,7 @@ module ASTGen
                     *("#{@node.qual_class_name}::#{alt}" if syms.length > 1 || syms.each_value.any?{|v| v.length > 1 }),
                     *("#{@node.qual_class_name}::#{@node.sym_name(@name)}" if syms.each_key.any?{|k| k && k.length > 1 }),
                     *@node.alt_ctors[alt].map{|a| "$#{a}" },
+                    "@$",
                   ].join(", ")})"
                 end}; }"
             end

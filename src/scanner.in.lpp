@@ -47,7 +47,7 @@ typedef frma::parser::token tk;
 
 #define $TK(value) return tk::value;
 
-#define $SKT(text) yylval->_tok = new frma::FormaToken(text);
+#define $SKT(text) yylval->_tok = new frma::FToken(text, *yylloc);
 
 #define $SK $SKT(yytext)
 #define $SKB $SKT($B)

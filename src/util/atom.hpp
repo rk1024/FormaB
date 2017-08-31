@@ -76,7 +76,7 @@ class FAtomStore {
 
   TBuf m_buf;
 
-  TKey add(T value) {
+  TKey add(T &&value) {
     TKey key = m_buf.next();
     assert(key != static_cast<TKey>(-1));
 
@@ -94,17 +94,25 @@ public:
 
   bool find(T value, TKey *key) { return m_buf.find(value, key); }
 
-  TKey intern(T value) {
+  template <typename U>
+  typename std::enable_if<
+      std::is_same<typename std::remove_reference<U>::type, T>::value,
+      TKey>::type
+  intern(U &&value) {
     TKey key;
-    if (m_buf.find(value, &key)) return key;
+    if (m_buf.find(std::forward<T>(value), &key)) return key;
 
-    return add(value);
+    return add(std::forward<T>(value));
   }
 
-  bool intern(T value, TKey *key) {
+  template <typename U>
+  typename std::enable_if<
+      std::is_same<typename std::remove_reference<U>::type, T>::value,
+      bool>::type
+  intern(U &&value, TKey *key) {
     if (m_buf.find(value, key)) return false;
 
-    *key = add(value);
+    *key = add(std::forward<T>(value));
     return true;
   }
 

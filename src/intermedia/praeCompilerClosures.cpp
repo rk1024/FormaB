@@ -8,15 +8,17 @@ using namespace frma;
 namespace fie {
 namespace pc {
   PositionTracker::PositionTracker(const FormaAST *curr)
-      : m_node(fnew<PositionNode>(this, curr)) {}
+      : m_rootNode(fnew<PositionNode>(this, curr)) {
+    m_node = m_rootNode;
+  }
 
   fun::FPtr<PositionNode> PositionTracker::move(const frma::FormaAST *to) {
-    return m_node->push(to);
+    return m_node.lock()->push(to);
   }
 
   PositionNode::PositionNode(PositionTracker *     parent,
                              const frma::FormaAST *curr)
-      : m_parent(parent), m_curr(curr), m_prev(nullptr), m_next(nullptr) {}
+      : m_parent(parent), m_curr(curr) {}
 
   fun::FPtr<PositionNode> PositionNode::push(const frma::FormaAST *node) {
     auto next    = fnew<PositionNode>(m_parent, node);
@@ -31,31 +33,32 @@ namespace pc {
 
   PositionNode::~PositionNode() {
     if (m_prev) {
-      assert(m_prev->m_next.peek() == this);
-      m_prev->m_next = m_next;
+      auto prev = m_prev.lock();
+      assert(prev->m_next.peek() == this);
+      prev->m_next = m_next;
     }
     if (m_next) {
       auto next = m_next.lock();
-      assert(next->m_prev.get() == this);
+      assert(next->m_prev.peek() == this);
       next->m_prev = m_prev;
     } else
-      m_parent->m_node = m_prev;
+      m_parent->m_node = m_prev.lock();
   }
 
-  _FuncClosure::_FuncClosure(fun::FPtr<AssemblyClosure> assem,
-                             FIBytecode &               body,
-                             const frma::FormaAST *     curr)
+  FuncClosure::FuncClosure(fun::FPtr<AssemblyClosure> assem,
+                           FIBytecode &               body,
+                           const frma::FormaAST *     curr)
       : PositionTracker(curr),
         m_assem(assem),
         m_scope(fnew<ScopeClosure>(this, nullptr)),
         m_body(&body) {}
 
-  _FuncClosure &_FuncClosure::emit(FIInstruction ins) {
+  FuncClosure &FuncClosure::emit(FIInstruction ins) {
     m_body->instructions.push_back(ins);
     return *this;
   }
 
-  std::uint16_t _FuncClosure::beginLabel() {
+  std::uint16_t FuncClosure::beginLabel() {
     m_body->labels.emplace_back(static_cast<std::uint16_t>(-1),
                                 "l" + std::to_string(m_body->labels.size()));
 
@@ -64,20 +67,19 @@ namespace pc {
     return static_cast<std::uint16_t>(m_body->labels.size() - 1);
   }
 
-  void _FuncClosure::label(std::uint16_t id) {
+  void FuncClosure::label(std::uint16_t id) {
     m_body->labels.at(id).pos =
         static_cast<std::uint16_t>(m_body->instructions.size());
   }
 
-  void _FuncClosure::beginScope() {}
+  void FuncClosure::beginScope() {}
 
-  void _FuncClosure::endScope() {}
+  void FuncClosure::endScope() {}
 
-  void _FuncClosure::error(std::string &&desc) {
+  void FuncClosure::error(std::string &&desc) {
     auto loc = curr()->loc();
 
     std::ostringstream os;
-
 
     os << "\x1b[1m";
 

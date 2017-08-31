@@ -8,6 +8,7 @@ class FObject {
 
 public:
   inline FRefTracker *tracker() const { return m_tracker; }
+  inline unsigned int refCount() const { return m_tracker->m_tracked; }
 
   virtual ~FObject();
 

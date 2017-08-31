@@ -1,15 +1,19 @@
 #include "refTracker.hpp"
 
+#include <stdexcept>
+
 #include "object.hpp"
 
 namespace fun {
 void FRefTracker::tryDestroy() {
-  if (m_tracked == 0 && m_count == 0) delete this;
+  if (!m_tracked && !m_count) delete this;
 }
 
 void FRefTracker::trackAcquire() { ++m_tracked; }
 
 void FRefTracker::trackRelease() {
+  if (!m_tracked) throw std::runtime_error("double free");
+
   --m_tracked;
 
   if (!m_tracked) {

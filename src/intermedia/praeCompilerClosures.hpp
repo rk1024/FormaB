@@ -14,7 +14,7 @@
 namespace fie {
 namespace pc {
   class AssemblyClosure;
-  class _FuncClosure;
+  class FuncClosure;
   class ScopeClosure;
 
   class AssemblyClosure : public fun::FObject {
@@ -30,8 +30,7 @@ namespace pc {
   class PositionNode : public fun::FObject {
     PositionTracker *           m_parent;
     const frma::FormaAST *      m_curr;
-    fun::FPtr<PositionNode>     m_prev;
-    fun::FWeakPtr<PositionNode> m_next;
+    fun::FWeakPtr<PositionNode> m_prev, m_next;
 
   public:
     const frma::FormaAST *ast() const { return m_curr; }
@@ -46,10 +45,11 @@ namespace pc {
   };
 
   class PositionTracker : public fun::FObject {
-    fun::FPtr<PositionNode> m_node;
+    fun::FWeakPtr<PositionNode> m_node;
+    fun::FPtr<PositionNode>     m_rootNode;
 
   public:
-    const frma::FormaAST *curr() const { return m_node->m_curr; }
+    const frma::FormaAST *curr() const { return m_node.lock()->m_curr; }
 
     PositionTracker(const frma::FormaAST *);
 
@@ -58,7 +58,7 @@ namespace pc {
     friend class PositionNode;
   };
 
-  class _FuncClosure : public PositionTracker {
+  class FuncClosure : public PositionTracker {
     fun::FWeakPtr<AssemblyClosure> m_assem;
     fun::FPtr<ScopeClosure>        m_scope;
     FIBytecode *                   m_body;
@@ -68,19 +68,18 @@ namespace pc {
     inline fun::FPtr<ScopeClosure>    scope() const { return m_scope; }
     inline FIBytecode *               body() const { return m_body; }
 
-    _FuncClosure(fun::FPtr<AssemblyClosure>,
-                 FIBytecode &,
-                 const frma::FormaAST *);
+    FuncClosure(fun::FPtr<AssemblyClosure>,
+                FIBytecode &,
+                const frma::FormaAST *);
 
-    _FuncClosure &emit(FIInstruction);
+    FuncClosure &emit(FIInstruction);
 
-    inline _FuncClosure &emit(FIOpcode op) { return emit(FIInstruction(op)); }
+    inline FuncClosure &emit(FIOpcode op) { return emit(FIInstruction(op)); }
 
     template <typename T>
     inline
-        typename std::enable_if<std::is_integral<T>::value, _FuncClosure>::type
-            &
-            emit(FIOpcode op, T arg) {
+        typename std::enable_if<std::is_integral<T>::value, FuncClosure>::type &
+        emit(FIOpcode op, T arg) {
       return emit(FIInstruction(op, arg));
     }
 
@@ -97,7 +96,7 @@ namespace pc {
   };
 
   class ScopeClosure : public fun::FObject {
-    _FuncClosure *              m_func;
+    FuncClosure *               m_func;
     fun::FWeakPtr<ScopeClosure> m_parent;
 
     std::unordered_map<std::string, int> m_counts;
@@ -105,7 +104,7 @@ namespace pc {
   public:
     inline fun::FPtr<ScopeClosure> parent() const { return m_parent.lock(); }
 
-    ScopeClosure(_FuncClosure *func, fun::FPtr<ScopeClosure> parent)
+    ScopeClosure(FuncClosure *func, fun::FPtr<ScopeClosure> parent)
         : m_func(func), m_parent(parent) {}
 
     std::uint32_t bind(const std::string &, bool);

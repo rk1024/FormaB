@@ -39,7 +39,7 @@ public:
 
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {}
   FPtr(FPtr &other) : FPtr(const_cast<const FPtr &>(other)) {}
-  FPtr(FPtr &&other) : FPtr(other.m_ptr) { other.~FPtr(); }
+  FPtr(FPtr &&other) : m_ptr(other.m_ptr) { other.m_ptr = nullptr; }
 
   ~FPtr() {
     if (m_ptr) m_ptr->release();
@@ -112,11 +112,18 @@ public:
   }
 
   FWeakPtr(FPtr<T> ptr) : FWeakPtr(ptr.get()) {}
+  FWeakPtr() : FWeakPtr(nullptr) {}
 
   T *peek() const { return reinterpret_cast<T *>(m_ptr->target()); }
 
   FPtr<T> lock() const {
+    if (!m_ptr) return FPtr<T>();
     if (!m_ptr->live()) throw std::runtime_error("pointer use after release");
+    return wrap(reinterpret_cast<T *>(m_ptr->target()));
+  }
+
+  FPtr<T> lockOrNull() const {
+    if (operator!()) return FPtr<T>();
     return wrap(reinterpret_cast<T *>(m_ptr->target()));
   }
 

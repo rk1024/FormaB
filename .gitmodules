@@ -8,3 +8,4 @@
 	path = tools/re2c
 	url = https://github.com/skvadrik/re2c.git
 	ignore = dirty
+	commit = 4300196e8f78541bb637b4af000b406ed2f28478

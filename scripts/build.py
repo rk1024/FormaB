@@ -298,7 +298,6 @@ def main():
         [
           "scanner.cpp",
           "parser.cpp",
-          "util/lexNum.cpp",
         ],
         fnmatch.filter(astSources, "**/*.cpp"),
       ),

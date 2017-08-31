@@ -33,7 +33,7 @@ static bool isSignNegative(const char *sg) {
 
 template <typename T>
 static typename std::enable_if<std::is_integral<T>::value, T>::type
-readIntBasic(fun::FPtr<FuncClosure>              closure,
+readIntBasic(fun::FPtr<FuncClosure>               closure,
              std::uint8_t                         radix,
              std::int16_t                         expon,
              typename std::make_unsigned<T>::type max,
@@ -91,7 +91,7 @@ readIntBasic(fun::FPtr<FuncClosure>              closure,
 
 template <typename T>
 typename std::enable_if<std::is_integral<T>::value, T>::type readInt(
-    fun::FPtr<FuncClosure>              closure,
+    fun::FPtr<FuncClosure>               closure,
     std::uint8_t                         radix,
     std::int16_t                         expon,
     bool                                 unsign,
@@ -105,7 +105,7 @@ typename std::enable_if<std::is_integral<T>::value, T>::type readInt(
 }
 
 bool FIPraeCompiler::emitLoadLNumeric(fun::FPtr<FuncClosure> closure,
-                                       const FPLNumeric *      numeric) {
+                                      const FPLNumeric *     numeric) {
   const char *_str = numeric->tok()->value().c_str(), *str = _str, *YYMARKER,
              *sg, *d0, *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr,
              *e1 = nullptr, *tu = nullptr, *tl

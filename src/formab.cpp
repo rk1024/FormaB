@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
     if (success && tag.prims) {
       fun::FPtr<FIPraeCompiler> compiler = fnew<FIPraeCompiler>();
 
-      auto assem = compiler->registerAssembly();
+      auto assem  = compiler->registerAssembly();
       auto blocks = compiler->compileBlocks(assem, tag.prims);
 
       compiler->dump(std::cerr);

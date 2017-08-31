@@ -12,8 +12,8 @@ class FRefTracker {
   void trackRelease();
 
 public:
-  inline bool     live() const { return !!m_tracked; }
-  inline FObject *target() const { return m_target; }
+  inline bool         live() const { return !!m_tracked; }
+  inline FObject *    target() const { return m_target; }
   inline unsigned int refCount() const { return m_count; }
 
   FRefTracker(FObject *target);

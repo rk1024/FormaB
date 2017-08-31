@@ -120,7 +120,7 @@ struct FIInstruction {
 
 struct FIBytecode {
   std::vector<FIInstruction> instructions;
-  std::vector<FILabel> labels;
+  std::vector<FILabel>       labels;
   fun::FAtomStore<std::string, std::uint32_t> vars;
 };
 }

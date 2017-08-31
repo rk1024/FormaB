@@ -9,7 +9,7 @@
 namespace frma {
 class FormaAST {
 protected:
-  bool m_rooted = false;
+  bool     m_rooted = false;
   location m_loc;
 
 public:

@@ -411,22 +411,21 @@ FEntity FDumbInterpreter::run(const FPXMsg *msg, FClosure closure) {
 
     ent = ent->dispatch(keywords);
     break;
-    }
-    case FPMsgSelector::Unary:
-      ent =
-          ent->dispatch(FAtom::intern(std::string(msg->sel()->tok()->value())));
-      break;
-    }
-    // }
+  }
+  case FPMsgSelector::Unary:
+    ent = ent->dispatch(FAtom::intern(std::string(msg->sel()->tok()->value())));
+    break;
+  }
+  // }
 
-    // std::cout << "  \x1b[1m[DEBUG]\x1b[0m Result: ";
-    // if (ent)
-    //   std::cout << "\x1b[38;5;4m" << ent->toString();
-    // else
-    //   std::cout << "\x1b[38;5;9m(void)";
-    // std::cout << "\x1b[0m" << std::endl;
+  // std::cout << "  \x1b[1m[DEBUG]\x1b[0m Result: ";
+  // if (ent)
+  //   std::cout << "\x1b[38;5;4m" << ent->toString();
+  // else
+  //   std::cout << "\x1b[38;5;9m(void)";
+  // std::cout << "\x1b[0m" << std::endl;
 
-    return ent;
+  return ent;
 }
 
 FEntity FDumbInterpreter::run(const FPXParen *paren, FClosure closure) {

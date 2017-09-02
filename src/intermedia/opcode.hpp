@@ -64,9 +64,6 @@ enum class FIOpcode : std::int8_t {
 
   Tpl, // tpl  <size:u4> [value[size] -> tuple]
 
-  PH_Bind,
-  PH_LdInt,
-  PH_LdReal,
   PH_Msg,
 };
 

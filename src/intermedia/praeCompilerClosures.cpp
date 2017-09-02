@@ -22,7 +22,7 @@ namespace pc {
 
   fun::FPtr<PositionNode> PositionNode::push(const frma::FormaAST *node) {
     auto next    = fnew<PositionNode>(m_parent, node);
-    next->m_prev = fun::wrap(this);
+    next->m_prev = fun::weak(this);
 
     if (!m_next) m_parent->m_node = next;
 
@@ -72,9 +72,15 @@ namespace pc {
         static_cast<std::uint16_t>(m_body->instructions.size());
   }
 
-  void FuncClosure::beginScope() {}
+  void FuncClosure::pushScope() { m_scope = fnew<ScopeClosure>(this, m_scope); }
 
-  void FuncClosure::endScope() {}
+  void FuncClosure::dropScope() { m_scope = m_scope->parent(); }
+
+  fun::FPtr<ScopeClosure> FuncClosure::popScope() {
+    auto ret = std::move(m_scope);
+    m_scope  = m_scope->parent();
+    return ret;
+  }
 
   void FuncClosure::error(std::string &&desc) {
     auto loc = curr()->loc();
@@ -119,56 +125,85 @@ namespace pc {
     throw std::runtime_error(os.str());
   }
 
-  inline std::string assembleName(const std::string &base, int count) {
+  inline std::string assembleName(const std::string &base,
+                                  int                iter,
+                                  int                count) {
     std::ostringstream oss;
     oss << base;
+    if (iter >= 0) oss << "+" << iter;
     if (count >= 0) oss << "`" << count;
     return oss.str();
   }
 
-  std::uint32_t ScopeClosure::bind(const std::string &name, bool mut) {
-    if (m_counts.find(name) != m_counts.end()) goto declared;
+  ScopeClosure *ScopeClosure::ownerOf(const std::string &name) {
+    if (m_counts.find(name) != m_counts.end()) return this;
 
-    m_counts[name] = mut ? 0 : -1;
+    if (!m_parent) return nullptr;
+
+    return m_parent->ownerOf(name);
+  }
+
+  std::uint32_t ScopeClosure::getInternal(const std::string &name, bool set) {
+    assert(!m_merged);
+
+    int count = m_counts.at(name);
+
+    if (set) {
+      if (count == COUNT_CONST)
+        m_func->error("variable '" + name + "' is not mutable");
+
+      m_counts[name] = ++count;
+    }
+
+    std::uint32_t id;
+
+    auto fullname = assembleName(name, m_iters.at(name), count);
+    if (!m_func->m_body->vars.intern(fullname, &id) && set)
+      m_func->error("variable '" + fullname +
+                    "' already registered. (this shouldn't happen)");
+
+    return id;
+
+    assert(false);
+  }
+
+  ScopeClosure::ScopeClosure(FuncClosure *func, fun::FPtr<ScopeClosure> parent)
+      : m_func(func), m_parent(parent) {
+    if (parent && parent->m_merge) m_merged = true;
+  }
+
+  std::uint32_t ScopeClosure::bind(const std::string &name, bool mut) {
+    if (m_merged) m_parent->bind(name, mut);
+
+    int count      = mut ? 0 : -1;
+    m_counts[name] = count;
+
+    int iter = -1;
+
+    {
+      auto it = m_func->m_varIters.find(name);
+
+      if (it != m_func->m_varIters.end()) iter = (*it).second + 1;
+    }
+
+    m_iters[name]            = iter;
+    m_func->m_varIters[name] = iter;
 
     {
       std::uint32_t id;
-      if (!m_func->m_body->vars.intern(assembleName(name, m_counts[name]), &id))
-        goto declared;
+      auto          fullname = assembleName(name, iter, count);
+      if (!m_func->m_body->vars.intern(fullname, &id))
+        m_func->error("variable '" + fullname +
+                      "' already registered. (this shouldn't happen)");
 
       return id;
     }
-  declared:
-    m_func->error("variable '" + name + "' already declared");
   }
 
   std::uint32_t ScopeClosure::get(const std::string &name, bool set) {
-    auto it = m_counts.find(name);
-    if (it == m_counts.end()) goto notDeclared;
-
-    {
-      int count = (*it).second;
-
-      if (set) {
-        if (count < 0) m_func->error("variable '" + name + "' is not mutable");
-
-        m_counts[name] = ++count;
-      }
-
-      std::uint32_t id;
-
-      if (!m_func->m_body->vars.intern(assembleName(name, count), &id) && set)
-        goto declared;
-
-      return id;
-    declared:
-      m_func->error("variable '" + assembleName(name, count) +
-                    "' already registered. (this shouldn't happen)");
-    }
-
-    assert(false);
-  notDeclared:
-    m_func->error("variable '" + name + "' not declared");
+    auto owner = ownerOf(name);
+    if (!owner) m_func->error("variable '" + name + "' not declared");
+    return owner->getInternal(name, set);
   }
 }
 }

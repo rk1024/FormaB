@@ -9,9 +9,11 @@ using System;
 @!prae{
   let min = (of:, and:) => if (of < and) of else and,
     max = (of:, and:) => if (of > and) of else and,
-    test = () => cout[print: "This is just a test."];
+    test = () => (let cout = 0; cout[print: "This is just a test."]); @@ TODO: Fix cout
 
   test[call];
+
+  let cout = 0; @@ TODO: Fix cout
 
   cout
     [print: 2 + 3]
@@ -50,6 +52,15 @@ using System;
 
   let functionalWhere = () => (let x = 5; x);
   let imperative = () => { let x = 5; x; };
+
+  var my = (let a = 5; a);
+  var your = (var b = 5; b);
+
+  your += 5;
+
+  your = my = -1;
+
+  while (var i = 0; i < 100) ++i;
 
   while (var i = 0; i < 100) {
     cout[print: i + (if (i % 2 == 0) " is even" else " is odd")];

@@ -13,6 +13,36 @@
 
 namespace fie {
 namespace pc {
+#define INITFLAGS(type)                                                        \
+  namespace type {                                                             \
+    enum Flags : std::uint16_t;                                                \
+                                                                               \
+    inline constexpr Flags operator|(Flags a, Flags b) {                       \
+      return static_cast<Flags>(static_cast<std::uint16_t>(a) |                \
+                                static_cast<std::uint16_t>(b));                \
+    }                                                                          \
+                                                                               \
+    inline constexpr Flags operator&(Flags a, Flags b) {                       \
+      return static_cast<Flags>(static_cast<std::uint16_t>(a) &                \
+                                static_cast<std::uint16_t>(b));                \
+    }                                                                          \
+                                                                               \
+    inline constexpr Flags operator~(Flags a) {                                \
+      return static_cast<Flags>(~static_cast<std::uint16_t>(a));               \
+    }                                                                          \
+  }
+
+  INITFLAGS(ParenFlags)
+
+  namespace ParenFlags {
+    enum Flags : std::uint16_t {
+      Bind      = 1,
+      Predefine = 2,
+      Default   = Bind,
+      NoBind    = Default & ~Bind,
+    };
+  }
+
   class AssemblyClosure;
   class FuncClosure;
   class ScopeClosure;
@@ -61,7 +91,8 @@ namespace pc {
   class FuncClosure : public PositionTracker {
     fun::FWeakPtr<AssemblyClosure> m_assem;
     fun::FPtr<ScopeClosure>        m_scope;
-    FIBytecode *                   m_body;
+    std::unordered_map<std::string, int> m_varIters;
+    FIBytecode *m_body;
 
   public:
     inline fun::FPtr<AssemblyClosure> assem() const { return m_assem.lock(); }
@@ -87,8 +118,9 @@ namespace pc {
 
     void label(std::uint16_t);
 
-    void beginScope();
-    void endScope();
+    void                    pushScope();
+    void                    dropScope();
+    fun::FPtr<ScopeClosure> popScope();
 
     [[noreturn]] void error(std::string &&desc);
 
@@ -96,19 +128,27 @@ namespace pc {
   };
 
   class ScopeClosure : public fun::FObject {
-    FuncClosure *               m_func;
-    fun::FWeakPtr<ScopeClosure> m_parent;
+    FuncClosure *           m_func;
+    fun::FPtr<ScopeClosure> m_parent;
+    std::unordered_map<std::string, int> m_iters, m_counts;
+    bool m_merge = false, m_merged = false;
 
-    std::unordered_map<std::string, int> m_counts;
+    ScopeClosure *ownerOf(const std::string &);
+
+    std::uint32_t getInternal(const std::string &name, bool set);
 
   public:
-    inline fun::FPtr<ScopeClosure> parent() const { return m_parent.lock(); }
+    const int COUNT_CONST = -1, COUNT_PHI = -2;
 
-    ScopeClosure(FuncClosure *func, fun::FPtr<ScopeClosure> parent)
-        : m_func(func), m_parent(parent) {}
+    inline fun::FPtr<ScopeClosure> parent() const { return m_parent; }
+    inline bool                    merge() const { return m_merge; }
+    inline void merge(bool value) { m_merge = value; }
+
+    ScopeClosure(FuncClosure *func, fun::FPtr<ScopeClosure> parent);
 
     std::uint32_t bind(const std::string &, bool);
     std::uint32_t get(const std::string &, bool);
+    std::uint32_t phi(const std::string &);
   };
 }
 }

@@ -22,7 +22,7 @@ public:
   inline TKey next() const { return static_cast<TKey>(m_values.size()); }
 
   inline TKey key(T value) const { return m_keys.at(value); }
-  inline const T &valueConst(TKey key) const { return m_values.at(key); }
+  inline const T &value(TKey key) const { return m_values.at(key); }
   inline T &value(TKey key) { return m_values.at(key); }
 
   inline bool find(T value, TKey *key) const {
@@ -52,7 +52,7 @@ public:
   inline TKey next() const { return m_nextKey; }
 
   inline TKey key(T value) const { return m_keys.at(value); }
-  inline const T &valueConst(TKey key) const { return m_values.at(key); }
+  inline const T &value(TKey key) const { return m_values.at(key); }
   inline T &value(TKey key) { return m_values.at(key); }
 
   inline bool find(T value, TKey *key) const {
@@ -76,7 +76,7 @@ class FAtomStore {
 
   TBuf m_buf;
 
-  TKey add(T &&value) {
+  TKey add(const T &value) {
     TKey key = m_buf.next();
     assert(key != static_cast<TKey>(-1));
 
@@ -86,33 +86,25 @@ class FAtomStore {
   }
 
 public:
-  TKey key(T value) const { return m_buf.key(value); }
-  const T &value(TKey key) const { return m_buf.valueConst(key); }
+  TKey key(const T &value) const { return m_buf.key(value); }
+  const T &value(TKey key) const { return m_buf.value(key); }
   T &value(TKey key) { return m_buf.value(key); }
 
   TKey size() const { return m_buf.next(); }
 
   bool find(T value, TKey *key) { return m_buf.find(value, key); }
 
-  template <typename U>
-  typename std::enable_if<
-      std::is_same<typename std::remove_reference<U>::type, T>::value,
-      TKey>::type
-  intern(U &&value) {
+  TKey intern(const T &value) {
     TKey key;
-    if (m_buf.find(std::forward<T>(value), &key)) return key;
+    if (m_buf.find(value, &key)) return key;
 
-    return add(std::forward<T>(value));
+    return add(value);
   }
 
-  template <typename U>
-  typename std::enable_if<
-      std::is_same<typename std::remove_reference<U>::type, T>::value,
-      bool>::type
-  intern(U &&value, TKey *key) {
+  bool intern(const T &value, TKey *key) {
     if (m_buf.find(value, key)) return false;
 
-    *key = add(std::forward<T>(value));
+    *key = add(value);
     return true;
   }
 

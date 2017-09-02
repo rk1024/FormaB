@@ -14,50 +14,70 @@
 #include "ast.hpp"
 
 namespace fie {
+// Compiler emit header with FuncClosure, specify node type
+#define EMITF_(name, type, ...)                                                \
+  emit##name(fun::FPtr<pc::FuncClosure>, const frma::FP##type *, ##__VA_ARGS__)
+
+// Compiler emit header with FuncClosure, matching node type
+#define EMITF(name, ...) EMITF_(name, name, ##__VA_ARGS__)
+
+// Compiler emitLoad header with FuncClosure, matching node type
+#define EMITFL(name, ...) EMITF_(Load##name, name, ##__VA_ARGS__)
+
+// Compiler emitStore header with FuncClosure, matching node type
+#define EMITFS(name, ...) EMITF_(Store##name, name, ##__VA_ARGS__)
+
 class FIPraeCompiler : public fun::FObject {
   fun::FAtomStore<fun::FPtr<pc::AssemblyClosure>> m_assems;
 
-  std::uint32_t emitLoadExprs(fun::FPtr<pc::FuncClosure>,
-                              const frma::FPExprs *,
-                              bool = true);
-  bool emitLoadExpr(fun::FPtr<pc::FuncClosure>, const frma::FPExpr *);
+  std::uint32_t EMITFL(Exprs, bool tuple = true);
+  bool EMITFL(Expr);
 
-  bool emitLoadLBoolean(fun::FPtr<pc::FuncClosure>, const frma::FPLBoolean *);
-  bool emitLoadLNumeric(fun::FPtr<pc::FuncClosure>, const frma::FPLNumeric *);
-  bool emitLoadXBlock(fun::FPtr<pc::FuncClosure>, const frma::FPXBlock *);
-  bool emitLoadXControl(fun::FPtr<pc::FuncClosure>, const frma::FPXControl *);
-  bool emitLoadXFunc(fun::FPtr<pc::FuncClosure>, const frma::FPXFunc *);
-  bool emitLoadXInfix(fun::FPtr<pc::FuncClosure>, const frma::FPXInfix *);
-  bool emitLoadXMember(fun::FPtr<pc::FuncClosure>, const frma::FPXMember *);
-  bool emitLoadXParen(fun::FPtr<pc::FuncClosure>,
-                      const frma::FPXParen *,
-                      bool = false);
-  bool emitLoadXPrim(fun::FPtr<pc::FuncClosure>, const frma::FPXPrim *);
-  bool emitLoadXUnary(fun::FPtr<pc::FuncClosure>, const frma::FPXUnary *);
+  bool EMITFL(LBoolean);
+  bool EMITFL(LNumeric);
+  bool EMITFL(XBlock);
+  bool EMITFL(XControl);
+  bool EMITFL(XFunc);
+  bool EMITFL(XInfix);
+  bool EMITFL(XMember);
+  bool EMITFL(XMsg);
+  bool EMITFL(XParen, pc::ParenFlags::Flags flags = pc::ParenFlags::Default);
+  bool EMITFL(XPrim);
+  bool EMITFL(XUnary);
 
-  void emitFuncParams(fun::FPtr<pc::FuncClosure>, const frma::FPFuncParams *);
-  void emitFuncParam(fun::FPtr<pc::FuncClosure>, const frma::FPFuncParam *);
+  void EMITFS(XMember);
+  void EMITFS(XPrim);
+  void EMITFS(XUnary);
 
-  void emitStmts(fun::FPtr<pc::FuncClosure>, const frma::FPStmts *);
-  void emitStmt(fun::FPtr<pc::FuncClosure>, const frma::FPStmt *);
+  void EMITF(FuncParams);
+  void EMITF(FuncParam);
 
-  void emitSBind(fun::FPtr<pc::FuncClosure>, const frma::FPSBind *);
-  void emitSControl(fun::FPtr<pc::FuncClosure>, const frma::FPSControl *);
+  void EMITF(Stmts);
+  void EMITF(Stmt);
 
-  void emitBindings(fun::FPtr<pc::FuncClosure>, const frma::FPBindings *, bool);
-  void emitBinding(fun::FPtr<pc::FuncClosure>, const frma::FPBinding *, bool);
+  bool EMITFL(SAssign);
+  void EMITF(SBind);
+  void EMITF(SControl);
+
+  bool EMITFL(AssignValue);
+  void EMITF(Bindings, bool mut);
+  void EMITF(Binding, bool mut);
 
 public:
   inline auto registerAssembly() {
-    return m_assems.emplace(fnew<pc::AssemblyClosure>());
+    auto ret = m_assems.emplace(fnew<pc::AssemblyClosure>());
+    return ret;
   }
 
-  std::uint16_t compileEntryPoint(decltype(m_assems.emplace()),
-                                  const frma::FPStmts *);
+  std::uint16_t compileEntryPoint(std::size_t, const frma::FPStmts *);
 
   std::vector<std::pair<const frma::FPBlock *, std::uint16_t>> compileBlocks(
       std::size_t assem, const frma::FPrims *);
 
   void dump(std::ostream &os) const;
 };
+
+#undef EMITFL
+#undef EMITF
+#undef EMITF_
 }

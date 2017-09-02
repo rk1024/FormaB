@@ -84,4 +84,7 @@ done
 
 tmux select-pane -t "$TMUX_SID.0"
 
+tmux bind-key -n ^D kill-session -t "$TMUX_SID"
+tmux bind-key -n ^C kill-session -t "$TMUX_SID"
+
 tmux -2 attach-session -t "$TMUX_SID.0"

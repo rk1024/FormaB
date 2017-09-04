@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "opcode.hpp"
+#include "bytecode.hpp"
 #include "util/object.hpp"
 
 namespace fie {

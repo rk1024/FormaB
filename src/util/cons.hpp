@@ -10,7 +10,7 @@ template <typename...>
 struct cons_cell;
 
 template <std::size_t, typename, typename...>
-struct cons_select;
+struct cons_get;
 
 template <>
 struct cons_cell<> {
@@ -25,7 +25,7 @@ struct cons_cell<> {
 template <typename TCar, typename... TCdr>
 struct cons_cell<TCar, TCdr...> {
   template <std::size_t index>
-  using select_t = cons_select<index, TCar, TCdr...>;
+  using select_t = cons_get<index, TCar, TCdr...>;
 
   TCar               car;
   cons_cell<TCdr...> cdr;
@@ -69,8 +69,8 @@ struct cons_cell<TCar, TCdr...> {
 };
 
 template <std::size_t index, typename TCar, typename... TCdr>
-struct cons_select {
-  using next_t = std::enable_if_t<(index > 0), cons_select<index - 1, TCdr...>>;
+struct cons_get {
+  using next_t = std::enable_if_t<(index > 0), cons_get<index - 1, TCdr...>>;
 
   using item_t = typename next_t::item_t;
 
@@ -84,7 +84,7 @@ struct cons_select {
 };
 
 template <typename TCar, typename... TCdr>
-struct cons_select<0, TCar, TCdr...> {
+struct cons_get<0, TCar, TCdr...> {
   using item_t = TCar;
 
   static constexpr item_t &get(cons_cell<TCar, TCdr...> &cell) {

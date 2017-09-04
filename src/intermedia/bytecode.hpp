@@ -46,7 +46,7 @@ enum class FIOpcode : std::int8_t {
 
   Ldvar, // ldvar <var:u4> [ -> var]
 
-  Ldstr, // ldstr <atom:u2> [ -> str]
+  Ldstr, // ldstr <atom:u4> [ -> str]
   Ldfun, // ldfun <atom:u2> [ -> fun]
 
   Stvar, // stvar <var:u4> [var -> ]
@@ -62,9 +62,9 @@ enum class FIOpcode : std::int8_t {
   Cvr4, // cvr4 [val -> r4]
   Cvr8, // cvr8 [val -> r8]
 
-  Tpl, // tpl  <size:u4> [value[size] -> tuple]
+  Msg, // msg <msg:u4> [args... -> return]
 
-  PH_Msg,
+  Tpl, // tpl  <size:u4> [value[size] -> tuple]
 };
 
 struct FIInstruction {

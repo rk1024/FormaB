@@ -331,8 +331,8 @@ PraeQLLineEsc \\\n
 <INITIAL,SSPraeBlock>{
   /*{ignore me}*/
 
-  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BSW }
-  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BSW }
+  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BS }
+  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BS }
 }
 
 <SSPraeSQLiteral>{

@@ -15,7 +15,9 @@ namespace fie {
 #define _MOVE_2(id) __ctx_n##id##__
 #define _MOVE_1(closure, to, id) auto _MOVE_2(id) = closure->move(to);
 
-#define MOVE_(closure) _MOVE_1(closure, node, __COUNTER__)
+#define MOVE_TO_(closure, to) _MOVE_1(closure, to, __COUNTER__)
+#define MOVE_(closure) MOVE_TO_(closure, node)
+#define MOVE_TO(to) MOVE_TO_(closure, to)
 #define MOVE MOVE_(closure)
 
 #define SUBMOVE_(closure, sub) _MOVE_1(closure, node->sub, __COUNTER__)
@@ -39,7 +41,7 @@ namespace fie {
 #define MATCH MATCH_(node)
 
 #define FAIL assert(false)
-#define NOTIMPL FAIL
+#define NOTIMPL closure->error("not implemented")
 #define NEXT [[clang::fallthrough]]
 
 template <typename T>
@@ -105,7 +107,7 @@ bool EMITFL(XBlock) {
 
     emitStmts(closure, node->stmts());
 
-    closure->dropScope();
+    closure->applyScope();
     return false; // TODO: This should sometimes return stuff maybe
   case OF(Error):
   default: FAIL;
@@ -122,12 +124,11 @@ bool EMITFL(XControl) {
   default: FAIL;
   }
 
-  auto lblElse = closure->beginLabel();
+  auto lblElse = closure->beginLabel(), lblDone = closure->beginLabel();
 
   closure->pushScope();
-  closure->scope()->merge(true);
 
-  if (!emitLoadXParen(closure, node->cond())) {
+  if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoScope)) {
     SUBMOVE(cond())
     closure->error("condition must load value");
   }
@@ -137,10 +138,20 @@ bool EMITFL(XControl) {
 
   bool thenLoad = emitLoadExpr(closure, node->then());
 
+  auto phiVars = closure->applyScopeWithIds();
+
+  closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblDone));
+
   closure->label(lblElse);
+
+  closure->pushScope();
 
   if (emitLoadExpr(closure, node->otherwise()) != thenLoad)
     closure->error("not all paths load a value");
+
+  closure->applyScopeWithIds(phiVars, false);
+
+  closure->label(lblDone);
 
   return thenLoad;
 }
@@ -172,11 +183,11 @@ bool EMITFL(XInfix) {
   MOVE;
   if (IS(Unary)) return emitLoadXUnary(closure, node->unary());
 
-  if (!(IS(Mod) ? emitLoadXUnary(closure, node->unary()) :
-                  emitLoadXInfix(closure, node->infixl())))
+  if (!emitLoadXInfix(closure, node->infixl()))
     closure->error("first operand must load value");
 
-  if (!emitLoadXInfix(closure, node->infixr()))
+  if (!(IS(Mod) ? emitLoadXUnary(closure, node->unary()) :
+                  emitLoadXInfix(closure, node->infixr())))
     closure->error("second operand must load value");
 
   MATCH {
@@ -193,6 +204,7 @@ bool EMITFL(XInfix) {
   case OF(Mul): closure->emit(FIOpcode::Mul); break;
   case OF(Neq): closure->emit(FIOpcode::Ceq).emit(FIOpcode::Inv); break;
   case OF(Sub): closure->emit(FIOpcode::Sub); break;
+  case OF(Unary):
   default: FAIL;
   }
 
@@ -212,15 +224,55 @@ bool EMITFL(XMember) {
 bool EMITFL(XMsg) {
   MOVE;
   MATCH {
-  case OF(Message):
+  case OF(Message): {
     if (!emitLoadXPrim(closure, node->expr())) {
       SUBMOVE(expr());
       closure->error("message target must load a value");
     }
 
-    closure->emit(FIOpcode::PH_Msg);
+    auto sel = node->sel();
+
+    std::ostringstream          oss;
+    std::vector<const FPExpr *> exprs;
+
+    MATCH_(sel) {
+    case OF_(sel, Unary): oss << sel->tok()->toString(); break;
+    case OF_(sel, Keyword): {
+      std::stack<const FPMsgKeyword *> kwStack;
+      const FPMsgKeywords *            kws = sel->kws();
+
+      while (kws) {
+        MATCH_(kws) {
+        case OF_(kws, Keywords):
+          kwStack.push(kws->kw());
+          kws = kws->kws();
+          break;
+        case OF_(kws, Keyword):
+          kwStack.push(kws->kw());
+          kws = nullptr;
+          break;
+        default: FAIL;
+        }
+      }
+
+      while (kwStack.size()) {
+        auto kw = kwStack.top();
+        kwStack.pop();
+        oss << kw->id()->toString();
+        if (!emitLoadExpr(closure, kw->expr())) {
+          MOVE_TO(kw);
+          closure->error("message argument must load value");
+        }
+      }
+      break;
+    }
+    default: FAIL;
+    }
+
+    closure->emit(FIOpcode::Msg, closure->assem()->msgs().intern(oss.str()));
 
     return true; // TODO: This won't always load something
+  }
   case OF(Error):
   default: FAIL;
   }
@@ -230,23 +282,20 @@ bool EMITFL(XParen, ParenFlags::Flags flags) {
   MOVE;
   MATCH {
   case OF(Paren): return emitLoadXParen(closure, node->paren(), flags);
-  case OF(Tuple): return emitLoadExprs(closure, node->exprs());
-  case OF(Where):
-    if (flags & ParenFlags::Predefine) {
-      assert(flags == ParenFlags::Predefine);
-      emitSBind(closure, node->bind());
+  case OF(Tuple):
+    if (flags & ParenFlags::Eval) return emitLoadExprs(closure, node->exprs());
+    return false;
+  case OF(Where): {
+    if (flags & ParenFlags::Scope) closure->pushScope();
 
-      return false;
-    } else {
-      closure->pushScope();
+    auto ret = false;
 
-      if (flags & ParenFlags::Bind) emitSBind(closure, node->bind());
-      auto ret = emitLoadExpr(closure, node->expr());
+    if (flags & ParenFlags::Bind) emitSBind(closure, node->bind());
+    if (flags & ParenFlags::Eval) ret = emitLoadExpr(closure, node->expr());
 
-      closure->dropScope();
-
-      return ret;
-    }
+    if (flags & ParenFlags::Scope) closure->applyScope();
+    return ret;
+  }
   case OF(Error):
   default: FAIL;
   }
@@ -257,14 +306,16 @@ bool EMITFL(XPrim) {
   MATCH {
   case OF(Block): return emitLoadXBlock(closure, node->block());
   case OF(Boolean): return emitLoadLBoolean(closure, node->boolean());
-  case OF(DQLiteral): NOTIMPL;
   case OF(Identifier):
-    closure->emit(FIOpcode::Ldvar,
-                  closure->scope()->get(node->tok()->value(), false));
+    closure->emit(FIOpcode::Ldvar, closure->scope()->get(node->tok()->value()));
     return true;
   case OF(Message): return emitLoadXMsg(closure, node->message());
   case OF(Numeric): return emitLoadLNumeric(closure, node->numeric());
   case OF(Parens): return emitLoadXParen(closure, node->paren());
+  case OF(DQLiteral):
+    closure->emit(FIOpcode::Ldstr,
+                  closure->assem()->strings().intern(node->tok()->toString()));
+    return true;
   case OF(SQLiteral): NOTIMPL;
   default: FAIL;
   }
@@ -287,6 +338,7 @@ bool EMITFL(XUnary) {
   case OF(Inv): closure->emit(FIOpcode::Inv); break;
   case OF(Neg): closure->emit(FIOpcode::Neg); break;
   case OF(Pos): closure->emit(FIOpcode::Pos); break;
+  case OF(Member):
   default: FAIL;
   }
 
@@ -317,8 +369,7 @@ void EMITFS(XPrim) {
 
   MATCH {
   case OF(Identifier):
-    closure->emit(FIOpcode::Stvar,
-                  closure->scope()->get(node->tok()->value(), true));
+    closure->emit(FIOpcode::Stvar, closure->scope()->set(node->tok()->value()));
     break;
   case OF(Block):
   case OF(Boolean):
@@ -457,37 +508,59 @@ void EMITF(SControl) {
                   lblTest  = closure->beginLabel(),
                   lblBreak = closure->beginLabel();
 
-    closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblTest));
-
     closure->pushScope();
-    closure->scope()->merge(true);
 
-    emitLoadXParen(closure, node->cond(), ParenFlags::Predefine);
+    // TODO: Add proper phi-handling (i.e. id-recording) here
+    emitLoadXParen(closure, node->cond(), ParenFlags::Bind);
+
+    FuncClosure::VarIds loopPhiVars;
+
+    for (auto var : closure->scope()->getOwned()) {
+      loopPhiVars[fun::cons(fun::weak(closure->scope()), var.get<0>())] =
+          closure->scope()->get(var.get<0>());
+    }
+
+    closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblTest));
 
     closure->label(lblDo);
 
+    closure->pushScope();
+
     emitStmt(closure, node->then());
 
+    closure->applyScopeWithIds(loopPhiVars, false);
+
     closure->label(lblTest);
+
+    closure->pushScope();
 
     if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoBind))
       closure->error("condition must load value");
 
+    closure->applyScopeWithIds(loopPhiVars, false);
+
+    auto elsePhiVars = closure->applyScopeWithIds();
+
     closure->emit(FIInstruction::brLbl(
         type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz, lblDo));
 
-    closure->dropScope();
+    if (type & C_Else) {
+      closure->pushScope();
 
-    if (type & C_Else) emitStmt(closure, node->otherwise());
+      emitStmt(closure, node->otherwise());
+
+      closure->applyScopeWithIds(elsePhiVars, false);
+    }
 
     closure->label(lblBreak);
   } else {
-    std::uint16_t lblElse = closure->beginLabel();
+    std::uint16_t lblElse = closure->beginLabel(), lblDone = -1;
+
+    if (type & C_Else) lblDone = closure->beginLabel();
 
     closure->pushScope();
-    closure->scope()->merge(true);
 
-    if (!emitLoadXParen(closure, node->cond()))
+    if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoScope))
       closure->error("condition must load value");
 
     closure->emit(FIInstruction::brLbl(
@@ -495,17 +568,20 @@ void EMITF(SControl) {
 
     emitStmt(closure, node->then());
 
-    closure->dropScope();
+    auto phiVars = closure->applyScopeWithIds();
+
+    if (type & C_Else)
+      closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblDone));
 
     closure->label(lblElse);
 
     if (type & C_Else) {
       closure->pushScope();
-      closure->scope()->merge(true);
 
       emitStmt(closure, node->otherwise());
 
-      closure->dropScope();
+      closure->applyScopeWithIds(phiVars, false);
+      closure->label(lblDone);
     }
   }
 }
@@ -589,21 +665,23 @@ void FIPraeCompiler::dump(std::ostream &os) const {
   for (std::size_t i = 0; i < m_assems.size(); ++i) {
     auto assem = m_assems.value(i);
 
-    os << "Assembly " << i << ":" << std::endl;
+    os << "\e[1mAssembly\e[0m " << i << ":" << std::endl;
 
     for (std::uint16_t j = 0; j < assem->funcs().size(); ++j) {
       auto func = assem->funcs().value(j);
       auto body = func->body();
 
-      os << "  Function " << i << "." << j << " (" << body.instructions.size()
-         << "):" << std::endl;
+      os << "\e[1m  Function " << i << "." << j << "\e[0m ("
+         << body.instructions.size() << "):" << std::endl;
 
       for (std::size_t k = 0; k < body.instructions.size(); ++k) {
         os << "    ";
 
         for (std::uint16_t l = 0; l < body.labels.size(); ++l) {
           if (body.labels.at(l).pos == k)
-            os << body.labels.at(l).name << ":" << std::endl << "    ";
+            os << "\e[38;5;2m" << body.labels.at(l).name
+               << "\e[0m:" << std::endl
+               << "    ";
         }
 
         if (body.labels.size()) os << "  ";
@@ -638,31 +716,42 @@ void FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Inv: os << "inv"; break;
 
         case FIOpcode::Br:
-          os << "br " << (ins.br.lbl ? body.labels.at(ins.br.id).name :
-                                       std::to_string(ins.br.addr));
+          os << "br \e[38;5;2m"
+             << (ins.br.lbl ? body.labels.at(ins.br.id).name :
+                              std::to_string(ins.br.addr));
           break;
         case FIOpcode::Bez:
-          os << "bez " << (ins.br.lbl ? body.labels.at(ins.br.id).name :
-                                        std::to_string(ins.br.addr));
+          os << "bez \e[38;5;2m"
+             << (ins.br.lbl ? body.labels.at(ins.br.id).name :
+                              std::to_string(ins.br.addr));
           break;
         case FIOpcode::Bnz:
-          os << "bnz " << (ins.br.lbl ? body.labels.at(ins.br.id).name :
-                                        std::to_string(ins.br.addr));
+          os << "bnz \e[38;5;2m"
+             << (ins.br.lbl ? body.labels.at(ins.br.id).name :
+                              std::to_string(ins.br.addr));
           break;
 
-        case FIOpcode::Ldci4: os << "ldci4 " << ins.i4; break;
-        case FIOpcode::Ldci8: os << "ldci8 " << ins.i8; break;
-        case FIOpcode::Ldcr4: os << "ldcr4 " << ins.r4; break;
-        case FIOpcode::Ldcr8: os << "ldcr8 " << ins.r8; break;
+        case FIOpcode::Ldci4: os << "ldci4 \e[38;5;5m" << ins.i4; break;
+        case FIOpcode::Ldci8: os << "ldci8 \e[38;5;5m" << ins.i8; break;
+        case FIOpcode::Ldcr4: os << "ldcr4 \e[38;5;5m" << ins.r4; break;
+        case FIOpcode::Ldcr8: os << "ldcr8 \e[38;5;5m" << ins.r8; break;
 
         case FIOpcode::Ldnil: os << "ldnil"; break;
 
-        case FIOpcode::Ldvar: os << "ldvar " << body.vars.value(ins.u4); break;
+        case FIOpcode::Ldvar:
+          os << "ldvar \e[38;5;4m" << body.vars.value(ins.u4);
+          break;
 
-        case FIOpcode::Ldstr: os << "ldstr " << fun::dumpHex(ins.u2); break;
-        case FIOpcode::Ldfun: os << "ldfun " << fun::dumpHex(ins.u2); break;
+        case FIOpcode::Ldstr:
+          os << "ldstr \e[38;5;6m\"" << assem->strings().value(ins.u4) << "\"";
+          break;
+        case FIOpcode::Ldfun:
+          os << "ldfun \e[38;5;3m" << fun::dumpHex(ins.u2);
+          break;
 
-        case FIOpcode::Stvar: os << "stvar " << body.vars.value(ins.u4); break;
+        case FIOpcode::Stvar:
+          os << "stvar \e[38;5;4m" << body.vars.value(ins.u4);
+          break;
 
         case FIOpcode::Cvi1: os << "cvi1"; break;
         case FIOpcode::Cvi2: os << "cvi2"; break;
@@ -675,14 +764,18 @@ void FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Cvr4: os << "cvr4"; break;
         case FIOpcode::Cvr8: os << "cvr8"; break;
 
-        case FIOpcode::Tpl: os << "tpl " << fun::dumpHex(ins.u4); break;
+        case FIOpcode::Msg:
+          os << "msg \e[38;5;4m" << assem->msgs().value(ins.u4);
+          break;
 
-        case FIOpcode::PH_Msg: os << "<MSG>"; break;
+        case FIOpcode::Tpl:
+          os << "tpl \e[38;5;5m" << fun::dumpHex(ins.u4);
+          break;
 
         default: FAIL;
         }
 
-        os << std::endl;
+        os << "\e[0m" << std::endl;
       }
     }
   }

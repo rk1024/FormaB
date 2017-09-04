@@ -7,8 +7,8 @@
 
 #include "util/atom.hpp"
 
+#include "bytecode.hpp"
 #include "function.hpp"
-#include "opcode.hpp"
 #include "praeCompilerClosures.hpp"
 
 #include "ast.hpp"

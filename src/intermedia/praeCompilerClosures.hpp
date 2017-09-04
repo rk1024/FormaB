@@ -3,13 +3,15 @@
 #include <cassert>
 #include <cstdint>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "ast/astBase.hpp"
 
 #include "util/atom.hpp"
+#include "util/cons.hpp"
 
+#include "bytecode.hpp"
 #include "function.hpp"
-#include "opcode.hpp"
 
 namespace fie {
 namespace pc {
@@ -36,10 +38,15 @@ namespace pc {
 
   namespace ParenFlags {
     enum Flags : std::uint16_t {
-      Bind      = 1,
-      Predefine = 2,
-      Default   = Bind,
-      NoBind    = Default & ~Bind,
+      Bind  = 1,
+      Eval  = 2,
+      Scope = 4,
+
+      Default = Bind | Eval | Scope,
+
+      NoBind  = Default & ~Bind,
+      NoEval  = Default & ~Eval,
+      NoScope = Default & ~Scope,
     };
   }
 
@@ -49,10 +56,14 @@ namespace pc {
 
   class AssemblyClosure : public fun::FObject {
     fun::FAtomStore<fun::FPtr<FIFunction>, std::uint16_t> m_funcs;
+    fun::FAtomStore<std::string, std::uint32_t>           m_msgs, m_strings;
 
   public:
     auto funcs() -> decltype(m_funcs) & { return m_funcs; }
     auto funcs() const -> const decltype(m_funcs) & { return m_funcs; }
+
+    auto msgs() -> decltype(m_msgs) & { return m_msgs; }
+    auto strings() -> decltype(m_strings) & { return m_strings; }
   };
 
   class PositionTracker;
@@ -89,10 +100,16 @@ namespace pc {
   };
 
   class FuncClosure : public PositionTracker {
+  public:
+    using VarIds = std::unordered_map<
+        fun::cons_cell<fun::FWeakPtr<ScopeClosure>, std::string>,
+        std::uint32_t>;
+
+  private:
     fun::FWeakPtr<AssemblyClosure> m_assem;
     fun::FPtr<ScopeClosure>        m_scope;
-    std::unordered_map<std::string, int> m_varIters;
-    FIBytecode *m_body;
+    unsigned int                   m_nextScopeId = 0;
+    FIBytecode *                   m_body;
 
   public:
     inline fun::FPtr<AssemblyClosure> assem() const { return m_assem.lock(); }
@@ -108,9 +125,10 @@ namespace pc {
     inline FuncClosure &emit(FIOpcode op) { return emit(FIInstruction(op)); }
 
     template <typename T>
-    inline
-        typename std::enable_if<std::is_integral<T>::value, FuncClosure>::type &
-        emit(FIOpcode op, T arg) {
+    inline std::enable_if_t<std::is_integral<T>::value ||
+                                std::is_floating_point<T>::value,
+                            FuncClosure>
+        &emit(FIOpcode op, T arg) {
       return emit(FIInstruction(op, arg));
     }
 
@@ -121,6 +139,9 @@ namespace pc {
     void                    pushScope();
     void                    dropScope();
     fun::FPtr<ScopeClosure> popScope();
+    void                    applyScope();
+    void applyScopeWithIds(VarIds &, bool add);
+    VarIds applyScopeWithIds();
 
     [[noreturn]] void error(std::string &&desc);
 
@@ -128,27 +149,50 @@ namespace pc {
   };
 
   class ScopeClosure : public fun::FObject {
-    FuncClosure *           m_func;
-    fun::FPtr<ScopeClosure> m_parent;
-    std::unordered_map<std::string, int> m_iters, m_counts;
-    bool m_merge = false, m_merged = false;
+  public:
+    using VarInfo = fun::cons_cell<fun::FWeakPtr<ScopeClosure>,
+                                   std::string,
+                                   unsigned int,
+                                   unsigned int>;
 
-    ScopeClosure *ownerOf(const std::string &);
+    using OwnVarInfo = fun::cons_cell<std::string, unsigned int, unsigned int>;
 
-    std::uint32_t getInternal(const std::string &name, bool set);
+  private:
+    static const unsigned int ID_NONE = 0xffffffff, ID_MAX = 0xfffffffe;
+    static const unsigned int COUNT_CONST = 0xffffffff, COUNT_MAX = 0xfffffffe;
+
+    fun::FWeakPtr<FuncClosure> m_func;
+    fun::FPtr<ScopeClosure>    m_parent;
+    unsigned int               m_id;
+    std::unordered_map<std::string, fun::cons_cell<unsigned int, unsigned int>>
+        m_vars;
+    std::unordered_map<std::string, fun::FWeakPtr<ScopeClosure>> m_borrowed;
+
+    std::string assembleName(const std::string &, unsigned int, unsigned int);
+
+    template <bool>
+    fun::FPtr<ScopeClosure> holderOf(const std::string &);
+
+    std::uint32_t recordName(const std::string &, unsigned int, unsigned int);
+
+    std::uint32_t recordVar(fun::FWeakPtr<ScopeClosure>,
+                            const std::string &,
+                            unsigned int,
+                            unsigned int,
+                            bool);
 
   public:
-    const int COUNT_CONST = -1, COUNT_PHI = -2;
-
     inline fun::FPtr<ScopeClosure> parent() const { return m_parent; }
-    inline bool                    merge() const { return m_merge; }
-    inline void merge(bool value) { m_merge = value; }
 
-    ScopeClosure(FuncClosure *func, fun::FPtr<ScopeClosure> parent);
+    ScopeClosure(fun::FWeakPtr<FuncClosure>, fun::FPtr<ScopeClosure>);
 
-    std::uint32_t bind(const std::string &, bool);
-    std::uint32_t get(const std::string &, bool);
-    std::uint32_t phi(const std::string &);
+    std::uint32_t bind(const std::string &, bool mut);
+    std::uint32_t get(const std::string &);
+    std::uint32_t set(const std::string &);
+    std::uint32_t phi(fun::FPtr<ScopeClosure>, const std::string &);
+
+    std::vector<VarInfo>    getModified();
+    std::vector<OwnVarInfo> getOwned();
   };
 }
 }

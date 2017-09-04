@@ -32,21 +32,21 @@ static bool isSignNegative(const char *sg) {
 }
 
 template <typename T>
-static typename std::enable_if<std::is_integral<T>::value, T>::type
-readIntBasic(fun::FPtr<FuncClosure>               closure,
-             std::uint8_t                         radix,
-             std::int16_t                         expon,
-             typename std::make_unsigned<T>::type max,
-             typename std::make_unsigned<T>::type negMax,
-             const char *                         sg,
-             const char *                         d0,
-             const char *                         d1) {
+static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
+    fun::FPtr<FuncClosure>  closure,
+    std::uint8_t            radix,
+    std::int16_t            expon,
+    std::make_unsigned_t<T> max,
+    std::make_unsigned_t<T> negMax,
+    const char *            sg,
+    const char *            d0,
+    const char *            d1) {
   bool neg = isSignNegative(sg);
 
   if (neg) max = negMax;
 
   {
-    typename std::make_unsigned<T>::type nmax = max / radix, num = 0, next;
+    std::make_unsigned_t<T> nmax = max / radix, num = 0, next;
 
     for (; d0 < d1; ++d0) {
       if (num > nmax) goto overflow;
@@ -90,15 +90,15 @@ readIntBasic(fun::FPtr<FuncClosure>               closure,
 }
 
 template <typename T>
-typename std::enable_if<std::is_integral<T>::value, T>::type readInt(
-    fun::FPtr<FuncClosure>               closure,
-    std::uint8_t                         radix,
-    std::int16_t                         expon,
-    bool                                 unsign,
-    typename std::make_unsigned<T>::type max,
-    const char *                         sg,
-    const char *                         d0,
-    const char *                         d1) {
+std::enable_if_t<std::is_integral<T>::value, T> readInt(
+    fun::FPtr<FuncClosure>  closure,
+    std::uint8_t            radix,
+    std::int16_t            expon,
+    bool                    unsign,
+    std::make_unsigned_t<T> max,
+    const char *            sg,
+    const char *            d0,
+    const char *            d1) {
   if (!unsign) max >>= 1;
 
   return readIntBasic<T>(closure, radix, expon, max, max + 1, sg, d0, d1);
@@ -280,10 +280,10 @@ convI8:
   }
   goto done;
 emitR4:
-  assert(false);
+  closure->emit<float>(FIOpcode::Ldcr4, 1337.1337f);
   goto done;
 emitR8:
-  assert(false);
+  closure->emit<double>(FIOpcode::Ldcr8, 1337.1337);
   goto done;
 done:
   return true;

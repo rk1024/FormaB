@@ -116,8 +116,7 @@ def main():
     "-Werror=return-type",
   ]
 
-  ldflags = [
-  ]
+  ldflags = []
 
   def addPkgs(*args):
     cflags = pkcflags(*args)
@@ -130,6 +129,8 @@ def main():
       "-fdiagnostics-show-template-tree",
       "-Wswitch-bool",
       "-Wswitch-enum",
+      "-Wweak-template-vtables",
+      "-Wweak-vtables",
 
       # Anti-spam measures:
       "-fno-caret-diagnostics",
@@ -137,6 +138,7 @@ def main():
     ])
   else:
     cxxflags.extend([
+      # Disabled by diagnostic as anti-spam measure:
       "-fno-elide-type",
       "-ftemplate-backtrace-limit=0",
     ])
@@ -269,12 +271,22 @@ def main():
     ).split(" ")
   ]
 
-  # "binary": ([source files in src/ directory], [.re files in src/ directory], [source files in build/ directory], [extra .o files], [include path])
+  # "binary": (
+  #   [source files in src/ directory],
+  #   [.re files in src/ directory],
+  #   [ {
+  #     <source file in build/> |
+  #     ([source files in build/], [cxx flags])
+  #   } ],
+  #   [extra .o files],
+  #   [include path]
+  # )
   sources = {
     "formab": (
       #src/...
       flatten([
         "formab.cpp",
+        "ast/astBase.cpp",
         "ast/token.cpp",
       ], *[
         rglob("src/{}".format(folder), "*.cpp", rel = "src/")
@@ -297,7 +309,12 @@ def main():
       flatten(
         [
           "scanner.cpp",
-          "parser.cpp",
+          ([
+            "parser.cpp",
+          ], [
+            "-Wno-deprecated",
+            "-Wno-weak-vtables",
+          ]),
         ],
         fnmatch.filter(astSources, "**/*.cpp"),
       ),
@@ -309,14 +326,6 @@ def main():
   }
 
   l.debug(sources)
-
-  # for args in [
-  #   (
-  #     build.path_b("ast/token.o"),
-  #     (["$srcdir/ast/token.cpp"], ["$builddir/ast/token.hpp"])
-  #   ),
-  # ]:
-  #   build.edge(*args).set(flags = "-I$builddir -I$srcdir")
 
   build.edge(
     (build.paths_b(*astSources), build.paths_b(*astImplSources)),
@@ -370,19 +379,33 @@ def main():
         flags = includes,
       )
 
+    b_files = []
+
     for b in b_ins:
-      build.edge(
-        build.path_b("{}.o".format(path.splitext(b)[0])), build.path_b(b)
-      ).set(
-        description = "compile {}".format(b),
-        flags = includes,
-      )
+      if isinstance(b, tuple):
+        files, flags = b
+        b_files.extend(files)
+        for f in files:
+          build.edge(
+            build.path_b("{}.o".format(path.splitext(f)[0])), build.path_b(f)
+          ).set(
+            description = "compile {}".format(f),
+            flags = "{} {}".format(" ".join(flags), includes),
+          )
+      else:
+        b_files.append(b)
+        build.edge(
+          build.path_b("{}.o".format(path.splitext(b)[0])), build.path_b(b)
+        ).set(
+          description = "compile {}".format(b),
+          flags = includes,
+        )
 
     build.edge(
       path.join("$bindir", out),
       build.paths_b(
         *flatten(
-          ["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_ins)],
+          ["{}.o".format(path.splitext(n)[0]) for n in it.chain(ins, b_files)],
           ["{}.o".format(n) for n in it.chain(re_ins)],
           objs,
         )

@@ -18,7 +18,6 @@ module ASTGen
         @member_order = []
       end
 
-
       def let(type, name)
         @d.pos("let #{type.inspect}, #{name.inspect}") do
           if [
@@ -319,52 +318,93 @@ module ASTGen
       @unused = false
     end
 
-    @@Namespace = "frma"
+    @@namespace = []
+    @@namespace_token = []
+    @@class_name_prefix = ""
+    @@class_base = ""
+    @@class_token = "Token"
     @@AltEnumName = "Alt"
     @@AltMembName = "alt"
     @@SymEnumName = "Sym"
     @@SymMembName = "sym"
     @@SymNoneName = "_None"
 
-    @@ClassNamePrefixes = [
-      ["M", /^meta/i],
-      ["X", /(?<!(?:^|^meta))expression$/i],
-      ["S", /(?<!(?:^|^meta))statement$/i],
-    ]
+    @@node_name_prefixes = []
+    @@node_name_suffixes = []
+    @@node_name_abbrs = []
 
-    @@ClassNameAbbrs = [
-      ["Argument", "Arg"],
-      ["Expression", "Expr"],
-      ["Function", "Func"],
-      ["Message", "Msg"],
-      ["Parameter", "Param"],
-      ["Primary", "Prim", "Primaries"],
-      ["Statement", "Stmt"],
-    ]
+    def self.split_namespace(value) value.to_s.gsub(/^::/, "").split("::") end
 
-    def self.Namespace; @@Namespace end
+    def self.namespace; @@namespace.join("::") end
+    def self.namespace=(value) @@namespace = split_namespace(value) end
+
+    def self.class_prefix; @@class_name_prefix end
+    def self.class_prefix=(value) @@class_name_prefix = value end
+
+    def self.class_base; @@class_base end
+    def self.class_base=(value) @@class_base = value end
+
+    def self.class_token; "#{@@namespace_token.join("::")}::#{@@class_token}" end
+
+    def self.class_token=(value)
+      (*@@namespace_token, @@class_token) = split_namespace(value)
+    end
+
+    def self.name_prefixes=(value) @@node_name_prefixes = value.map{|p, s| [s, /^#{p.to_s.downcase}/i]} end
+    def self.name_suffixes=(value) @@node_name_suffixes = value.map{|p, s| [s, /(?<!^)#{p.to_s.downcase}$/i]} end
+    def self.name_abbrevs=(value)
+      @@node_name_abbrs = value.map do |from, to, from_plur, to_plur|
+        [
+          /#{from}(?!\p{Ll})/,
+          to,
+          /#{from_plur || "#{from}s"}(?!\p{Ll})/,
+          to_plur || "#{to}s",
+        ]
+      end
+    end
+
+    def self.just_class_token
+      return @@class_token if @@namespace.any? && @@namespace == @@namespace_token
+      class_token
+    end
 
     def self.class_name(name)
-      "F#{@@ClassNamePrefixes.map{|p, r| p if name =~ r }.join}#{@@ClassNameAbbrs.reduce(
-          @@ClassNamePrefixes.reduce(name.to_s) {|s, (_, r)| s.gsub(r, "") }
-        ) do |str, (from, to, from_plur, to_plur)|
-          if from_plur
-            str
-              .gsub(/#{from}(?!\p{Ll})/, "#{to}")
-              .gsub(/#{from_plur}(?!\p{Ll})/, "#{to_plur || "#{to}s"}")
-          else
-            str.gsub(/#{from}(s)?(?!\p{Ll})/, "#{to}\\1")
-          end
-        end.to_sym}"
+      name = name.to_s
+      return just_class_token if name == "Token"
+
+      unprefixed = @@node_name_prefixes.reduce(name) {|s, (_, r)| s.gsub(r, "") }
+
+      "#{@@class_name_prefix}#{[
+        *@@node_name_prefixes.select{|_, r| name =~ r}.map{|p, _| p },
+        *@@node_name_suffixes.select{|_, r| unprefixed =~ r}.map{|p, _| p },
+      ].join}#{@@node_name_abbrs.reduce(
+        @@node_name_suffixes.reduce(unprefixed) {|s, (_, r)| s.gsub(r, "") }
+      ) {|s, (f, t, fp, tp)| s.gsub(f, t).gsub(fp, tp) }}"
     end
-    def self.qual_class_name(name) "#{@@Namespace}::#{class_name(name)}" end
+
+    def self.just_class_name(name) @@namespace.none? ? qual_class_name(name) : class_name(name) end
+
+    def self.qual_class_name(name)
+      name = name.to_s
+      return class_token if name == "Token"
+      "#{@@namespace.join("::")}::#{class_name(name)}"
+    end
+
     def self.header_name(name) "ast/#{ASTGen.camel_name(name)}.hpp" end
     def self.field_name(name) "m_#{name}" end
     def self.bison_name(name) "_#{ASTGen.camel_name(name)}" end
 
-    def self.emit_friends(nodes, node, l)
+    def self.emit_friends_forward(nodes, node, l)
+      @@namespace.each{|n| (l << "namespace #{n} {").group }
+
+      nodes.select{|_, n| n.depends?(node) }.each {|_, n| l << "class #{n.class_name};" }
+
+      @@namespace.length.times{ l.trim << "}" }
+    end
+
+    def self.emit_friends(nodes, node, qual, l)
       nodes.select{|_, n| n.depends?(node) }.each do |_, _node|
-        l << "friend class #{_node.class_name};"
+        l << "friend class #{qual ? _node.qual_class_name : _node.class_name};"
       end
     end
 
@@ -373,10 +413,17 @@ module ASTGen
     end
 
     def class_name; Node.class_name(@name) end
+    def just_class_name; Node.just_class_name(@name) end
     def qual_class_name; Node.qual_class_name(@name) end
+    def qual_scoped_name; Node.qual_scoped_name(@name) end
     def header_name; Node.header_name(@name) end
     def bison_name; Node.bison_name(@name) end
-    def qual_name(name = class_name) "#{class_name}::#{name}" end
+    def qual_name(name) "#{class_name}::#{name}" end
+
+    def enum_name(name)
+      name = name.to_s
+      name == class_name ? "_#{name}" : name
+    end
 
     def sym_name(sym) Node.sym_name(format_syms.include?(sym) ? sym : nil) end
 
@@ -410,16 +457,26 @@ module ASTGen
 
         l.sep
 
-        l << "namespace #{@@Namespace} {"
-        l.group
+        token_ns_separate = @@namespace_token != @@namespace
+
+        if token_ns_separate
+          @@namespace_token.each{|n| (l << "namespace #{n} {").group }
+
+          l << "class #{@@class_token};"
+
+          @@namespace_token.length.times{ l.trim << "}" }
+          l.sep
+        end
+
+        @@namespace.each{|n| (l << "namespace #{n} {").group }
 
         @dep_types.select{|t| !nodes.is_error?(t) }.each do |type|
-          l << "class #{Node.class_name(type)};"
+          l << "class #{Node.class_name(type)};" unless token_ns_separate && type.to_s == "Token"
         end
 
         l.sep
 
-        l << "class #{class_name} : public FormaAST {"
+        l << "class #{class_name} : public #{@@class_base} {"
         l.group
 
         vis = Vis.new(l, :private)
@@ -430,7 +487,7 @@ module ASTGen
             l << "enum #{@@AltEnumName} {"
             l.fmt with_indent: "  " do
               @alt_ctors.each do |alt, _|
-                l << "#{alt},"
+                l << "#{enum_name(alt)},"
               end
             end
             l.trim << "};"
@@ -442,10 +499,10 @@ module ASTGen
             l << "enum class #{@@SymEnumName} {"
             l.fmt with_indent: "  " do
               @format_syms.each do |sym|
-                l << "#{case sym
+                l << "#{enum_name(case sym
                   when nil; @@SymNoneName
                   else sym
-                end},"
+                end)},"
               end
             end
             l.trim << "};"
@@ -458,7 +515,7 @@ module ASTGen
             l << "union {"
             l.fmt with_indent: "  " do
               union.select{|_, v| !nodes.is_error?(v) }.each do |key, val|
-                l << "#{Node.class_name(val)} *#{Node.field_name(key)};"
+                l << "#{Node.just_class_name(val)} *#{Node.field_name(key)};"
               end
             end
             l.trim << "};"
@@ -468,7 +525,7 @@ module ASTGen
 
           @struct_members.select{|_, v| !nodes.is_error?(v) }.each do |key, val|
             vis << :private
-            l << "#{Node.class_name(val)} *#{Node.field_name(key)};"
+            l << "#{Node.just_class_name(val)} *#{Node.field_name(key)};"
           end
 
           l.sep
@@ -485,28 +542,28 @@ module ASTGen
 
           l.sep
 
-          @ctors.select{|s, _| !s.any?{|a| nodes.is_error?(@members[a]) } }.each do |sig, syms|
-            memb_args = sig.map{|a| "#{Node.class_name(@members[a])} *" }
+          @ctors.select{|s, _| s.none?{|a| nodes.is_error?(@members[a]) } }.each do |sig, syms|
+            memb_args = sig.map{|a| "#{Node.just_class_name(@members[a])} *" }
 
             emit_ctor = lambda do |args|
 
               vis << :public
-              l << "#{class_name}(#{[*args, *memb_args].join(", ")});"
+              l << "#{class_name}(#{[*args, *memb_args, "const location &"].join(", ")});"
             end
 
             if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
-              emit_ctor.call([]) if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
+              emit_ctor.([]) if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
             else
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@AltEnumName}",
                 "#{@@SymEnumName}",
               ]) if syms.any?{|k, v| k && k.length > 1 && v.length > 1 }
 
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@SymEnumName}",
               ]) if syms.any?{|k, v| k && k.length > 1 && v.length <= 1 }
 
-              emit_ctor.call([
+              emit_ctor.([
                 "#{@@AltEnumName}",
               ]) if syms.any?{|k, v| !k || k.length <= 1 }
             end
@@ -527,7 +584,7 @@ module ASTGen
 
           @members.each do |name, type|
             vis << :public
-            l << "const #{Node.class_name(type)} *#{name}() const;"
+            l << "const #{Node.just_class_name(type)} *#{name}() const;"
           end
 
           if use_alts?
@@ -546,11 +603,11 @@ module ASTGen
 
           l.sep
 
-          Node.emit_friends(nodes, self, l)
+          Node.emit_friends(nodes, self, false, l)
         end
         l.trim << "};"
 
-        l.trim << "}"
+        @@namespace.length.times{ l.trim << "}" }
       end << "\n"
     end
 
@@ -570,8 +627,7 @@ module ASTGen
 
         l.sep
 
-        l << "namespace #{@@Namespace} {"
-        l.group
+        @@namespace.each{|n| (l << "namespace #{n} {").group }
 
         @ctors.each do |sig, syms|
           sigset = Set.new(sig)
@@ -579,13 +635,15 @@ module ASTGen
             .map{|m| "#{Node.field_name(m)}(#{m})" }
 
           emit_ctor = lambda do |args, inits|
-            l.sep << "#{qual_name}(#{[
+            l.sep << "#{qual_name(class_name)}(#{[
               *args,
-              *sig.map{|a| "#{Node.class_name(@members[a])} *#{a}" },
+              *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
+              "const location &loc"
             ].join(", ")})"
             l.peek << " {" if memb_inits.empty? && inits.empty?
             l.fmt with_indent: "  " do
               l << ": #{[
+                "FormaAST(loc)",
                 *memb_inits,
                 *inits,
               ].join(", ")} {" unless memb_inits.empty? && inits.empty?
@@ -602,13 +660,13 @@ module ASTGen
           end
 
           if syms.length <= 1 && syms.all? {|k, v| (!k || k.length <= 1) && v.length <= 1 }
-            emit_ctor.call([], [
+            emit_ctor.([], [
               *("#{Node.field_name(@@AltMembName)}(#{syms.first[1].first})" if use_alts?),
               *("#{Node.field_name(@@SymMembName)}(#{sym_name(syms.first[0].first)})" if use_syms?),
             ]) unless syms.empty?
           else
             items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@AltEnumName} #{@@AltMembName}",
               "#{@@SymEnumName} #{@@SymMembName}",
             ], [
@@ -617,7 +675,7 @@ module ASTGen
             ]) unless items.empty?
 
             items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@SymEnumName} #{@@SymMembName}",
             ], [
               "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
@@ -636,7 +694,7 @@ module ASTGen
             end unless items.empty?
 
             items = syms.select{|k, v| !k || k.length <= 1 }
-            emit_ctor.call([
+            emit_ctor.([
               "#{@@AltEnumName} #{@@AltMembName}",
             ], [
               "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
@@ -668,7 +726,7 @@ module ASTGen
             l.fmt with_indent: "  " do
               @ctor_alts.each do |sig, alts|
                 alts.each do |alt|
-                  c << "case #{alt}:"
+                  c << "case #{enum_name(alt)}:"
                 end
 
                 sig.each do |arg|
@@ -715,7 +773,7 @@ module ASTGen
               l.fmt with_indent: "  " do
                 @format.each do |formats, alts|
                   alts.each do |alt|
-                    c << "case #{alt}:"
+                    c << "case #{enum_name(alt)}:"
                   end
 
                   if formats.length > 1
@@ -725,14 +783,14 @@ module ASTGen
                       formats.each do |sym, fmt|
                         c << "case #{sym_name(sym)}:"
 
-                        emit_format.call(fmt)
+                        emit_format.(fmt)
                       end
 
                       c << "default: break;" if formats.length < format_syms.length
                     end
                     l.trim << "}"
                   else
-                    formats.each_value{|f| emit_format.call(f) }
+                    formats.each_value{|f| emit_format.(f) }
                   end
                   l << "break;"
                 end
@@ -740,7 +798,7 @@ module ASTGen
               l.trim << "}"
             else
               @format.each_key do |formats|
-                formats.each_value{|f| emit_format.call(f) }
+                formats.each_value{|f| emit_format.(f) }
               end
             end
           end
@@ -750,7 +808,7 @@ module ASTGen
         end
 
         @members.each do |name, type|
-          l.sep << "const #{Node.class_name(type)} *#{qual_name(name)}() const {"
+          l.sep << "const #{Node.just_class_name(type)} *#{qual_name(name)}() const {"
           l.fmt with_indent: "  " do
             if use_alts? && use_default_value?(name)
               if @member_alts[name].length > 1
@@ -758,7 +816,7 @@ module ASTGen
                 c = l.curr
                 l.fmt with_indent: "  " do
                   @member_alts[name].each do |alt|
-                    c << "case #{alt}:"
+                    c << "case #{enum_name(alt)}:"
                   end
 
                   l.peek << " return #{Node.field_name(name)};"
@@ -798,7 +856,7 @@ module ASTGen
           l.trim << "}"
         end
 
-        l.trim << "}"
+        @@namespace.length.times{ l.trim << "}" }
       end
     end
 

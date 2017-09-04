@@ -1,8 +1,8 @@
-@@ @!meta{
+@@ @!prae{
   @@ var variable = 0;
   @@ let const = 1;
   @@ [5.2 toString];
-@!meta{
+@!prae{
   let x = 5;
 
   [cout

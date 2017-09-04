@@ -13,6 +13,7 @@
 
 %top{
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
 #pragma clang diagnostic ignored "-Wold-style-cast"
 #pragma clang diagnostic ignored "-Wunreachable-code"
 #pragma clang diagnostic ignored "-Wunused-function"
@@ -37,16 +38,16 @@ typedef frma::parser::token tk;
 
 #define $x yyg->yyextra_r
 
-#define $E(value) do { \
-  $x->error(*yylloc, std::string("lexical error: ") + value); \
-  $x->lexFail = true; \
-  $x->lexFailPos = *yylloc; \
+#define $E(value) $x->error(*yylloc, std::string("lexical error: ") + value);
+
+#define $F(value) do { \
+  $E(value); \
   yyterminate(); \
 } while (false);
 
 #define $TK(value) return tk::value;
 
-#define $SKT(text) yylval->_tok = new frma::FormaToken(text);
+#define $SKT(text) yylval->_tok = new frma::FToken(text, *yylloc);
 
 #define $SK $SKT(yytext)
 #define $SKB $SKT($B)
@@ -109,7 +110,7 @@ RawBlockClose @+\}
 RawBlockNoAt [^@\n]
 RawBlockAts @+[^\}\n]?
 
-MetaBlockID meta
+PraeBlockID prae
 
 SQuote \'
 DQuote \"
@@ -128,25 +129,45 @@ SQChar [^'\\]
 DQChar [^"\\]
 QLEscape \\.
 
+PraeNumSign [-+]
+PraeDecPoint \.
+PraeHexNumStart 0x
+PraeOctNumStart 0o
+PraeBinNumStart 0b
+PraeHexDigit [0-9a-fA-F_]
+PraeDecDigit [0-9_]
+PraeOctDigit [0-7_]
+PraeBinDigit [01_]
+PraeNumTypeSpecInt [usUS]?[yhilYHIL]?
+PraeNumTypeSpecDec [usUS]?[fdFDyhilYHIL]?
+PraeNumTypeSpecFloat [fdFD]?
+PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
+PraeSQChar [^'\\\n]
+PraeDQChar [^"\\\n]
+PraeQLEscape \\[^\n]
+PraeQLLineEsc \\\n
+
 %x SSBComment
 
 %x SSRawBlockStart
 %x SSRawBlockID
-%x SSMetaBlockID
+%x SSPraeBlockID
 %x SSRawBlock
-%x SSMetaBlock
+%x SSPraeBlock
+%x SSPraeSQLiteral
+%x SSPraeDQLiteral
 
 %x SSSyntaxExtArgs
 
 %x SSEscapedID
 
 %%
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   {Whitespace}+ { $SL $ML }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
@@ -166,7 +187,7 @@ QLEscape \\.
 
 <SSRawBlockStart>{
   /*{ignore me}*/
-  {MetaBlockID} { $SL $ML $SSBEGIN(MetaBlockID) }
+  {PraeBlockID} { $SL $ML $SSBEGIN(PraeBlockID) }
 
   %astgen-token RawBlockID /{IDStart}{Identifier}*/ { $SL $ML $SSBEGIN(RawBlockID) } capture
 }
@@ -176,9 +197,9 @@ QLEscape \\.
   {RawBlockOpen} { $SL $ML $SSBEGIN(RawBlock) $BS }
 }
 
-<SSMetaBlockID>{
+<SSPraeBlockID>{
   /*{ignore me}*/
-  %astgen-token MetaBlockStart /{RawBlockOpen}/ "@!meta{" { $SL $ML $SSBEGIN(MetaBlock) }
+  %astgen-token PraeBlockStart /{RawBlockOpen}/ "@!prae{" { $SL $ML $SSBEGIN(PraeBlock) }
 }
 
 <SSRawBlock>{
@@ -191,76 +212,76 @@ QLEscape \\.
   {RawBlockAts}+ { $ML $BW }
 }
 
-<SSMetaBlock>{
+<SSPraeBlock>{
   /*{ignore me}*/
-  %astgen-token MetaBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
+  %astgen-token PraeBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
 
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
-  %astgen-token KWBreak "break" { $SL $ML }
-  %astgen-token KWCase "case" { $SL $ML }
-  %astgen-token KWCatch "catch" { $SL $ML }
-  %astgen-token KWDefault "default" { $SL $ML }
-  %astgen-token KWDo "do" { $SL $ML }
-  %astgen-token KWElse "else" { $SL $ML }
-  %astgen-token KWFalse "false" { $SL $ML }
-  %astgen-token KWFinally "finally" { $SL $ML }
-  %astgen-token KWFor "for" { $SL $ML }
-  %astgen-token KWFunction "function" { $SL $ML }
-  %astgen-token KWIf "if" { $SL $ML }
-  %astgen-token KWInterface "interface" { $SL $ML }
-  %astgen-token KWLet "let" { $SL $ML }
-  %astgen-token KWLoop "loop" { $SL $ML }
-  %astgen-token KWNext "next" { $SL $ML }
-  %astgen-token KWNil "nil" { $SL $ML }
-  %astgen-token KWRecord "record" { $SL $ML }
-  %astgen-token KWReturn "return" { $SL $ML }
-  %astgen-token KWStruct "struct" { $SL $ML }
-  %astgen-token KWSwitch "switch" { $SL $ML }
-  %astgen-token KWTrue "true" { $SL $ML }
-  %astgen-token KWTry "try" { $SL $ML }
-  %astgen-token KWUnless "unless" { $SL $ML }
-  %astgen-token KWVar "var" { $SL $ML }
-  %astgen-token KWWhile "while" { $SL $ML }
-  %astgen-token KWYield "yield" { $SL $ML }
+  %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeOctLiteral /{PraeNumSign}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeBinLiteral /{PraeNumSign}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeFloatLiteral /{PraeNumSign}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}/ { $SL $ML } capture //: ignore me
 
-  /* %astgen-token And "&" { $SL $ML } */
-  %astgen-token Assign "=" { $SL $ML }
-  %astgen-token Colon ":" { $SL $ML }
-  %astgen-token Comma "," { $SL $ML }
-  %astgen-token Compl "!" { $SL $ML }
-  %astgen-token Conj "&&" { $SL $ML }
-  %astgen-token ConjAssign "&&=" { $SL $ML }
-  %astgen-token Disj "||" { $SL $ML }
-  %astgen-token DisjAssign "||=" { $SL $ML }
-  %astgen-token Div "/" { $SL $ML }
-  %astgen-token DivAssign "/=" { $SL $ML }
-  %astgen-token DotDot ".." { $SL $ML }
-  %astgen-token Equal "==" { $SL $ML }
-  %astgen-token EqGT "=>" { $SL $ML }
-  %astgen-token Greater ">" { $SL $ML }
-  %astgen-token GreaterEq ">=" { $SL $ML }
-  %astgen-token Less "<" { $SL $ML }
-  %astgen-token LessEq "<=" { $SL $ML }
-  %astgen-token Minus "-" { $SL $ML }
-  %astgen-token MinusAssign "-=" { $SL $ML }
-  %astgen-token MinusMinus "--" { $SL $ML }
-  %astgen-token Mod "%" { $SL $ML }
-  %astgen-token ModAssign "%=" { $SL $ML }
-  %astgen-token Mul "*" { $SL $ML }
-  %astgen-token MulAssign "*=" { $SL $ML }
-  /* %astgen-token Not "~" { $SL $ML } */
-  %astgen-token NotEqual "!=" { $SL $ML }
-  /* %astgen-token OrAssign "|=" { $SL $ML } */
-  %astgen-token Period "." { $SL $ML }
-  %astgen-token Pipe "|" { $SL $ML }
-  %astgen-token Plus "+" { $SL $ML }
-  %astgen-token PlusAssign "+=" { $SL $ML }
-  %astgen-token PlusPlus "++" { $SL $ML }
-  %astgen-token Quest "?" { $SL $ML }
-  %astgen-token Semi ";" { $SL $ML }
-  /* %astgen-token Xor "^" { $SL $ML } */
-  %astgen-token XorAssign "^=" { $SL $ML }
+  %astgen-token KWBreak     "break"     { $SL $ML }
+  %astgen-token KWCase      "case"      { $SL $ML }
+  %astgen-token KWCatch     "catch"     { $SL $ML }
+  %astgen-token KWDefault   "default"   { $SL $ML }
+  %astgen-token KWDo        "do"        { $SL $ML }
+  %astgen-token KWElse      "else"      { $SL $ML }
+  %astgen-token KWFalse     "false"     { $SL $ML }
+  %astgen-token KWFinally   "finally"   { $SL $ML }
+  %astgen-token KWFor       "for"       { $SL $ML }
+  %astgen-token KWIf        "if"        { $SL $ML }
+  %astgen-token KWInterface "interface" { $SL $ML }
+  %astgen-token KWLet       "let"       { $SL $ML }
+  %astgen-token KWLoop      "loop"      { $SL $ML }
+  %astgen-token KWNext      "next"      { $SL $ML }
+  %astgen-token KWNil       "nil"       { $SL $ML }
+  %astgen-token KWRecord    "record"    { $SL $ML }
+  %astgen-token KWReturn    "return"    { $SL $ML }
+  %astgen-token KWStruct    "struct"    { $SL $ML }
+  %astgen-token KWSwitch    "switch"    { $SL $ML }
+  %astgen-token KWTrue      "true"      { $SL $ML }
+  %astgen-token KWTry       "try"       { $SL $ML }
+  %astgen-token KWUnless    "unless"    { $SL $ML }
+  %astgen-token KWVar       "var"       { $SL $ML }
+  %astgen-token KWWhile     "while"     { $SL $ML }
+  %astgen-token KWYield     "yield"     { $SL $ML }
+
+  %astgen-token Asg      "="   { $SL $ML }
+  %astgen-token Colon    ":"   { $SL $ML }
+  %astgen-token Comma    ","   { $SL $ML }
+  %astgen-token Con      "&&"  { $SL $ML }
+  %astgen-token ConAsg   "&&=" { $SL $ML }
+  %astgen-token Dis      "||"  { $SL $ML }
+  %astgen-token DisAsg   "||=" { $SL $ML }
+  %astgen-token Div      "/"   { $SL $ML }
+  %astgen-token DivAsg   "/="  { $SL $ML }
+  %astgen-token DotDot   ".."  { $SL $ML }
+  %astgen-token Eql      "=="  { $SL $ML }
+  %astgen-token FatArrow "=>"  { $SL $ML }
+  %astgen-token Grt      ">"   { $SL $ML }
+  %astgen-token Geq      ">="  { $SL $ML }
+  %astgen-token Inv      "!"   { $SL $ML }
+  %astgen-token Lss      "<"   { $SL $ML }
+  %astgen-token Leq      "<="  { $SL $ML }
+  %astgen-token Sub      "-"   { $SL $ML }
+  %astgen-token SubAsg   "-="  { $SL $ML }
+  %astgen-token Dec      "--"  { $SL $ML }
+  %astgen-token Mod      "%"   { $SL $ML }
+  %astgen-token ModAsg   "%="  { $SL $ML }
+  %astgen-token Mul      "*"   { $SL $ML }
+  %astgen-token MulAsg   "*="  { $SL $ML }
+  %astgen-token Neq      "!="  { $SL $ML }
+  %astgen-token Period   "."   { $SL $ML }
+  %astgen-token Pipe     "|"   { $SL $ML }
+  %astgen-token Add      "+"   { $SL $ML }
+  %astgen-token AddAsg   "+="  { $SL $ML }
+  %astgen-token Inc      "++"  { $SL $ML }
+  %astgen-token Quest    "?"   { $SL $ML }
+  %astgen-token Semi     ";"   { $SL $ML }
 }
 
 <SSRawBlock>{
@@ -268,9 +289,9 @@ QLEscape \\.
   <<EOF>> { $ML $BE $E("unterminated raw block") }
 }
 
-<SSMetaBlock>{
+<SSPraeBlock>{
   /*{ignore me}*/
-  <<EOF>> { $ML $E("unterminated meta block") }
+  <<EOF>> { $ML $E("unterminated Praeforma block") }
 }
 
 <SSSyntaxExtArgs>{
@@ -283,7 +304,9 @@ QLEscape \\.
   <<EOF>> { $ML $BE $E("unterminated syntax extension arguments") }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs>{
+%astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
+
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
   /*{ignore me}*/
   %astgen-token LParen "(" { $SL $ML }
   %astgen-token RParen ")" { $SL $ML }
@@ -295,21 +318,43 @@ QLEscape \\.
   %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
   %astgen-token UnescapedAtomKeyword /{IDStart}{Identifier}*:/ { $SL $ML } capture
   %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
-  %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore this
 
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }
 
-<INITIAL,SSMetaBlock,SSSyntaxExtArgs,SSEscapedID>{
+<INITIAL,SSPraeBlock,SSSyntaxExtArgs,SSEscapedID>{
   /*{ignore me}*/
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
   %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
 }
 
-<INITIAL,SSMetaBlock>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
-  %astgen-token SQLiteral /{SQuote}({SQChar}|{QLEscape})*{SQuote}{Identifier}*/ { $SL $ML } capture
-  %astgen-token DQLiteral /{DQuote}({DQChar}|{QLEscape})*{DQuote}{Identifier}*/ { $SL $ML } capture
+
+  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BS }
+  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BS }
+}
+
+<SSPraeSQLiteral>{
+  /*{ignore me}*/
+  {Newline}+ { $WL $BW }
+
+  {PraeSQChar}+ { $ML $BW }
+  {PraeQLEscape}+ { $ML $BW }
+  {PraeQLLineEsc}+ { $WL $BW }
+
+  %astgen-token SQLiteral /{SQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
+}
+
+<SSPraeDQLiteral>{
+  /*{ignore me}*/
+  {Newline}+ { $WL $BW }
+
+  {PraeDQChar}+ { $ML $BW }
+  {PraeQLEscape}+ { $ML $BW }
+  {PraeQLLineEsc}+ { $WL $BW }
+
+  %astgen-token DQLiteral /{DQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
 }
 
 %astgen-token Operator /{OpStart}{Operator}*/ { $SL $ML } capture

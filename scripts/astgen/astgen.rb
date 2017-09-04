@@ -27,7 +27,7 @@ module ASTGen
       list = []
 
       @nodes.each do |name, nodes|
-        next unless nodes.length > 0
+        next unless !nodes.empty?
 
         p = File.join(data[:astDir], ASTGen.camel_name(name.to_s))
 
@@ -289,7 +289,7 @@ module ASTGen
       raise "Missing token input header" unless data[:tokenIn] || no_files
       raise "Missing token output header" unless data[:tokenOut] || no_files
 
-      raise "Missing AST directory path" unless ARGV.length > 0 || do_order
+      raise "Missing AST directory path" unless ARGV.any? || do_order
 
       data[:astDir] = ARGV.shift unless do_order
 
@@ -351,9 +351,13 @@ module ASTGen
             File.open(data[:tokenOut], "w") do |f|
               File.foreach(data[:tokenIn]) do |line|
                 case line
-                  when /^\s*#pragma\s+astgen\s+friends\s*\(([^\)]*)\)\s*$/
+                  when /^\s*#pragma\s+astgen\s+friends\s+forward\s*"([^"]*)"\s*$/
                     f << LineWriter.lines(with_indent: $1) do |l|
-                      Node.emit_friends(nodes, :Token, l)
+                      Node.emit_friends_forward(nodes, :Token, l)
+                    end << "\n"
+                  when /^\s*#pragma\s+astgen\s+friends\s*"([^"]*)"\s*$/
+                    f << LineWriter.lines(with_indent: $1) do |l|
+                      Node.emit_friends(nodes, :Token, true, l)
                     end << "\n"
                   else
                     f << line

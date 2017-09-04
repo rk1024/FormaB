@@ -1,5 +1,32 @@
 require_relative 'astgen/astgen'
 
+module ASTGen
+  Node.namespace = "frma"
+  Node.class_prefix = "F"
+  Node.class_base = "frma::FormaAST"
+  Node.class_token = "frma::FToken"
+
+  Node.name_prefixes = {
+    prae: "P",
+  }
+
+  Node.name_suffixes = {
+    expression: "X",
+    literal: "L",
+    statement: "S",
+  }
+
+  Node.name_abbrevs = [
+    ["Argument", "Arg"],
+    ["Expression", "Expr"],
+    ["Function", "Func"],
+    ["Message", "Msg"],
+    ["Parameter", "Param"],
+    ["Primary", "Prim", "Primaries"],
+    ["Statement", "Stmt"],
+  ]
+end
+
 ASTGen.run do
   export :PrimariesOpt
 
@@ -29,7 +56,7 @@ ASTGen.run do
       let :Token, :tok
       let :Group, :group
       let :RawBlock, :rawblk
-      let :MetaBlock, :metablk
+      let :PraeBlock, :praeblk
     end
 
     toks = [
@@ -43,14 +70,14 @@ ASTGen.run do
 
     ctor :Group, :group, fmt: :group
     ctor :RawBlock, :rawblk, fmt: :rawblk
-    ctor :MetaBlock, :metablk, fmt: :metablk
+    ctor :PraeBlock, :praeblk, fmt: :praeblk
     ctor toks, :tok, fmt: :tok
 
     symbol do
       toks.each{|t| rule t, [t, :tok] }
       rule :Group, :group
       rule :RawBlock, :rawblk
-      rule :MetaBlock, :metablk
+      rule :PraeBlock, :praeblk
     end
   end
 
@@ -59,19 +86,23 @@ ASTGen.run do
     let :Token, :body
 
     ctor :RawBlock, :id, :body, fmt: ["@!", :id, "{", :body, "@}"]
+    ctor :Error, :id, fmt: ["@!", :id, "{ <ERROR> @}"]
 
     symbol do
       rule :RawBlock, [:RawBlockID, :id], [:RawBlockBody, :body]
+      rule :Error, [:RawBlockID, :id], [:error], action: "yyerrok;"
     end
   end
 
-  node :MetaBlock do
-    let :MetaStatements, :expr
+  node :PraeBlock do
+    let :PraeStatements, :stmts
 
-    ctor :MetaBlock, :expr, fmt: ["@!meta{\n", :expr, "\n@}"]
+    ctor :PraeBlock, :stmts, fmt: ["@!prae{\n", :stmts, "\n@}"]
+    ctor :Error, fmt: "@!prae{ <ERROR> @}"
 
     symbol do
-      rule :MetaBlock, [:MetaBlockStart], [:MetaStatementsOpt, :expr], [:MetaBlockEnd]
+      rule :PraeBlock, [:PraeBlockStart], [:PraeStatementsOpt, :stmts], [:PraeBlockEnd]
+      rule :Error, [:PraeBlockStart], [:error], [:PraeBlockEnd], action: "yyerrok;"
     end
   end
 
@@ -79,15 +110,24 @@ ASTGen.run do
     let :Primaries, :prims
 
     ctor [:PGroup, :KGroup, :CGroup], :prims
+    ctor [:PError, :KError, :CError]
 
     fmt :PGroup, "(", :prims, ")"
     fmt :KGroup, "{ ", :prims, " }"
     fmt :CGroup, "[", :prims, "]"
 
+    fmt :PError, "( <ERROR> )"
+    fmt :KError, "{ <ERROR> }"
+    fmt :CError, "[ <ERROR> ]"
+
     symbol do
       rule :PGroup, "(", :prims, ")"
       rule :KGroup, "{", :prims, "}"
       rule :CGroup, "[", :prims, "]"
+
+      rule :PError, "(", [:error], ")", action: "yyerrok;"
+      rule :KError, "{", [:error], "}", action: "yyerrok;"
+      rule :CError, "[", [:error], "]", action: "yyerrok;"
     end
   end
 
@@ -100,78 +140,90 @@ ASTGen.run do
   do_exprs = lambda do |&block|
     expr_parts.reduce([nil]) {|c, p| c.product(p) }.each do |n, *parts|
       abort unless n == nil
-      block.call(:"#{parts.join}", *parts)
+      block.(:"#{parts.join}", *parts)
     end
   end
 
-  node :MetaStatements do
-    let :MetaStatements, :stmts
-    let :MetaStatement, :stmt
+  node :PraeStatements do
+    let :PraeStatements, :stmts
+    let :PraeStatement, :stmt
 
     ctor :Empty, fmt: []
     ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
     ctor :Statement, :stmt, fmt: :stmt
+    # ctor :Error, :stmts, fmt: [:stmts, "\n<ERROR>"]
 
-    symbol do
-      rule :Statements, :stmts, :stmt
+    symbol :PraeStatementsPart do
+      rule :Statements, [:PraeStatementsPart, :stmts], :stmt
       rule :Statement, :stmt
     end
 
-    symbol :MetaStatementsOpt do
+    symbol do
+      rule :self, [:PraeStatementsPart, :self]
+      # rule :Error, [:PraeStatementsPart, :stmts], [:error], action: "yyerrok;"
+    end
+
+    symbol :PraeStatementsOpt do
       rule :Empty
-      rule :self, [:MetaStatements, :self]
+      rule :self, [:PraeStatements, :self]
     end
   end
 
-  node :MetaExpressions do
-    let :MetaExpressions, :exprs
-    let :MetaExpression, :expr
+  node :PraeExpressions do
+    let :PraeExpressions, :exprs
+    let :PraeExpression, :expr
 
     ctor :Empty, fmt: []
     ctor :Exprs, :exprs, :expr, fmt: [:exprs, ", ", :expr]
     ctor :Expr, :expr, fmt: :expr
 
-    symbol :MetaExpressionsOpt do
+    symbol :PraeExpressionsOpt do
       rule :Empty, [:CommaOpt]
-      rule :self, [:MetaExpressions, :self]
+      rule :self, [:PraeExpressions, :self]
     end
 
     symbol do
-      rule :self, [:MetaExpressionsPart, :self], [:CommaOpt]
+      rule :self, [:PraeExpressionsPart, :self], [:CommaOpt]
     end
 
-    symbol :MetaExpressionsPart do
+    symbol :PraeExpressionsPart do
       rule :Exprs, me(:exprs), ",", :expr
       rule :Expr, :expr
     end
   end
 
-  node :MetaStatement do
+  node :PraeStatement do
     union do
-      let :MetaExpression, :expr
-      let :MetaBindStatement, :bind
-      let :MetaAssignStatement, :assign
-      let :MetaControlStatement, :ctl
+      let :PraeExpression, :expr
+      let :PraeBindStatement, :bind
+      let :PraeAssignStatement, :assign
+      let :PraeControlStatement, :ctl
     end
 
     ctor [:SemiExpr, :NonSemiExpr], :expr
     ctor :Bind, :bind, fmt: [:bind, ";"]
     ctor :Assign, :assign, fmt: [:assign, ";"]
     ctor :Control, :ctl, fmt: :ctl
+    ctor :Error, fmt: "<ERROR> ;"
 
     fmt :SemiExpr, :expr, ";"
     fmt :NonSemiExpr, :expr
 
-    do_exprs.call do |parts, open|
-      symbol :"Meta#{parts}PureStatement" do
-        rule :SemiExpr, [:"Meta#{parts}SemiExpression", :expr], ";"
-        rule :NonSemiExpr, [:"Meta#{parts}NonSemiExpression", :expr]
+    do_exprs.() do |parts, open|
+      symbol :"Prae#{parts}PureStatement" do
+        rule :SemiExpr, [:"Prae#{parts}SemiExpression", :expr], ";"
+        rule :NonSemiExpr, [:"Prae#{parts}NonSemiExpression", :expr]
+
+        case open
+          when :Closed
+            rule :Error, [:error], ";", action: "yyerrok;"
+        end
       end
 
-      symbol :"Meta#{parts}Statement" do
-        rule :self, [:"Meta#{parts}PureStatement", :self]
-        rule :Bind, [:"Meta#{parts}BindStatement", :bind], ";"
-        rule :Control, [:"Meta#{parts}ControlStatement", :ctl]
+      symbol :"Prae#{parts}Statement" do
+        rule :self, [:"Prae#{parts}PureStatement", :self]
+        rule :Bind, [:"Prae#{parts}BindStatement", :bind], ";"
+        rule :Control, [:"Prae#{parts}ControlStatement", :ctl]
 
         case open
           when :Closed
@@ -181,80 +233,80 @@ ASTGen.run do
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Meta#{p}Statement", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}Statement", :self] }
     end
   end
 
-  node :MetaBindStatement do
-    let :MetaBindings, :binds
+  node :PraeBindStatement do
+    let :PraeBindings, :binds
 
     ctor [:Let, :Var], :binds
 
     fmt :Let, "let ", :binds
     fmt :Var, "var ", :binds
 
-    do_exprs.call do |parts|
-      symbol :"Meta#{parts}LetStatement" do
-        rule :Let, "let", [:"Meta#{parts}Bindings", :binds]
-        # rule :Let, "let", [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+    do_exprs.() do |parts|
+      symbol :"Prae#{parts}LetStatement" do
+        rule :Let, "let", [:"Prae#{parts}Bindings", :binds]
+        # rule :Let, "let", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
 
-      symbol :"Meta#{parts}BindStatement" do
-        rule :self, [:"Meta#{parts}LetStatement", :self]
-        rule :Var, "var", [:"Meta#{parts}Bindings", :binds]
-        # rule :Var, "var", [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+      symbol :"Prae#{parts}BindStatement" do
+        rule :self, [:"Prae#{parts}LetStatement", :self]
+        rule :Var, "var", [:"Prae#{parts}Bindings", :binds]
+        # rule :Var, "var", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
     end
 
-    symbol :MetaLetStatement do
-      do_exprs.call{|p| rule :self, [:"Meta#{p}LetStatement", :self] }
+    symbol :PraeLetStatement do
+      do_exprs.(){|p| rule :self, [:"Prae#{p}LetStatement", :self] }
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Meta#{p}BindStatement", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}BindStatement", :self] }
     end
   end
 
-  node :MetaBindings do
-    let :MetaBindings, :binds
-    let :MetaBinding, :bind
+  node :PraeBindings do
+    let :PraeBindings, :binds
+    let :PraeBinding, :bind
 
     ctor :Bindings, :binds, :bind, fmt: [:binds, ", ", :bind]
     ctor :Binding, :bind, fmt: :bind
 
-    do_exprs.call do |parts|
-      symbol :"Meta#{parts}BindingsPart" do
-        rule :Bindings, [:"Meta#{parts}BindingsPart", :binds], ",", [:"Meta#{parts}Binding", :bind]
-        rule :Binding, [:"Meta#{parts}Binding", :bind]
+    do_exprs.() do |parts|
+      symbol :"Prae#{parts}BindingsPart" do
+        rule :Bindings, [:"Prae#{parts}BindingsPart", :binds], ",", [:"Prae#{parts}Binding", :bind]
+        rule :Binding, [:"Prae#{parts}Binding", :bind]
       end
 
-      symbol :"Meta#{parts}Bindings" do
-        rule :self, [:"Meta#{parts}BindingsPart", :self], [:CommaOpt]
+      symbol :"Prae#{parts}Bindings" do
+        rule :self, [:"Prae#{parts}BindingsPart", :self], [:CommaOpt]
       end
     end
   end
 
-  node :MetaBinding do
+  node :PraeBinding do
     let :Token, :id
-    let :MetaExpression, :expr
+    let :PraeExpression, :expr
 
     ctor :Binding, :id, :expr, fmt: [:id, " = ", :expr]
 
-    do_exprs.call do |parts|
-      symbol :"Meta#{parts}Binding" do
-        rule :Binding, [:Identifier, :id], "=", [:"Meta#{parts}Expression", :expr]
+    do_exprs.() do |parts|
+      symbol :"Prae#{parts}Binding" do
+        rule :Binding, [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
     end
   end
 
-  node :MetaAssignStatement do
-    let :MetaMemberExpression, :memb
-    let :MetaAssignValue, :value
+  node :PraeAssignStatement do
+    let :PraeMemberExpression, :memb
+    let :PraeAssignValue, :value
 
     ops = [
       [:Assign, ""],
-      [:LogOr, "||"],
-      [:LogAnd, "&&"],
+      [:Con, "||"],
+      [:Dis, "&&"],
       [:Add, "+"],
       [:Sub, "-"],
       [:Mul, "*"],
@@ -275,10 +327,10 @@ ASTGen.run do
     end
   end
 
-  node :MetaAssignValue do
+  node :PraeAssignValue do
     union do
-      let :MetaAssignStatement, :assign
-      let :MetaInfixExpression, :infix
+      let :PraeAssignStatement, :assign
+      let :PraeInfixExpression, :infix
     end
 
     ctor :Assign, :assign, fmt: :assign
@@ -290,84 +342,86 @@ ASTGen.run do
     end
   end
 
-  node :MetaExpression do
+  node :PraeExpression do
     union do
-      let :MetaFunctionExpression, :func
-      let :MetaInfixExpression, :infix
-      let :MetaControlExpression, :ctl
+      let :PraeFunctionExpression, :func
+      let :PraeInfixExpression, :infix
+      let :PraeControlExpression, :ctl
     end
 
     ctor :Function, :func, fmt: :func
     ctor :Infix, :infix, fmt: :infix
     ctor :Control, :ctl, fmt: :ctl
 
-    do_exprs.call do |parts, open|
-      symbol :"Meta#{parts}SemiExpression" do
+    do_exprs.() do |parts, open|
+      symbol :"Prae#{parts}SemiExpression" do
         case open
           when :Open
           when :Closed
             rule :Infix, :infix
         end
 
-        rule :Function, [:"Meta#{parts}FunctionExpression", :func]
+        rule :Function, [:"Prae#{parts}FunctionExpression", :func]
       end
 
-      symbol :"Meta#{parts}NonSemiExpression" do end
+      symbol :"Prae#{parts}NonSemiExpression" do end
 
-      symbol :"Meta#{parts}PureExpression" do
-        rule :self, [:"Meta#{parts}SemiExpression", :self]
-        rule :self, [:"Meta#{parts}NonSemiExpression", :self]
+      symbol :"Prae#{parts}PureExpression" do
+        rule :self, [:"Prae#{parts}SemiExpression", :self]
+        rule :self, [:"Prae#{parts}NonSemiExpression", :self]
       end
 
-      symbol :"Meta#{parts}Expression" do
-        rule :self, [:"Meta#{parts}PureExpression", :self]
-        rule :Control, [:"Meta#{parts}ControlExpression", :ctl]
+      symbol :"Prae#{parts}Expression" do
+        rule :self, [:"Prae#{parts}PureExpression", :self]
+        rule :Control, [:"Prae#{parts}ControlExpression", :ctl]
       end
     end
 
     symbol do
-      do_exprs.call{|p| rule :self, [:"Meta#{p}Expression", :self] }
+      do_exprs.(){|p| rule :self, [:"Prae#{p}Expression", :self] }
     end
   end
 
-  node :MetaFunctionExpression do
-    let :MetaFunctionParameters, :params
-    let :MetaExpression, :expr
+  node :PraeFunctionExpression do
+    let :PraeFunctionParameters, :params
+    let :PraeExpression, :expr
 
     ctor :Function, :params, :expr, fmt: [:params, " => ", :expr]
 
-    do_exprs.call do |parts|
-      symbol :"Meta#{parts}FunctionExpression" do
-        rule :Function, :params, "=>", [:"Meta#{parts}Expression", :expr]
+    do_exprs.() do |parts|
+      symbol :"Prae#{parts}FunctionExpression" do
+        rule :Function, :params, "=>", [:"Prae#{parts}Expression", :expr]
       end
     end
   end
 
-  node :MetaFunctionParameters do
-    let :MetaFunctionParameters, :params
-    let :MetaFunctionParameter, :param
+  node :PraeFunctionParameters do
+    let :PraeFunctionParameters, :params
+    let :PraeFunctionParameter, :param
 
     ctor :List, :params, fmt: ["(", :params, ")"]
     ctor :Empty, fmt: []
+    ctor :Error, fmt: "( <ERROR> )"
     ctor :Parameters, :params, :param, fmt: [:params, ", ", :param]
     ctor :Parameter, :param, fmt: :param
 
-    symbol :MetaFunctionParametersPart do
+    symbol :PraeFunctionParametersPart do
       rule :Parameters, me(:params), ",", :param
       rule :Parameter, :param
     end
 
-    symbol :MetaFunctionParametersPartOpt do
+    symbol :PraeFunctionParametersPartOpt do
       rule :Empty, [:CommaOpt]
-      rule :self, [:MetaFunctionParametersPart, :self], [:CommaOpt]
+      rule :self, [:PraeFunctionParametersPart, :self], [:CommaOpt]
     end
 
     symbol do
-      rule :List, "(", [:MetaFunctionParametersPartOpt, :params], ")"
+      rule :List, "(", [:PraeFunctionParametersPartOpt, :params], ")"
+      rule :Error, "(", [:error], ")", action: "yyerrok;"
     end
   end
 
-  node :MetaFunctionParameter do
+  node :PraeFunctionParameter do
     let :Token, :id
 
     ctor :Parameter, :id, fmt: :id
@@ -397,11 +451,11 @@ ASTGen.run do
       ]
     ],
   ].each do |expr, do_single, types|
-    node :"MetaControl#{expr}" do
-      let :MetaParenExpression, :cond
+    node :"PraeControl#{expr}" do
+      let :PraeParenExpression, :cond
 
-      let :"Meta#{expr}", :then
-      let :"Meta#{expr}", :otherwise
+      let :"Prae#{expr}", :then
+      let :"Prae#{expr}", :otherwise
 
       types.each do |name, tok|
         ctor name, :cond, :then, fmt: ["#{tok} ", :cond, " ", :then] if do_single
@@ -409,37 +463,37 @@ ASTGen.run do
         ctor :"#{name}#{:Else if do_single}", :cond, :then, :otherwise, fmt: ["#{tok} ", :cond, " ", :then, " else ", :otherwise]
       end
 
-      do_exprs.call do |parts, open|
-        symbol :"Meta#{parts}Control#{expr}" do
+      do_exprs.() do |parts, open|
+        symbol :"Prae#{parts}Control#{expr}" do
           types.each do |name, tok|
             if open == :Open && do_single
-              open_parts.each{|o| rule name, tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, o.to_s)}#{expr}", :then] }
+              open_parts.each{|o| rule name, tok.freeze, :cond, [:"Prae#{parts.to_s.gsub(open.to_s, o.to_s)}#{expr}", :then] }
             end
 
-            rule :"#{name}#{:Else if do_single}", tok.freeze, :cond, [:"Meta#{parts.to_s.gsub(open.to_s, "Closed")}#{expr}", :then], "else", [:"Meta#{parts}#{expr}", :otherwise]
+            rule :"#{name}#{:Else if do_single}", tok.freeze, :cond, [:"Prae#{parts.to_s.gsub(open.to_s, "Closed")}#{expr}", :then], "else", [:"Prae#{parts}#{expr}", :otherwise]
           end
         end
       end
     end
   end
 
-  node :MetaInfixExpression do
+  node :PraeInfixExpression do
     union do
-      let :MetaInfixExpression, :infixr
-      let :MetaUnaryExpression, :unary
+      let :PraeInfixExpression, :infixr
+      let :PraeUnaryExpression, :unary
     end
 
-    let :MetaInfixExpression, :infixl
+    let :PraeInfixExpression, :infixl
 
     ctor [
-      :Disjunct,
-      :Conjunct,
-      :Equal,
-      :NotEqual,
-      :Greater,
-      :Less,
-      :GreaterEq,
-      :LessEq,
+      :Dis,
+      :Con,
+      :Eql,
+      :Neq,
+      :Grt,
+      :Lss,
+      :Geq,
+      :Leq,
       :Add,
       :Sub,
       :Mul,
@@ -448,14 +502,14 @@ ASTGen.run do
     ctor :Mod, :infixl, :unary
     ctor :Unary, :unary, fmt: :unary
 
-    fmt :Conjunct, :infixl, " || ", :infixr
-    fmt :Disjunct, :infixl, " && ", :infixr
-    fmt :Equal, :infixl, " == ", :infixr
-    fmt :NotEqual, :infixl, " != ", :infixr
-    fmt :Greater, :infixl, " > ", :infixr
-    fmt :Less, :infixl, " < ", :infixr
-    fmt :GreaterEq, :infixl, " >= ", :infixr
-    fmt :LessEq, :infixl, " <= ", :infixr
+    fmt :Con, :infixl, " || ", :infixr
+    fmt :Dis, :infixl, " && ", :infixr
+    fmt :Eql, :infixl, " == ", :infixr
+    fmt :Neq, :infixl, " != ", :infixr
+    fmt :Grt, :infixl, " > ", :infixr
+    fmt :Lss, :infixl, " < ", :infixr
+    fmt :Geq, :infixl, " >= ", :infixr
+    fmt :Leq, :infixl, " <= ", :infixr
     fmt :Add, :infixl, " + ", :infixr
     fmt :Sub, :infixl, " - ", :infixr
     fmt :Mul, :infixl, " * ", :infixr
@@ -464,57 +518,57 @@ ASTGen.run do
 
     symbol do end # Does something because of chaining (i.e. DON'T REMOVE THIS)
 
-    chain :MetaDisjunctExpression do
-      rule :Disjunct, me(:infixl), "||", defer(:infixr)
+    chain :PraeDisjunctExpression do
+      rule :Dis, me(:infixl), "||", defer(:infixr)
     end
 
-    chain :MetaConjunctExpression do
-      rule :Conjunct, me(:infixl), "&&", defer(:infixr)
+    chain :PraeConjunctExpression do
+      rule :Con, me(:infixl), "&&", defer(:infixr)
     end
 
-    chain :MetaComparisonExpression do
+    chain :PraeComparisonExpression do
       [
-        [:Equal, "=="],
-        [:NotEqual, "!="],
-        [:Greater, ">"],
-        [:Less, "<"],
-        [:GreaterEq, ">="],
-        [:LessEq, "<="],
+        [:Eql, "=="],
+        [:Neq, "!="],
+        [:Grt, ">"],
+        [:Lss, "<"],
+        [:Geq, ">="],
+        [:Leq, "<="],
       ].each do |name, op|
         rule name, me(:infixl), op, defer(:infixr)
       end
     end
 
-    chain :MetaAddExpression do
+    chain :PraeAddExpression do
       rule :Add, me(:infixl), "+", defer(:infixr)
     end
 
-    chain :MetaSubExpression do
+    chain :PraeSubExpression do
       rule :Sub, me(:infixl), "-", defer(:infixr)
     end
 
-    chain :MetaMulExpression do
+    chain :PraeMulExpression do
       rule :Mul, me(:infixl), "*", defer(:infixr)
     end
 
-    chain :MetaDivExpression do
+    chain :PraeDivExpression do
       rule :Div, me(:infixl), "/", defer(:infixr)
     end
 
-    chain :MetaModExpression do
+    chain :PraeModExpression do
       rule :Mod, me(:infixl), "%", :unary
       rule :Unary, :unary
     end
   end
 
-  node :MetaUnaryExpression do
+  node :PraeUnaryExpression do
     union do
-      let :MetaUnaryExpression, :unary
-      let :MetaMemberExpression, :memb
+      let :PraeUnaryExpression, :unary
+      let :PraeMemberExpression, :memb
     end
 
     ctor [
-      :LogNot,
+      :Inv,
       :Pos,
       :Neg,
       :Inc,
@@ -522,14 +576,14 @@ ASTGen.run do
     ], :unary
     ctor :Member, :memb, fmt: :memb
 
-    fmt :LogNot, "!", :unary
+    fmt :Inv, "!", :unary
     fmt :Pos, "+", :unary
     fmt :Neg, "-", :unary
     fmt :Inc, "++", :unary
     fmt :Dec, "--", :unary
 
     symbol do
-      rule :LogNot, "!", :unary
+      rule :Inv, "!", :unary
       rule :Pos, "+", :unary
       rule :Neg, "-", :unary
       rule :Inc, "++", :unary
@@ -538,10 +592,10 @@ ASTGen.run do
     end
   end
 
-  node :MetaMemberExpression do
+  node :PraeMemberExpression do
     union do
-      let :MetaPrimaryExpression, :prim
-      let :MetaMemberExpression, :base
+      let :PraePrimaryExpression, :prim
+      let :PraeMemberExpression, :base
     end
     let :Token, :memb
 
@@ -554,30 +608,32 @@ ASTGen.run do
     end
   end
 
-  node :MetaPrimaryExpression do
+  node :PraePrimaryExpression do
     union do
       let :Token, :tok
-      let :MetaBooleanExpression, :boolean
-      let :MetaParenExpression, :paren
-      let :MetaBlockExpression, :block
-      let :MetaMessageExpression, :message
+      let :PraeNumericLiteral, :numeric
+      let :PraeBooleanLiteral, :boolean
+      let :PraeParenExpression, :paren
+      let :PraeBlockExpression, :block
+      let :PraeMessageExpression, :message
     end
 
     toks = [
       :Identifier,
-      :Number,
       :SQLiteral,
       :DQLiteral
     ]
 
     ctor toks, :tok, fmt: :tok
+    ctor :Numeric, :numeric, fmt: :numeric
     ctor :Boolean, :boolean, fmt: :boolean
     ctor :Parens, :paren, fmt: :paren
     ctor :Block, :block, fmt: :block
     ctor :Message, :message, fmt: :message
 
-    symbol :MetaNonIdentifierPrimaryExpression do
+    symbol :PraeNonIdentifierPrimaryExpression do
       toks.select{|t| t != :Identifier }.each{|t| rule t, [t, :tok] }
+      rule :Numeric, :numeric
       rule :Boolean, :boolean
       rule :Parens, :paren
       rule :Block, :block
@@ -586,11 +642,25 @@ ASTGen.run do
 
     symbol do
       rule :Identifier, [:Identifier, :tok]
-      rule :self, [:MetaNonIdentifierPrimaryExpression, :self]
+      rule :self, [:PraeNonIdentifierPrimaryExpression, :self]
     end
   end
 
-  node :MetaBooleanExpression do
+  node :PraeNumericLiteral do
+    let :Token, :tok
+
+    ctor [:Hex, :Dec, :Oct, :Bin, :Float], :tok, fmt: :tok
+
+    symbol do
+      rule :Hex, [:PraeHexLiteral, :tok]
+      rule :Dec, [:PraeDecLiteral, :tok]
+      rule :Oct, [:PraeOctLiteral, :tok]
+      rule :Bin, [:PraeBinLiteral, :tok]
+      rule :Float, [:PraeFloatLiteral, :tok]
+    end
+  end
+
+  node :PraeBooleanLiteral do
     ctor :True, fmt: "true"
     ctor :False, fmt: "false"
 
@@ -600,78 +670,61 @@ ASTGen.run do
     end
   end
 
-  node :MetaParenExpression do
+  node :PraeParenExpression do
     union do
-      let :MetaParenExpression, :paren
-      let :MetaExpression, :expr
-      let :MetaExpressions, :exprs
+      let :PraeParenExpression, :paren
+      let :PraeExpression, :expr
+      let :PraeExpressions, :exprs
     end
 
-    let :MetaBindStatement, :bind
+    let :PraeBindStatement, :bind
 
     ctor :Paren, :paren, fmt: ["(", :paren, ")"]
+    ctor :Error, fmt: "( <ERROR> )"
 
     ctor :Where, :bind, :expr, fmt: [:bind, "; ", :expr]
     ctor :Tuple, :exprs, fmt: :exprs
 
-    symbol :MetaParenExpressionBody do
+    symbol :PraeParenExpressionBody do
       rule :Tuple, :exprs
       rule :Where, :bind, ";", :expr
     end
 
     symbol do
-      rule :Paren, "(", [:MetaParenExpressionBody, :paren], ")"
+      rule :Paren, "(", [:PraeParenExpressionBody, :paren], ")"
+      rule :Error, "(", [:error], ")", action: "yyerrok;"
     end
   end
 
-  node :MetaBlockExpression do
-    let :MetaStatements, :stmts
+  node :PraeBlockExpression do
+    let :PraeStatements, :stmts
 
     ctor :Block, :stmts, fmt: ["{\n", :stmts, "\n}"]
+    ctor :Error, fmt: "{ <ERROR> }"
 
     symbol do
-      rule :Block, "{", [:MetaStatementsOpt, :stmts], "}"
+      rule :Block, "{", [:PraeStatementsOpt, :stmts], "}"
+      rule :Error, "{", [:error], "}", action: "yyerrok;"
     end
   end
 
-  node :MetaMessageExpression do
-    let :MetaExpression, :expr
-    let :MetaMessageSelectors, :sels
+  node :PraeMessageExpression do
+    let :PraePrimaryExpression, :expr
+    let :PraeMessageSelector, :sel
 
-    ctor :Message, :expr, :sels, fmt: ["[", :expr, " ", :sels, "]"]
+    ctor :Message, :expr, :sel, fmt: [:expr, "[", :sel, "]"]
+    ctor :Error, :expr, fmt: [:expr, "[ <ERROR> ]"]
 
     symbol do
-      rule :Message, "[", :expr, :sels, "]"
+      rule :Message, :expr, "[", :sel, "]"
+      rule :Error, :expr, "[", [:error], "]", action: "yyerrok;"
     end
   end
 
-  node :MetaMessageSelectors do
-    let :MetaMessageSelectors, :sels
-    let :MetaMessageSelector, :sel
-
-    ctor :Empty, fmt: []
-    ctor :Selectors, :sels, :sel, fmt: [:sels, " | ", :sel]
-    ctor :Selector, :sel, fmt: :sel
-
-    symbol :MetaMessageSelectorsOpt do
-      rule :Empty, [:PipeOpt]
-      rule :self, [:MetaMessageSelectors, :self]
-    end
-
-    symbol do
-      rule :self, [:MetaMessageSelectorsPart, :self], [:PipeOpt]
-    end
-
-    symbol :MetaMessageSelectorsPart do
-      rule :Selectors, [:MetaMessageSelectorsPart, :sels], "|", :sel
-      rule :Selector, :sel
-    end
-  end
-
-  node :MetaMessageSelector do
+  node :PraeMessageSelector do
     union do
       let :Token, :tok
-      let :MetaMessageKeywords, :kws
+      let :PraeMessageKeywords, :kws
     end
 
     ctor :Unary, :tok, fmt: :tok
@@ -683,9 +736,9 @@ ASTGen.run do
     end
   end
 
-  node :MetaMessageKeywords do
-    let :MetaMessageKeywords, :kws
-    let :MetaMessageKeyword, :kw
+  node :PraeMessageKeywords do
+    let :PraeMessageKeywords, :kws
+    let :PraeMessageKeyword, :kw
 
     ctor :Keywords, :kws, :kw, fmt: [:kws, " ", :kw]
     ctor :Keyword, :kw, fmt: :kw
@@ -696,9 +749,9 @@ ASTGen.run do
     end
   end
 
-  node :MetaMessageKeyword do
+  node :PraeMessageKeyword do
     let :Token, :id
-    let :MetaExpression, :expr
+    let :PraeExpression, :expr
 
     ctor :Keyword, :id, :expr, fmt: [:id, " ", :expr]
 

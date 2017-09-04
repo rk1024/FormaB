@@ -1,0 +1,462 @@
+#!/usr/bin/ruby
+
+require "fileutils"
+require "getoptlong"
+require "monitor"
+require "pathname"
+require "subprocess"
+
+module Log
+  @@lock = Monitor.new
+  @@threads = {}
+  @@tmp = false
+
+  def self.thread_name(t) @@threads[t] end
+
+  def self.init(name) @@lock.synchronize{ @@threads[Thread.current] = name } end
+
+  private_class_method def self.prefix(from: nil)
+    chips = [
+      *(@@threads[Thread.current]),
+      *(from),
+    ]
+    ("\e[0;1m#{chips.map{|s| "[#{s}\e[0;1m]" }.join}\e[0m " if chips.any?)
+  end
+
+  def self.call(*args, from: nil)
+    @@lock.synchronize do
+      $stderr << "\r\e[2K" if @@tmp
+      pfx = prefix(from: from)
+      args.each{|a| $stderr << "#{pfx}#{a}\e[0m\n" }
+      @@tmp = false
+    end
+  end
+
+  def self.p(obj) call(obj.inspect) end
+
+  def self.tmp(arg, from: nil)
+    @@lock.synchronize do
+      $stderr << "\r\e[2K" if @@tmp
+      $stderr << "#{prefix}#{arg}\e[0m"
+      @@tmp = true
+    end
+  end
+
+  def self.save_tmp
+    $stderr << "\n" if @@tmp
+    @@tmp = false
+  end
+end
+
+class WaitEvent
+  @@verbose = false
+
+  def self.verbose; @@verbose end
+  def self.verbose=(value); @@verbose = value end
+
+  def initialize(name, auto:)
+    @name = name
+    @lock = Monitor.new.tap{|m| @cond = m.new_cond }
+    @set = false
+    @auto = !!auto
+  end
+
+  def set!
+    @lock.synchronize do
+      @set = true
+      @cond.broadcast
+      Log.("set", from: @name) if @@verbose
+    end
+    self
+  end
+
+  def reset!
+    @lock.synchronize do
+      @set = false
+      Log.("reset", from: @name) if @@verbose
+    end
+    self
+  end
+
+  def wait
+    @lock.synchronize do
+      Log.("begin wait", from: @name) if @@verbose
+      @cond.wait unless @set
+      Log.(@auto ? "wait released; reset" : "wait released", from: @name) if @@verbose
+      @set = false if @auto
+    end
+  end
+end
+
+class Numeric
+  def saturate; [0, self, 1].sort[1] end
+end
+
+# (hue, saturation, Rec. 2020 luma) -> (r, g, b)
+def hsy(h, s, y)
+  h /= 60
+  x = (1 - (1 - (h % 2)).abs)
+
+  rgb = case h.floor
+    when 0; [s, x, 0]
+    when 1; [x, s, 0]
+    when 2; [0, s, x]
+    when 3; [0, x, s]
+    when 4; [x, 0, s]
+    when 5; [s, 0, x]
+    else [0, 0, 0]
+  end
+
+  m = 1 - s
+  rgb.map!{|p| p + m }
+
+  # The coefficients come from the Rec. 2020 white point spec
+  d = y / rgb.zip([0.2627, 0.678, 0.0593]).map{|(p, f)| p * f }.reduce(:+) if rgb.any?{|p| p != 0 }
+
+  rgb.map!{|p| (p * d).saturate }
+
+  rgb
+end
+
+class DataWorker
+  class WorkerContext
+    attr_reader :id
+
+    def initialize(id)
+      @sleep_evt = WaitEvent.new(:"worker_#{id + 1}_sleep", auto: true)
+
+      @id = id
+      @stop = @sleep = false
+    end
+
+    def stop?; @stop end
+    def sleep?; @sleep end
+
+    def wake!
+      if @sleep
+        @sleep = false
+        @sleep_evt.set!
+      end
+    end
+
+    def stop!
+      @stop = true
+      wake!
+    end
+
+    def begin_sleep!; @sleep = true end
+    def sleep!
+      raise "begin_sleep! must be called first" unless @sleep
+      @sleep_evt.wait
+    end
+  end
+
+  attr_accessor :njobs
+
+  def initialize(njobs, &task)
+    @scheduler_started_evt = WaitEvent.new(:scheduler_started, auto: false)
+    @work_started_evt = WaitEvent.new(:work_started, auto: false)
+    @work_ended_evt = WaitEvent.new(:work_ended, auto: false).set!
+    @update_scheduler_evt = WaitEvent.new(:update_scheduler, auto: true)
+
+    @queue_lock = Monitor.new
+    @queue = []
+
+    @scheduler = nil
+
+    @njobs = njobs
+    @task = task
+  end
+
+  private def named_thread(name, *params)
+    Thread.new(*params) do |args|
+      begin
+        Log.init(name)
+      rescue => e
+        $stderr << e.backtrace[0] << ":#{e.to_s} (#{e.class})\n" <<
+        e.backtrace[1..-1].map{|e2| " " * 8 + "from " << e2.to_s << "\n"}.join
+        error!
+      end
+
+      begin
+        yield(*args)
+      rescue => e
+        Log.(
+          "#{e.backtrace[0]}:#{e.to_s} (#{e.class})",
+          *e.backtrace[1..-1].map{|e2| " " * 8 + "from " << e2.to_s })
+        error!
+      end
+    end
+  end
+
+  private def start_scheduler
+    @scheduler = named_thread("Scheduler Thread") do
+      @scheduler_started_evt.set!
+
+      njobs = @njobs
+
+      @work_started_evt.set!
+      @work_ended_evt.reset!
+
+      threads = []
+      ctxs = []
+
+      (0...njobs).each do |i|
+        ctxs << _ctx = WorkerContext.new(i)
+
+        color = hsy(i * 360.0 / njobs, 0.9, 0.45)
+          .map{|c| (c * 5).round }
+          .reduce(0) {|s, c| s * 6 + c } + 16
+
+        threads << named_thread("\e[38;5;#{color}mWorker Thread #{i + 1}", _ctx) do |ctx|
+          loop do
+            loop do
+              break unless catch(:break) do
+                data = nil
+
+                @queue_lock.synchronize do
+                  throw(:break, false) if @queue.empty?
+                  data = @queue.shift
+                end
+
+                begin
+                  @task.(data, ctx.id)
+                rescue => e
+                  Log.(
+                    "#{e.backtrace[0]}:#{e.to_s} (#{e.class})",
+                    *e.backtrace[1..-1].map{|e2| " " * 8 + "from " << e2.to_s })
+                end
+
+                true
+              end
+            end
+
+            ctx.begin_sleep!
+            @update_scheduler_evt.set!
+            ctx.sleep!
+
+            break if ctx.stop?
+          end
+        end
+      end
+
+      loop do
+        break unless catch(:break) do
+          @update_scheduler_evt.wait
+
+          @queue_lock.synchronize do
+            if @queue.empty?
+              if ctxs.all?{|c| c.sleep? }
+                ctxs.each{|c| c.stop! }
+                threads.each{|t| t.join }
+                throw(:break, false)
+              end
+            else
+              ctxs.each{|c| c.wake! }
+            end
+          end
+
+          true
+        end
+      end
+
+      @queue_lock.synchronize do
+        if @queue.empty?
+          @work_started_evt.reset!
+          @work_ended_evt.set!
+          @scheduler_started_evt.reset!
+        else
+          start_scheduler
+        end
+      end
+    end
+  end
+
+  private def start
+    if @scheduler && @scheduler.alive?
+      @update_scheduler_evt.set!
+    else
+      @scheduler.join if @scheduler
+      start_scheduler
+      @scheduler_started_evt.wait
+    end
+  end
+
+  def enq(data)
+    @queue_lock.synchronize do
+      @queue << data
+      start
+    end
+  end
+
+  alias :<< :enq
+
+  def clear_queue; @queue_lock.synchronize{ @queue.clear } end
+
+  def join_start; @work_started_evt.wait end
+  def join_end; @work_ended_evt.wait end
+end
+
+raise "Missing job count" unless ARGV.any?
+
+raise "AFL output not found" unless Dir.exist?("bin/formab-afl")
+
+Log.init("Main Thread")
+
+$njobs = ARGV.shift.to_i
+
+$stat_lock = Monitor.new
+$stat_str = nil
+$enqd = $deqd = 0
+
+def stat_deq; $stat_lock.synchronize{ $deqd += 1; $stat_str = nil } end
+def stat_enq; $stat_lock.synchronize{ $enqd += 1; $stat_str = nil } end
+
+def stat_get
+  $stat_lock.synchronize do
+    $stat_str = "Queue: #{$deqd} / #{$enqd}" unless $stat_str
+    $stat_str
+  end
+end
+
+$ansiesc_rxp = /\e(?:[\W\d]+|0x[0-9a-fA-F]+(?=[^0-9a-fA-F]))\w/
+
+worker = DataWorker.new($njobs) do |data, id|
+  stat_deq
+
+  Log.tmp(stat_get)
+
+  (op, args) = data
+
+  def log_io_nonblock(io, prev, from: nil, ignore: nil)
+    buf = prev || ""
+
+    ret = begin
+      loop{ buf << io.read_nonblock(4096) }
+      true
+    rescue IO::WaitReadable
+      true
+    rescue EOFError
+      false
+    end
+
+    lines = buf.split(/\n/)
+
+    rem = buf.end_with?("\n") ? nil : lines.pop
+
+    unless buf.empty? || lines.empty?
+      if lines.each{|l| l.gsub!(/\A.*\r([^\r]*\z)/, "\\1") }
+        .map{|l| [l, l.gsub($ansiesc_rxp, "").tap{|n| n.strip! }] }
+        .chunk_while{|_, (_, nn)| nn.empty? }
+        .map{|g| g.transpose.map{|h| h.join("\n") } }
+        .reject{|_, n| n.empty? || ignore && n =~ ignore }
+        .reduce(false) do |_, (line, _)|
+          line.gsub!(/(?:[\r\s\n]+|(?:#{$ansiesc_rxp})+)+\z/, "")
+          Log.(line, from: from)
+          true
+        end
+
+        Log.tmp(stat_get)
+      end
+    end
+
+    return [ret, rem]
+  end
+
+  case op
+    when :cmin
+      (base, sub, item) = args
+
+      Log.("Minimizing corpus '#{base}/#{sub}'...")
+      Log.tmp(stat_get)
+
+      outdir = "bin/formab-aflcmin/#{base}-#{sub}"
+
+      FileUtils.rm_rf(outdir) if Dir.exist?(outdir)
+
+      start = ["afl-cmin", "-i", item, "-o", outdir, "-t", "2000", "--", "bin/formab"]
+
+      Subprocess.call(
+        start,
+        stdin: Subprocess::PIPE,
+        stdout: Subprocess::PIPE,
+        stderr: Subprocess::PIPE
+      ) do |p|
+        rem_out = rem_err = nil
+
+        loop do
+          IO.select([p.stdout, p.stderr])
+
+          break unless [
+            begin; (ret, rem_out) = log_io_nonblock(p.stdout, rem_out, from: "afl-cmin,  info", ignore: /^\s*(?:\
+corpus minimization tool for afl-fuzz by <lcamtuf@google\.com>|\
+processing\s+.+\s+\d+\/\d+...)\s*$/i); ret end,
+            begin; (ret, rem_err) = log_io_nonblock(p.stderr, rem_err, from: "afl-cmin, error"); ret end,
+          ].any?
+        end
+
+        p.wait
+
+        Log.("Process exited.")
+        Log.tmp(stat_get)
+
+        outp = Pathname.new("bin/formab-aflcmin") # Yeah, this is a constant.  Shut up.
+
+        Dir.glob(File.join(outdir, "**/*"))
+          .select{|f| File.exist?(f) && File.basename(f) != "README.txt" }
+          .map{|f| [Pathname.new(f).relative_path_from(outp).to_s, f] }
+          .each{|i| stat_enq; worker << [:tmin, i] }
+      end
+    when :tmin
+      (rel, item) = args
+
+      Log.("Minimizing test case '#{rel}'...")
+      Log.tmp(stat_get)
+
+      outf = "bin/formab-afltmin/#{rel}"
+      outdir = File.dirname(outf)
+
+      FileUtils.mkdir_p(outdir) unless Dir.exist?(outdir)
+      File.delete(outf) if File.file?(outf)
+      FileUtils.rm_rf(outf) if Dir.exist?(outf)
+
+      start = ["afl-tmin", "-i", item, "-o", outf, "-t", "2000", "--", "bin/formab"]
+
+      Subprocess.call(
+        start,
+        stdin: Subprocess::PIPE,
+        stdout: Subprocess::PIPE,
+        stderr: Subprocess::PIPE
+      ) do |p|
+        rem_out = rem_err = nil
+
+        loop do
+          IO.select([p.stdout, p.stderr])
+
+          break unless [
+            begin; (ret, rem_out) = log_io_nonblock(p.stdout, rem_out, from: "afl-tmin,  out"); ret end,
+            begin; (ret, rem_err) = log_io_nonblock(p.stderr, rem_err, from: "afl-tmin, info", ignore: /^\s*(?:\[.\](?:\s+|#{$ansiesc_rxp})*)?(?:\
+afl-tmin .* by <lcamtuf@google\.com>|\
+read \d+.* from .*|\
+block length = \d+, remaining size = \d+|\
+writing output to .*|\
+we.re done here.*)\s*$/i); ret end,
+          ].any?
+        end
+
+        p.wait
+
+        Log.("Process exited.")
+        Log.tmp(stat_get)
+      end
+  end
+end
+
+Dir.glob("bin/formab-afl/**/proc*")
+  .select{|f| Dir.exist?(f) }
+  .flat_map{|d| ["queue", "crashes"].map{|s| [File.basename(d), s, File.join(d, s)] } }
+  .select{|b, s, d| Dir.exist?(d) }
+  .each{|i| stat_enq; worker << [:cmin, i] }
+
+worker.join_start
+worker.join_end

@@ -16,11 +16,11 @@ public:
   inline bool            rooted() const { return m_rooted; }
   inline const location &loc() const { return m_loc; }
 
-  FormaAST(const location &loc) : m_loc(loc) {}
+  FormaAST(const location &);
 
-  virtual ~FormaAST() {}
+  virtual ~FormaAST();
 
-  virtual void print(std::ostream &) const {}
+  virtual void print(std::ostream &) const;
 
   std::string toString() const {
     std::ostringstream oss;

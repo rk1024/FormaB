@@ -29,7 +29,7 @@ public:
     auto it = m_keys.find(value);
     if (it == m_keys.end()) return false;
 
-    *key = (*it).second;
+    *key = it->second;
     return true;
   }
 
@@ -59,7 +59,7 @@ public:
     auto it = m_keys.find(value);
     if (it == m_keys.end()) return false;
 
-    *key = (*it).second;
+    *key = it->second;
     return true;
   }
 

@@ -4,6 +4,7 @@
 #include <functional>
 #include <stdexcept>
 
+#include "util/hashing.hpp"
 #include "util/object/object.hpp"
 
 // #define FPTR_DIAGNOSTIC
@@ -14,6 +15,8 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+
+#include "util/atom.hpp"
 #endif
 
 namespace fun {
@@ -63,7 +66,7 @@ void __fptr_log_id(std::ostream &, std::size_t, bool);
     std::cerr << text << "] \e[m" << std::endl;                                \
   } while (false)
 
-#define _FPTR_DIAG(expr) (expr)
+#define _FPTR_DIAG(expr) expr
 
 #else
 
@@ -95,7 +98,7 @@ void __fptr_log_id(std::ostream &, std::size_t, bool);
 
 template <typename T>
 class FPtr {
-  T *m_ptr;
+  T *m_ptr = nullptr;
 
 #if defined(FPTR_DIAGNOSTIC)
   template <typename U>
@@ -111,21 +114,26 @@ public:
   inline T *      get() { return m_ptr; }
   inline const T *get() const { return m_ptr; }
 
-  FPtr(T *ptr) : m_ptr(ptr) {
+  explicit FPtr(T *ptr) : m_ptr(ptr) {
     if (ptr)
       _FPTR_LOG("T *(\e[38;5;5m" << __FPTR_O_ID << "\e[39m)");
     else
       _FPTR_LOG("T *(\e[38;5;3mn\e[39m)");
     _FPTR_INDENT;
     if (m_ptr) {
-      _FPTR_LOG("\e[38;5;2macquire (" << (m_ptr->refCount() + 1) << ")\e[39m");
+      _FPTR_DIAG(auto oldRefCount = m_ptr->refCount());
       m_ptr->acquire();
+      _FPTR_LOG("\e[38;5;2macquire (" << oldRefCount << " :> "
+                                      << m_ptr->refCount()
+                                      << ")\e[39m");
     } else
       _FPTR_LOG("\e[38;5;3mnullptr\e[39m");
     _FPTR_OUTDENT;
   }
 
-  FPtr() : FPtr(nullptr) { _FPTR_LOG(">>n()"); }
+  FPtr(decltype(nullptr)) : FPtr() {} // Keep this implicit
+
+  FPtr() : FPtr(static_cast<T *>(nullptr)) { _FPTR_LOG(">>n()"); }
 
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {
     _FPTR_LOG(">>const copy(\e[38;5;6m" << __FPTR_ID_(&other)
@@ -152,7 +160,9 @@ public:
     _FPTR_LOG("dtor");
     _FPTR_INDENT;
     if (m_ptr) {
-      _FPTR_LOG("\e[38;5;1mrelease (" << (m_ptr->refCount() - 1) << ")\e[39m");
+      _FPTR_LOG("\e[38;5;1mrelease (" << m_ptr->refCount() << " :> "
+                                      << (m_ptr->refCount() - 1)
+                                      << ")\e[39m");
       m_ptr->release();
     } else
       _FPTR_LOG("\e[38;5;3mnullptr\e[39m");
@@ -270,13 +280,16 @@ FPtr<T> wrap(T *obj) {
 
 template <typename T>
 class FWeakPtr {
-  FPtr<FRefTracker> m_ptr;
+  FPtr<FRefTracker> m_ptr = nullptr;
 
 public:
-  FWeakPtr(T *ptr) : m_ptr(ptr ? ptr->tracker() : nullptr) {}
+  explicit FWeakPtr(T *ptr) : m_ptr(ptr ? ptr->tracker() : nullptr) {}
 
-  FWeakPtr(FPtr<T> ptr) : FWeakPtr(ptr.get()) {}
-  FWeakPtr() : FWeakPtr(nullptr) {}
+  explicit FWeakPtr(FPtr<T> ptr) : FWeakPtr(ptr.get()) {}
+
+  FWeakPtr(decltype(nullptr)) : FWeakPtr() {} // Keep this implicit.
+
+  FWeakPtr() : FWeakPtr(static_cast<T *>(nullptr)) {}
 
   FWeakPtr(const FWeakPtr<T> &) = default;
   FWeakPtr(FWeakPtr<T> &)       = default;
@@ -286,13 +299,29 @@ public:
 
   FPtr<T> lock() const {
     if (!m_ptr) return FPtr<T>();
-    if (!m_ptr->live()) throw std::runtime_error("pointer use after release");
-    return wrap(reinterpret_cast<T *>(m_ptr->target()));
+
+    switch (m_ptr->trackedCount()) {
+    case FRefTracker::COUNT_DESTROYING:
+      throw std::runtime_error("pointer use during free");
+    case 0: throw std::runtime_error("pointer use after free");
+    case FRefTracker::COUNT_UNCLAIMED:
+    default: return wrap(reinterpret_cast<T *>(m_ptr->target()));
+    }
   }
 
   FPtr<T> lockOrNull() const {
-    if (operator!()) return FPtr<T>();
-    return wrap(reinterpret_cast<T *>(m_ptr->target()));
+    if (!m_ptr) goto nil;
+
+    switch (m_ptr->trackedCount()) {
+    case FRefTracker::COUNT_DESTROYING:
+      throw std::runtime_error("pointer use during free");
+    case 0: goto nil;
+    case FRefTracker::COUNT_UNCLAIMED:
+    default: return wrap(reinterpret_cast<T *>(m_ptr->target()));
+    }
+
+  nil:
+    return FPtr<T>();
   }
 
   const FWeakPtr &operator=(const FWeakPtr &rhs) {
@@ -317,8 +346,17 @@ public:
     return *this;
   }
 
-  bool operator!() const { return !(m_ptr && m_ptr->live()); }
-  operator bool() const { return m_ptr && m_ptr->live(); }
+  bool operator!() const { return !operator bool(); }
+  operator bool() const {
+    if (!m_ptr) return false;
+
+    switch (m_ptr->refCount()) {
+    case FRefTracker::COUNT_DESTROYING:
+    case 0: return false;
+    case FRefTracker::COUNT_UNCLAIMED:
+    default: return true;
+    }
+  }
 
   friend struct std::hash<FWeakPtr>;
 };
@@ -346,8 +384,8 @@ public:
 template <typename T>
 struct hash<fun::FWeakPtr<T>> {
 public:
-  std::size_t operator()(const fun::FPtr<T> &ptr) const {
-    return hash<T *>{}(ptr.m_ptr);
+  std::size_t operator()(const fun::FWeakPtr<T> &ptr) const {
+    return fun::multiHash(ptr.m_ptr, fun::forward_hash(typeid(T).hash_code()));
   }
 };
 }

@@ -4,13 +4,7 @@ namespace fun {
 class FObject;
 
 class FRefTracker {
-  static const unsigned int COUNT_DESTROYING = 0xffffffff;
-
-  static inline unsigned int getRefCount(unsigned int counter) {
-    return counter == COUNT_DESTROYING ? 0 : counter;
-  }
-
-  unsigned int m_tracked = 0, m_count = 0;
+  unsigned int m_tracked = COUNT_UNCLAIMED, m_count = 0;
   FObject *    m_target = nullptr;
 
   void tryDestroy();
@@ -20,9 +14,13 @@ class FRefTracker {
   void trackReset();
 
 public:
-  inline bool         live() const { return !!getRefCount(m_tracked); }
+  static const unsigned int COUNT_DESTROYING = 0xffffffff,
+                            COUNT_UNCLAIMED  = 0xfffffffe,
+                            COUNT_MAX        = 0xfffffffd;
+
   inline FObject *    target() const { return m_target; }
-  inline unsigned int refCount() const { return getRefCount(m_count); }
+  inline unsigned int trackedCount() const { return m_tracked; }
+  inline unsigned int refCount() const { return m_count; }
 
   FRefTracker(FObject *target);
 

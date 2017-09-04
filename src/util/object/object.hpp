@@ -1,15 +1,22 @@
 #pragma once
 
+#include <cassert>
+
 #include "refTracker.hpp"
 
 namespace fun {
 class FObject {
+  // NOTE: use tracker() instead of this internally
   FRefTracker *m_tracker = new FRefTracker(this);
 
 public:
-  inline FRefTracker *tracker() const { return m_tracker; }
+  inline FRefTracker *tracker() const {
+    assert(m_tracker);
+    return m_tracker;
+  }
   inline unsigned int refCount() const {
-    return FRefTracker::getRefCount(m_tracker->m_tracked);
+    assert(m_tracker);
+    return m_tracker->m_tracked;
   }
 
   virtual ~FObject();

@@ -7,10 +7,10 @@
 #include "entity.hpp"
 
 namespace frma {
-class FMExpr;
-class FMXFunc;
-class FMFuncParams;
-class FMFuncParam;
+class FPExpr;
+class FPXFunc;
+class FPFuncParams;
+class FPFuncParam;
 class FDumbInterpreter;
 
 class _FNumber;
@@ -95,7 +95,7 @@ class _FFunction : public _FEntity {
 
   FDumbInterpreter * m_interp;
   std::vector<FAtom> m_params;
-  const FMExpr *     m_expr;
+  const FPExpr *     m_expr;
   FWClosure          m_closure;
 
   virtual bool tryDispatch(FAtom, FEntity *) override;
@@ -103,14 +103,14 @@ class _FFunction : public _FEntity {
   virtual bool tryDispatch(std::vector<std::pair<FAtom, FEntity>>,
                            FEntity *) override;
 
-  void getParams(const FMFuncParams *);
+  void getParams(const FPFuncParams *);
 
-  void getParams(const FMFuncParam *);
+  void getParams(const FPFuncParam *);
 
 public:
   const FType type = FType("Function", 0x6aa332f726ac48ea, 0xafd3c7ab8758a4d4);
 
-  _FFunction(FDumbInterpreter *, const FMXFunc *, FClosure);
+  _FFunction(FDumbInterpreter *, const FPXFunc *, FClosure);
 };
 
 class _FCout : public _FEntity {

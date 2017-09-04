@@ -262,22 +262,22 @@ brk:
   return _FEntity::tryDispatch(keywords, ent);
 }
 
-void _FFunction::getParams(const FMFuncParams *params) {
+void _FFunction::getParams(const FPFuncParams *params) {
   switch (params->alt()) {
-  case FMFuncParams::List: getParams(params->params()); break;
-  case FMFuncParams::Empty: break;
-  case FMFuncParams::Parameters: getParams(params->params());
-  case FMFuncParams::Parameter: getParams(params->param()); break;
+  case FPFuncParams::List: getParams(params->params()); break;
+  case FPFuncParams::Empty: break;
+  case FPFuncParams::Parameters: getParams(params->params());
+  case FPFuncParams::Parameter: getParams(params->param()); break;
   }
 }
 
-void _FFunction::getParams(const FMFuncParam *param) {
+void _FFunction::getParams(const FPFuncParam *param) {
   m_params.push_back(FAtom::intern(
       std::string(param->id()->value(), 0, param->id()->value().size() - 1)));
 }
 
 _FFunction::_FFunction(FDumbInterpreter *interp,
-                       const FMXFunc *   func,
+                       const FPXFunc *   func,
                        FClosure          closure)
     : _FEntity(type),
       m_interp(interp),

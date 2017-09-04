@@ -31,7 +31,7 @@ module ASTGen
     class SymbolBuilder
       include FormatBuilder
 
-      attr_reader :name, :node, :syntax
+      attr_reader :name, :node, :syntax, :actions
 
       def initialize(name, node, d)
         init_fmt
@@ -39,6 +39,7 @@ module ASTGen
         @name = name
         @node = node
         @syntax = LooseHash.new
+        @actions = LooseHash.new
         @defer_handle = nil
         @defer_to = nil
       end
@@ -72,10 +73,11 @@ module ASTGen
         [@defer_handle, name]
       end
 
-      def rule(alt, *syms, fmt: nil)
+      def rule(alt, *syms, fmt: nil, action: nil)
         @d.pos("rule #{[alt.inspect, *syms.map{|s| s.inspect }].join(", ")}") do
           if [
             verify(alt.is_a?(Symbol)) { @d.error("invalid alternative name #{@d.hl(alt)}") },
+            verify(action.nil? || action.is_a?(String)) { @d.error("invalid action #{@d.hl(action)}") },
             syms.reduce(true) do |curr, sym|
               next false unless verify(case sym
                 when Symbol, String, @defer_handle; true
@@ -89,9 +91,12 @@ module ASTGen
             @syntax[syms] = alt
 
             self.fmt(alt, *fmt) if fmt
+            self.action(alt, action) if action
           end
         end
       end
+
+      def action(alt, action) @actions[alt] = action end
 
       def make_symbol(nodes, symbols)
         node = nodes[@node]
@@ -170,9 +175,14 @@ module ASTGen
           end
         end.each{|s, _| syntax.make_error(s) }
 
+        actions = @actions.flatten do |alt, acts, uses|
+          @d.error("action defined for syntax #{alt} #{uses} times")
+        end
+
         s = ASymbol.new(@name, node, @d)
 
         s.syntax = syntax
+        s.actions = actions
 
         s
       end
@@ -188,13 +198,14 @@ module ASTGen
       b
     end
 
-    attr_accessor :name, :node, :syntax, :format
+    attr_accessor :name, :node, :syntax, :format, :actions
 
     def initialize(name, node, d)
       @d = d.fork
       @name = name
       @node = node
       @syntax = ErrorableHash.new({}, Set.new)
+      @actions = ErrorableHash.new({}, Set.new)
     end
 
     def alias_for(symbols = nil, exclude = Set.new)
@@ -275,10 +286,10 @@ module ASTGen
           end
 
           l.fmt with_indent: "  " do
-            @syntax.each_with_index do |(syms, alt), i|
+            @syntax.each_with_index.select{|(_, a), _| !@actions.is_error?(a) }.each do |(syms, alt), i|
               l.peek << " |" if i > 0
 
-              l << "#{syms.length == 0 ? "%empty" : syms.map do |sym|
+              l << "#{syms.none? ? "%empty" : syms.map do |sym|
                 case sym
                   when String; sym.inspect
                   when Symbol; "#{sym == :self ? @name : @node.members[sym]}[#{sym}]"
@@ -288,16 +299,17 @@ module ASTGen
                       when 2; "#{sym[0]}[#{sym[1]}]"
                     end
                 end
-              end.join(" ")} { $$ = #{alt == :self ? "$self" :
-                lambda do
+              end.join(" ")} { #{"do { #{@actions[alt]} } while (false); " if @actions[alt]}$$ = #{alt == :self ? "$self" :
+                begin
                   ctor = @node.alt_ctors[alt]
                   syms = @node.ctors[ctor]
                   "new #{@node.qual_class_name}(#{[
                     *("#{@node.qual_class_name}::#{alt}" if syms.length > 1 || syms.each_value.any?{|v| v.length > 1 }),
                     *("#{@node.qual_class_name}::#{@node.sym_name(@name)}" if syms.each_key.any?{|k| k && k.length > 1 }),
                     *@node.alt_ctors[alt].map{|a| "$#{a}" },
+                    "@$",
                   ].join(", ")})"
-                end.call}; }"
+                end}; }"
             end
           end
 

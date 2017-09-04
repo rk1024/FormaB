@@ -28,6 +28,7 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 
 %code {
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
 #pragma clang diagnostic ignored "-Wunreachable-code"
 }
 
@@ -74,6 +75,7 @@ PipeOpt:
 %%
 
 void frma::parser::error(const frma::location &loc, const std::string &msg) {
+  YYCDEBUG << "Reporting error: " << msg << std::endl;
   if (!(tag->lexFail && loc == tag->lexFailPos)) tag->error(loc, msg);
 }
 

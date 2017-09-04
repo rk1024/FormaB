@@ -118,6 +118,7 @@ module ASTGen
     end
 
     def self.class_name; Node.class_name(:Token) end
+    def self.just_class_name; Node.just_class_name(:Token) end
     def self.qual_class_name; Node.qual_class_name(:Token) end
     def self.bison_name; Node.bison_name(:Token) end
 
@@ -141,7 +142,7 @@ module ASTGen
             l.peek << " yylval->#{Token.bison_name} = new #{Token.qual_class_name}(" << case @capture
               when :text; "yytext"
               when :buf, :buf_end; "yyg->yyextra_r->buf().str()"
-            end << ");"
+            end << ", *yylloc);"
 
             if @capture == :buf_end
               l.peek << " yyg->yyextra_r->bufEnd();"

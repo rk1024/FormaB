@@ -2,7 +2,7 @@
 
 (Latin for *intermediate form*)
 
-Intermedia is the IR for the Forma compiler.  It serves as both the representation MetaForma is compiled to and the base structure used by Forma's syntax extensions.
+Intermedia is the IR for the Forma compiler.  It serves as both the representation Praeforma is compiled to and the base structure used by Forma's syntax extensions.
 
 ## Variables
 
@@ -19,5 +19,3 @@ Blocks are used to scope variables.  A block consists of a `BlockStart` opcode (
 ```
 
 ## Message Passing
-
-

@@ -1,5 +1,4 @@
-#include "praeCompiler.hpp"
-#include "praeCompilerClosures.hpp"
+#include "compiler.hpp"
 
 #include <cassert>
 #include <iomanip>

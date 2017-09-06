@@ -7,9 +7,9 @@
 
 #include "util/atom.hpp"
 
-#include "bytecode.hpp"
-#include "function.hpp"
-#include "praeCompilerClosures.hpp"
+#include "closures/all.hpp"
+#include "intermedia/bytecode.hpp"
+#include "intermedia/function.hpp"
 
 #include "ast.hpp"
 

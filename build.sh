@@ -1,6 +1,6 @@
 #!/bin/sh
 cd $(dirname "$0")
-python scripts/build.py $@
+scripts/build $@
 RETCODE=$?
 cd $OLDPWD
 exit $RETCODE

@@ -1,5 +1,5 @@
-#include "praeCompiler.hpp"
-#include "praeCompilerClosures.hpp"
+#include "compiler.hpp"
+#include "closures/function.hpp"
 
 #include <cassert>
 #include <functional>

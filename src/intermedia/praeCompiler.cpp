@@ -57,28 +57,30 @@ struct _fbasename<const T *> {
 #define IS_(node, _alt) node->alt() == OF(_alt)
 #define IS(alt) IS_(node, alt)
 
-std::uint32_t EMITFL(Exprs, bool tuple) {
+std::uint32_t EMITF_(LoadExprsInternal, Exprs) {
   MOVE;
   std::uint32_t count = 0;
 
   MATCH {
   case OF(Empty): return 0;
-  case OF(Exprs): count = emitLoadExprs(closure, node->exprs(), false); NEXT;
+  case OF(Exprs): count = emitLoadExprsInternal(closure, node->exprs()); NEXT;
   case OF(Expr):
-    if (emitLoadExpr(closure, node->expr())) ++count;
-
-    if (count > 1 && tuple) {
-      closure->emit(FIOpcode::Tpl, count);
-
-      return -1;
-    }
-
-    return count;
+    emitLoadExpr(closure, node->expr());
+    ++count;
+    break;
   default: FAIL;
   }
+
+  return count;
 }
 
-bool EMITFL(Expr) {
+void EMITFL(Exprs, bool tuple) {
+  MOVE;
+  std::uint32_t count = emitLoadExprsInternal(closure, node);
+  if (tuple && count != 1) closure->emit(FIOpcode::Tpl, count);
+}
+
+void EMITFL(Expr) {
   MOVE;
   MATCH {
   case OF(Control): return emitLoadXControl(closure, node->ctl());
@@ -88,18 +90,25 @@ bool EMITFL(Expr) {
   }
 }
 
-bool EMITFL(LBoolean) {
+void EMITFL(LBoolean) {
   MOVE;
   MATCH {
   case OF(False): closure->emit<std::int32_t>(FIOpcode::Ldci4, 0); break;
   case OF(True): closure->emit<std::int32_t>(FIOpcode::Ldci4, 1); break;
   default: FAIL;
   }
-
-  return true;
 }
 
-bool EMITFL(XBlock) {
+void EMITFL(LNull) {
+  MOVE;
+
+  MATCH {
+  case OF(Nil): closure->emit(FIOpcode::Ldnil); break;
+  case OF(Void): closure->emit(FIOpcode::Ldvoid); break;
+  }
+}
+
+void EMITFL(XBlock) {
   MOVE;
   MATCH {
   case OF(Block):
@@ -108,13 +117,15 @@ bool EMITFL(XBlock) {
     emitStmts(closure, node->stmts());
 
     closure->applyScope();
-    return false; // TODO: This should sometimes return stuff maybe
+
+    closure->emit(FIOpcode::Ldvoid);
+    break;
   case OF(Error):
   default: FAIL;
   }
 }
 
-bool EMITFL(XControl) {
+void EMITFL(XControl) {
   MOVE;
   bool invert = false;
 
@@ -128,15 +139,12 @@ bool EMITFL(XControl) {
 
   closure->pushScope();
 
-  if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoScope)) {
-    SUBMOVE(cond())
-    closure->error("condition must load value");
-  }
+  emitLoadXParen(closure, node->cond(), ParenFlags::NoScope);
 
   closure->emit(
       FIInstruction::brLbl(invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
 
-  bool thenLoad = emitLoadExpr(closure, node->then());
+  emitLoadExpr(closure, node->then());
 
   auto phiVars = closure->applyScopeWithIds();
 
@@ -146,17 +154,14 @@ bool EMITFL(XControl) {
 
   closure->pushScope();
 
-  if (emitLoadExpr(closure, node->otherwise()) != thenLoad)
-    closure->error("not all paths load a value");
+  emitLoadExpr(closure, node->otherwise());
 
   closure->applyScopeWithIds(phiVars, false);
 
   closure->label(lblDone);
-
-  return thenLoad;
 }
 
-bool EMITFL(XFunc) {
+void EMITFL(XFunc) {
   MOVE;
   FIBytecode body;
   auto       closure2 = fnew<FuncClosure>(closure->assem(), body, node);
@@ -175,20 +180,18 @@ bool EMITFL(XFunc) {
   auto tok    = closure->assem()->funcs().intern(fiFunc);
 
   closure->emit(FIOpcode::Ldfun, tok);
-
-  return true;
 }
 
-bool EMITFL(XInfix) {
+void EMITFL(XInfix) {
   MOVE;
   if (IS(Unary)) return emitLoadXUnary(closure, node->unary());
 
-  if (!emitLoadXInfix(closure, node->infixl()))
-    closure->error("first operand must load value");
+  emitLoadXInfix(closure, node->infixl());
 
-  if (!(IS(Mod) ? emitLoadXUnary(closure, node->unary()) :
-                  emitLoadXInfix(closure, node->infixr())))
-    closure->error("second operand must load value");
+  if (IS(Mod))
+    emitLoadXUnary(closure, node->unary());
+  else
+    emitLoadXInfix(closure, node->infixr());
 
   MATCH {
   case OF(Add): closure->emit(FIOpcode::Add); break;
@@ -207,11 +210,9 @@ bool EMITFL(XInfix) {
   case OF(Unary):
   default: FAIL;
   }
-
-  return true;
 }
 
-bool EMITFL(XMember) {
+void EMITFL(XMember) {
   MOVE;
   MATCH {
   case OF(Member):
@@ -221,14 +222,11 @@ bool EMITFL(XMember) {
   }
 }
 
-bool EMITFL(XMsg) {
+void EMITFL(XMsg) {
   MOVE;
   MATCH {
   case OF(Message): {
-    if (!emitLoadXPrim(closure, node->expr())) {
-      SUBMOVE(expr());
-      closure->error("message target must load a value");
-    }
+    emitLoadXPrim(closure, node->expr());
 
     auto sel = node->sel();
 
@@ -259,10 +257,7 @@ bool EMITFL(XMsg) {
         auto kw = kwStack.top();
         kwStack.pop();
         oss << kw->id()->toString();
-        if (!emitLoadExpr(closure, kw->expr())) {
-          MOVE_TO(kw);
-          closure->error("message argument must load value");
-        }
+        emitLoadExpr(closure, kw->expr());
       }
       break;
     }
@@ -270,65 +265,62 @@ bool EMITFL(XMsg) {
     }
 
     closure->emit(FIOpcode::Msg, closure->assem()->msgs().intern(oss.str()));
-
-    return true; // TODO: This won't always load something
+    break;
   }
   case OF(Error):
   default: FAIL;
   }
 }
 
-bool EMITFL(XParen, ParenFlags::Flags flags) {
+void EMITFL(XParen, ParenFlags::Flags flags) {
   MOVE;
   MATCH {
-  case OF(Paren): return emitLoadXParen(closure, node->paren(), flags);
+  case OF(Paren): emitLoadXParen(closure, node->paren(), flags); break;
   case OF(Tuple):
-    if (flags & ParenFlags::Eval) return emitLoadExprs(closure, node->exprs());
-    return false;
+    if (flags & ParenFlags::Eval) emitLoadExprs(closure, node->exprs());
+    break;
   case OF(Where): {
     if (flags & ParenFlags::Scope) closure->pushScope();
 
-    auto ret = false;
-
     if (flags & ParenFlags::Bind) emitSBind(closure, node->bind());
-    if (flags & ParenFlags::Eval) ret = emitLoadExpr(closure, node->expr());
+    if (flags & ParenFlags::Eval) emitLoadExpr(closure, node->expr());
 
     if (flags & ParenFlags::Scope) closure->applyScope();
-    return ret;
+    break;
   }
   case OF(Error):
   default: FAIL;
   }
 }
 
-bool EMITFL(XPrim) {
+void EMITFL(XPrim) {
   MOVE;
   MATCH {
   case OF(Block): return emitLoadXBlock(closure, node->block());
   case OF(Boolean): return emitLoadLBoolean(closure, node->boolean());
   case OF(Identifier):
     closure->emit(FIOpcode::Ldvar, closure->scope()->get(node->tok()->value()));
-    return true;
+    break;
   case OF(Message): return emitLoadXMsg(closure, node->message());
+  case OF(Null): return emitLoadLNull(closure, node->null());
   case OF(Numeric): return emitLoadLNumeric(closure, node->numeric());
   case OF(Parens): return emitLoadXParen(closure, node->paren());
   case OF(DQLiteral):
     closure->emit(FIOpcode::Ldstr,
                   closure->assem()->strings().intern(node->tok()->toString()));
-    return true;
+    break;
   case OF(SQLiteral): NOTIMPL;
   default: FAIL;
   }
 }
 
-bool EMITFL(XUnary) {
+void EMITFL(XUnary) {
   MOVE;
   const std::uint8_t I_Inc = 1, I_Dec = 2;
 
   if (IS(Member)) return emitLoadXMember(closure, node->memb());
 
-  if (!emitLoadXUnary(closure, node->unary()))
-    closure->error("unary operand must laod value");
+  emitLoadXUnary(closure, node->unary());
 
   std::uint8_t inc = 0;
 
@@ -349,8 +341,6 @@ bool EMITFL(XUnary) {
 
     emitStoreXUnary(closure, node->unary());
   }
-
-  return true;
 }
 
 void EMITFS(XMember) {
@@ -375,6 +365,7 @@ void EMITFS(XPrim) {
   case OF(Boolean):
   case OF(DQLiteral):
   case OF(Message):
+  case OF(Null):
   case OF(Numeric):
   case OF(Parens):
   case OF(SQLiteral): closure->error("primary expression is not assignable");
@@ -431,22 +422,22 @@ void EMITF(Stmts) {
 void EMITF(Stmt) {
   MOVE;
 
-  bool pop = false;
-
   MATCH {
-  case OF(Assign): pop = emitLoadSAssign(closure, node->assign()); break;
+  case OF(Assign): emitLoadSAssign(closure, node->assign()); goto pop;
   case OF(Bind): emitSBind(closure, node->bind()); break;
   case OF(Control): emitSControl(closure, node->ctl()); break;
   case OF(NonSemiExpr):
-  case OF(SemiExpr): pop = emitLoadExpr(closure, node->expr()); break;
+  case OF(SemiExpr): emitLoadExpr(closure, node->expr()); goto pop;
   case OF(Error):
   default: FAIL;
   }
 
-  if (pop) closure->emit(FIOpcode::Pop);
+  return;
+pop:
+  closure->emit(FIOpcode::Pop);
 }
 
-bool EMITFL(SAssign) {
+void EMITFL(SAssign) {
   MOVE;
 
   FIOpcode op = FIOpcode::Nop;
@@ -472,8 +463,6 @@ bool EMITFL(SAssign) {
   closure->emit(FIOpcode::Dup);
 
   emitStoreXMember(closure, node->memb());
-
-  return true;
 }
 
 void EMITF(SBind) {
@@ -534,8 +523,7 @@ void EMITF(SControl) {
 
     closure->pushScope();
 
-    if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoBind))
-      closure->error("condition must load value");
+    emitLoadXParen(closure, node->cond(), ParenFlags::NoBind);
 
     closure->applyScopeWithIds(loopPhiVars, false);
 
@@ -560,8 +548,7 @@ void EMITF(SControl) {
 
     closure->pushScope();
 
-    if (!emitLoadXParen(closure, node->cond(), ParenFlags::NoScope))
-      closure->error("condition must load value");
+    emitLoadXParen(closure, node->cond(), ParenFlags::NoScope);
 
     closure->emit(FIInstruction::brLbl(
         type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
@@ -586,7 +573,7 @@ void EMITF(SControl) {
   }
 }
 
-bool EMITFL(AssignValue) {
+void EMITFL(AssignValue) {
   MOVE;
   MATCH {
   case OF(Assign): return emitLoadSAssign(closure, node->assign());
@@ -606,8 +593,7 @@ void EMITF(Bindings, bool mut) {
 
 void EMITF(Binding, bool mut) {
   MOVE;
-  if (!emitLoadExpr(closure, node->expr()))
-    closure->error("bind expression must load value");
+  emitLoadExpr(closure, node->expr());
 
   closure->emit<std::uint32_t>(
       FIOpcode::Stvar, closure->scope()->bind(node->id()->value(), mut));
@@ -665,7 +651,7 @@ void FIPraeCompiler::dump(std::ostream &os) const {
   for (std::size_t i = 0; i < m_assems.size(); ++i) {
     auto assem = m_assems.value(i);
 
-    os << "\e[1mAssembly\e[0m " << i << ":" << std::endl;
+    os << "\e[1mAssembly " << i << "\e[0m:" << std::endl;
 
     for (std::uint16_t j = 0; j < assem->funcs().size(); ++j) {
       auto func = assem->funcs().value(j);
@@ -679,14 +665,16 @@ void FIPraeCompiler::dump(std::ostream &os) const {
 
         for (std::uint16_t l = 0; l < body.labels.size(); ++l) {
           if (body.labels.at(l).pos == k)
-            os << "\e[38;5;2m" << body.labels.at(l).name
-               << "\e[0m:" << std::endl
+            os << "\e[38;5;7m" << body.labels.at(l).name << ":\e[0m"
+               << std::endl
                << "    ";
         }
 
         if (body.labels.size()) os << "  ";
 
         auto ins = body.instructions.at(k);
+
+        os << "\e[38;5;4m";
 
         switch (ins.op) {
         case FIOpcode::Nop: os << "nop"; break;
@@ -716,41 +704,43 @@ void FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Inv: os << "inv"; break;
 
         case FIOpcode::Br:
-          os << "br \e[38;5;2m"
+          os << "br\e[0m \e[38;5;7m"
              << (ins.br.lbl ? body.labels.at(ins.br.id).name :
                               std::to_string(ins.br.addr));
           break;
         case FIOpcode::Bez:
-          os << "bez \e[38;5;2m"
+          os << "bez\e[0m \e[38;5;7m"
              << (ins.br.lbl ? body.labels.at(ins.br.id).name :
                               std::to_string(ins.br.addr));
           break;
         case FIOpcode::Bnz:
-          os << "bnz \e[38;5;2m"
+          os << "bnz\e[0m \e[38;5;7m"
              << (ins.br.lbl ? body.labels.at(ins.br.id).name :
                               std::to_string(ins.br.addr));
           break;
 
-        case FIOpcode::Ldci4: os << "ldci4 \e[38;5;5m" << ins.i4; break;
-        case FIOpcode::Ldci8: os << "ldci8 \e[38;5;5m" << ins.i8; break;
-        case FIOpcode::Ldcr4: os << "ldcr4 \e[38;5;5m" << ins.r4; break;
-        case FIOpcode::Ldcr8: os << "ldcr8 \e[38;5;5m" << ins.r8; break;
+        case FIOpcode::Ldci4: os << "ldci4\e[0m \e[38;5;5m" << ins.i4; break;
+        case FIOpcode::Ldci8: os << "ldci8\e[0m \e[38;5;5m" << ins.i8; break;
+        case FIOpcode::Ldcr4: os << "ldcr4\e[0m \e[38;5;5m" << ins.r4; break;
+        case FIOpcode::Ldcr8: os << "ldcr8\e[0m \e[38;5;5m" << ins.r8; break;
 
         case FIOpcode::Ldnil: os << "ldnil"; break;
+        case FIOpcode::Ldvoid: os << "ldvoid"; break;
 
         case FIOpcode::Ldvar:
-          os << "ldvar \e[38;5;4m" << body.vars.value(ins.u4);
+          os << "ldvar\e[0m " << body.vars.value(ins.u4);
           break;
 
         case FIOpcode::Ldstr:
-          os << "ldstr \e[38;5;6m\"" << assem->strings().value(ins.u4) << "\"";
+          os << "ldstr\e[0m \e[38;5;6m\"" << assem->strings().value(ins.u4)
+             << "\"";
           break;
         case FIOpcode::Ldfun:
-          os << "ldfun \e[38;5;3m" << fun::dumpHex(ins.u2);
+          os << "ldfun\e[0m \e[38;5;2m" << fun::dumpHex(ins.u2);
           break;
 
         case FIOpcode::Stvar:
-          os << "stvar \e[38;5;4m" << body.vars.value(ins.u4);
+          os << "stvar\e[0m " << body.vars.value(ins.u4);
           break;
 
         case FIOpcode::Cvi1: os << "cvi1"; break;
@@ -765,11 +755,11 @@ void FIPraeCompiler::dump(std::ostream &os) const {
         case FIOpcode::Cvr8: os << "cvr8"; break;
 
         case FIOpcode::Msg:
-          os << "msg \e[38;5;4m" << assem->msgs().value(ins.u4);
+          os << "msg\e[0m \e[38;5;3m" << assem->msgs().value(ins.u4);
           break;
 
         case FIOpcode::Tpl:
-          os << "tpl \e[38;5;5m" << fun::dumpHex(ins.u4);
+          os << "tpl\e[0m \e[38;5;5m" << fun::dumpHex(ins.u4);
           break;
 
         default: FAIL;

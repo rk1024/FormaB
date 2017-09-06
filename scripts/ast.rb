@@ -151,7 +151,6 @@ ASTGen.run do
     ctor :Empty, fmt: []
     ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
     ctor :Statement, :stmt, fmt: :stmt
-    # ctor :Error, :stmts, fmt: [:stmts, "\n<ERROR>"]
 
     symbol :PraeStatementsPart do
       rule :Statements, [:PraeStatementsPart, :stmts], :stmt
@@ -160,7 +159,6 @@ ASTGen.run do
 
     symbol do
       rule :self, [:PraeStatementsPart, :self]
-      # rule :Error, [:PraeStatementsPart, :stmts], [:error], action: "yyerrok;"
     end
 
     symbol :PraeStatementsOpt do
@@ -248,13 +246,11 @@ ASTGen.run do
     do_exprs.() do |parts|
       symbol :"Prae#{parts}LetStatement" do
         rule :Let, "let", [:"Prae#{parts}Bindings", :binds]
-        # rule :Let, "let", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
 
       symbol :"Prae#{parts}BindStatement" do
         rule :self, [:"Prae#{parts}LetStatement", :self]
         rule :Var, "var", [:"Prae#{parts}Bindings", :binds]
-        # rule :Var, "var", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
     end
 
@@ -613,6 +609,7 @@ ASTGen.run do
       let :Token, :tok
       let :PraeNumericLiteral, :numeric
       let :PraeBooleanLiteral, :boolean
+      let :PraeNullLiteral, :null
       let :PraeParenExpression, :paren
       let :PraeBlockExpression, :block
       let :PraeMessageExpression, :message
@@ -627,6 +624,7 @@ ASTGen.run do
     ctor toks, :tok, fmt: :tok
     ctor :Numeric, :numeric, fmt: :numeric
     ctor :Boolean, :boolean, fmt: :boolean
+    ctor :Null, :null, fmt: :null
     ctor :Parens, :paren, fmt: :paren
     ctor :Block, :block, fmt: :block
     ctor :Message, :message, fmt: :message
@@ -635,6 +633,7 @@ ASTGen.run do
       toks.select{|t| t != :Identifier }.each{|t| rule t, [t, :tok] }
       rule :Numeric, :numeric
       rule :Boolean, :boolean
+      rule :Null, :null
       rule :Parens, :paren
       rule :Block, :block
       rule :Message, :message
@@ -667,6 +666,16 @@ ASTGen.run do
     symbol do
       rule :True, "true"
       rule :False, "false"
+    end
+  end
+
+  node :PraeNullLiteral do
+    ctor :Nil, fmt: "nil"
+    ctor :Void, fmt: "void"
+
+    symbol do
+      rule :Nil, "nil"
+      rule :Void, "void"
     end
   end
 

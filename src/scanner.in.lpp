@@ -247,6 +247,7 @@ PraeQLLineEsc \\\n
   %astgen-token KWTry       "try"       { $SL $ML }
   %astgen-token KWUnless    "unless"    { $SL $ML }
   %astgen-token KWVar       "var"       { $SL $ML }
+  %astgen-token KWVoid      "void"      { $SL $ML }
   %astgen-token KWWhile     "while"     { $SL $ML }
   %astgen-token KWYield     "yield"     { $SL $ML }
 

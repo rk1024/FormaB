@@ -91,6 +91,7 @@ def main():
 
   cxxflags = [
     "-fcolor-diagnostics",
+    "-ferror-limit=0",
     "-std=c++14",
     "-Wall",
     "-Wconversion",
@@ -315,8 +316,10 @@ def main():
             "-Wno-deprecated",
             "-Wno-weak-vtables",
           ]),
+          (fnmatch.filter(astSources, "**/*.cpp"), [
+            "-Wno-switch-enum",
+          ]),
         ],
-        fnmatch.filter(astSources, "**/*.cpp"),
       ),
       #objs
       [],

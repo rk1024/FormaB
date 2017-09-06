@@ -1,0 +1,209 @@
+#!/usr/bin/ruby
+
+require_relative "rninja/rninja"
+
+require "pathname"
+require "subprocess"
+
+RNinja.run(rn_dir: "build/rninja") do
+  afl = false # Compile with afl-fuzz instrumentation
+  debug = true || afl # Compile debuggable binaries
+  diagnostic = false && debug # Add extra diagnostic warnings
+  sanitize = true && !afl # Compile with sanitizers enabled
+  optimize = false # Perform optimizations
+  dashOFast = false && !afl # Use -Ofast
+
+  san_flags = (["address", "undefined"].map{|s| "-fsanitize=#{s}" } if sanitize)
+
+  set bin_d: "bin",
+    build_d: "build",
+    script_d: "scripts",
+    src_d: "src",
+    tool_d: "tools",
+    ast_d: "$build_d/ast",
+    ruby: "ruby",
+    astgen: "$script_d/ast.rb",
+    flex: "flex",
+    bison: "$script_d/run-bison.sh bison",
+    re2c: "$tool_d/re2c/re2c/re2c",
+    cxx: afl ? "afl-clang++" : "clang++",
+    ld: "$cxx",
+    astgen_flags: [
+      "-f$src_d/scanner.in.lpp:$build_d/scanner.lpp",
+      "-b$src_d/parser.in.ypp:$build_d/parser.ypp",
+      "-t$src_d/ast/token.in.hpp:$build_d/ast/token.hpp",
+      *("-v" if debug),
+    ],
+    flex_flags: [
+      "--ecs",
+      "--full",
+    ],
+    bison_flags: [
+      "--warnings=all",
+      "--report=all",
+    ],
+    re2c_flags: [
+      "--empty-class error",
+      "-W",
+      "-Werror-undefined-control-flow",
+    ],
+    cxx_flags: [
+      "-fcolor-diagnostics",
+      "-ferror-limit=0",
+      "-std=c++14",
+      "-Wall",
+      "-Wconversion",
+      "-Wdeprecated",
+      "-Wextra",
+      "-Wimplicit",
+      "-Wimplicit-fallthrough",
+      "-Winvalid-noreturn",
+      "-Wmissing-noreturn",
+      "-Wmissing-prototypes",
+      "-Wmissing-variable-declarations",
+      "-Wnewline-eof",
+      "-Wshadow",
+      "-Wno-logical-op-parentheses",
+      "-Wno-shorten-64-to-32",
+      "-Wno-sign-compare",
+      "-Wno-sign-conversion",
+      "-Wtautological-compare",
+      "-Wthread-safety",
+      "-Wunreachable-code-aggressive",
+      "-Wunused",
+      "-Werror=old-style-cast",
+      "-Werror=return-type",
+      *(diagnostic ? [
+        "-fdiagnostics-show-template-tree",
+        "-Wswitch-bool",
+        "-Wswitch-enum",
+        "-Wweak-template-vtables",
+        "-Wweak-vtables",
+
+        # Anti-spam measures:
+        "-fno-caret-diagnostics",
+        "-fno-diagnostics-fixit-info",
+        ] : [
+        # Disabled by diagnostic as anti-spam measure:
+        "-fno-elide-type",
+        "-ftemplate-backtrace-limit=0",
+      ]),
+      *(debug ? [
+        "-g",
+        *("-O0" unless optimize),
+        "-D_GLIBCXX_DEBUG",
+        "-D_GLIBCXX_DEBUG_PEDANTIC",
+        "-D_LIBCPP_DEBUG",
+        "-DDEBUG",
+        "-D_DEBUG",
+      ] : [
+        "-DNDEBUG",
+        "-D_NDEBUG",
+      ]),
+      *san_flags,
+      *("-O#{dashOFast ? "fast" : 3}" if optimize),
+    ],
+    ld_flags: [
+      *san_flags,
+    ]
+
+  rule :ruby,
+    command: "$ruby $ruby_flags $flags $in $args"
+
+  rule :flex,
+    build: ".cpp",
+    from: ".lpp",
+    command: "$flex $flex_flags $flags -o $out $in"
+
+  rule :bison,
+    build: ".cpp",
+    from: ".ypp",
+    command: "$bison $bison_flags $flags -o $out $in"
+
+  rule :re2c,
+    build: ".cpp",
+    from: ".re",
+    command: "$re2c $re2c_flags $flags -o $out $in"
+
+  rule :cxx,
+    build: ".o",
+    from: ".cpp",
+    command: "$cxx $cxx_flags $flags -MMD -MF $out.d -c -o $out $in",
+    deps: "gcc",
+    depfile: "$out.d",
+    restat: true
+
+  rule :ld,
+    build: "",
+    from: ".o",
+    info: "link $out",
+    command: "$ld $ld_flags $flags -o $out $in"
+
+  build "$build_d/scanner.cpp", from: "$build_d/scanner.lpp"
+  build "$build_d/parser.cpp",
+    also: var_paths(:build_d, "parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"),
+    from: "$build_d/parser.ypp"
+
+  phony "formab", is: "$bin_d/formab",
+    description: "build formab"
+
+  (astgen_from, astgen_imply) = ["l", "i"].map! do |flag|
+    var_rel_paths(:ast_d, *Subprocess.check_output(
+      ["ruby", get(:astgen), "-#{flag}", *get(:astgen_flags), get(:ast_d)])
+        .split(" "))
+  end
+
+  build astgen_from, also: astgen_imply, with: "ruby",
+    from: "$astgen",
+    imply: var_paths(:src_d, "parser.in.ypp", "scanner.in.lpp", "ast/token.in.hpp"),
+    after: [
+      "$script_d/ast.rb",
+      *var_glob(:script_d, "astgen/**/*.rb"),
+    ],
+    description: "astgen $astgen",
+    args: "$astgen_flags $ast_d",
+    restat: true
+
+  objs = []
+
+  set includes: ["$src_d", "$build_d"].map{|i| "-I#{i}" }
+
+  [
+    "$src_d/formab.cpp",
+    *%i[ast intermedia util].flat_map{|f| var_glob(:src_d, "#{f}/**/*.cpp") },
+  ].each do |file|
+    obj = File.change_ext(file.sub("$src_d", "$build_d"), ".o")
+    build obj, from: file,
+      flags: "$includes"
+    objs << obj
+  end
+
+  [
+    *%i[ast intermedia utils].flat_map{|f| var_glob(:src_d, "#{f}/**/*.re") },
+  ].each do |file|
+    rel = File.rel_path(file, "$src_d")
+    src = var_path(:build_d, "#{rel}.cpp")
+    obj = var_path(:build_d, "#{rel}.o")
+    build src, from: file
+    build obj, from: src,
+      flags: ["$includes", *("-I#{File.dirname(file)}" unless File.dirname(rel).empty?)]
+    objs << obj
+  end
+
+  build "$build_d/scanner.o", from: "$build_d/scanner.cpp",
+    flags: "$includes"
+  objs << "$build_d/scanner.o"
+
+  build "$build_d/parser.o", from: "$build_d/parser.cpp",
+    flags: ["$includes", "-Wno-deprecated", "-Wno-weak-vtables"]
+  objs << "$build_d/parser.o"
+
+  astgen_from.select{|f| f.end_with?(".cpp") }.each do |from|
+    obj = File.change_ext(from, ".o")
+    build obj, from: from,
+      flags: ["$includes", "-Wno-switch-enum"]
+    objs << obj
+  end
+
+  build "$bin_d/formab", from: objs
+end

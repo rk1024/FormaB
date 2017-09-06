@@ -1,6 +1,3 @@
-[submodule "scripts/NinjaSnek"]
-	path = scripts/NinjaSnek
-	url = git@github.com:rookie1024/NinjaSnek.git
 [submodule "scripts/RNinja"]
 	path = scripts/RNinja
 	url = git@github.com:rk1024/RNinja.git

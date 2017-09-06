@@ -30,20 +30,22 @@ namespace fie {
 class FIPraeCompiler : public fun::FObject {
   fun::FAtomStore<fun::FPtr<pc::AssemblyClosure>> m_assems;
 
-  std::uint32_t EMITFL(Exprs, bool tuple = true);
-  bool EMITFL(Expr);
+  std::uint32_t EMITF_(LoadExprsInternal, Exprs);
+  void EMITFL(Exprs, bool tuple = true);
+  void EMITFL(Expr);
 
-  bool EMITFL(LBoolean);
-  bool EMITFL(LNumeric);
-  bool EMITFL(XBlock);
-  bool EMITFL(XControl);
-  bool EMITFL(XFunc);
-  bool EMITFL(XInfix);
-  bool EMITFL(XMember);
-  bool EMITFL(XMsg);
-  bool EMITFL(XParen, pc::ParenFlags::Flags flags = pc::ParenFlags::Default);
-  bool EMITFL(XPrim);
-  bool EMITFL(XUnary);
+  void EMITFL(LBoolean);
+  void EMITFL(LNull);
+  void EMITFL(LNumeric);
+  void EMITFL(XBlock);
+  void EMITFL(XControl);
+  void EMITFL(XFunc);
+  void EMITFL(XInfix);
+  void EMITFL(XMember);
+  void EMITFL(XMsg);
+  void EMITFL(XParen, pc::ParenFlags::Flags flags = pc::ParenFlags::Default);
+  void EMITFL(XPrim);
+  void EMITFL(XUnary);
 
   void EMITFS(XMember);
   void EMITFS(XPrim);
@@ -55,11 +57,11 @@ class FIPraeCompiler : public fun::FObject {
   void EMITF(Stmts);
   void EMITF(Stmt);
 
-  bool EMITFL(SAssign);
+  void EMITFL(SAssign);
   void EMITF(SBind);
   void EMITF(SControl);
 
-  bool EMITFL(AssignValue);
+  void EMITFL(AssignValue);
   void EMITF(Bindings, bool mut);
   void EMITF(Binding, bool mut);
 

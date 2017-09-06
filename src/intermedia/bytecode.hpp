@@ -42,7 +42,8 @@ enum class FIOpcode : std::int8_t {
   Ldcr4, // ldcr4 <r4:i4> [ -> r4]
   Ldcr8, // ldcr8 <r8:i8> [ -> r8]
 
-  Ldnil, // ldnil [ -> nil]
+  Ldnil,  // ldnil [ -> nil]
+  Ldvoid, // ldvoid [ -> void]
 
   Ldvar, // ldvar <var:u4> [ -> var]
 

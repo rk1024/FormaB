@@ -104,7 +104,7 @@ std::enable_if_t<std::is_integral<T>::value, T> readInt(
   return readIntBasic<T>(closure, radix, expon, max, max + 1, sg, d0, d1);
 }
 
-bool FIPraeCompiler::emitLoadLNumeric(fun::FPtr<FuncClosure> closure,
+void FIPraeCompiler::emitLoadLNumeric(fun::FPtr<FuncClosure> closure,
                                       const FPLNumeric *     numeric) {
   const char *_str = numeric->tok()->value().c_str(), *str = _str, *YYMARKER,
              *sg, *d0, *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr,
@@ -270,7 +270,7 @@ convI4:
   default: assert(false);
   }
 
-  goto done;
+  return;
 convI8:
   switch (fmt) {
   case NumFormat::I8:
@@ -278,14 +278,12 @@ convI8:
     break;
   default: assert(false);
   }
-  goto done;
+  return;
 emitR4:
   closure->emit<float>(FIOpcode::Ldcr4, 1337.1337f);
-  goto done;
+  return;
 emitR8:
   closure->emit<double>(FIOpcode::Ldcr8, 1337.1337);
-  goto done;
-done:
-  return true;
+  return;
 }
 }

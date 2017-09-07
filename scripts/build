@@ -144,9 +144,6 @@ RNinja.run(rn_dir: "build/rninja") do
     also: var_paths(:build_d, "parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"),
     from: "$build_d/parser.ypp"
 
-  phony "formab", is: "$bin_d/formab",
-    description: "build formab"
-
   (astgen_from, astgen_imply) = ["l", "i"].map! do |flag|
     var_rel_paths(:ast_d, *Subprocess.check_output(
       ["ruby", get(:astgen), "-#{flag}", *get(:astgen_flags), get(:ast_d)])
@@ -206,4 +203,8 @@ RNinja.run(rn_dir: "build/rninja") do
   end
 
   build "$bin_d/formab", from: objs
+
+  phony "formab", is: "$bin_d/formab",
+    description: "build formab",
+    default: true
 end

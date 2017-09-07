@@ -4,10 +4,8 @@
 
 namespace fie {
 namespace pc {
-  FuncClosure::FuncClosure(fun::FPtr<AssemblyClosure> assem,
-                           FIBytecode &               body,
-                           const frma::FormaAST *     curr)
-      : PositionTracker(curr), m_assem(assem), m_body(&body) {
+  FuncClosure::FuncClosure(FIBytecode &body, const frma::FormaAST *curr)
+      : PositionTracker(curr), m_body(&body) {
     pushScope();
   }
 
@@ -16,18 +14,18 @@ namespace pc {
     return *this;
   }
 
-  std::uint16_t FuncClosure::beginLabel() {
-    m_body->labels.emplace_back(static_cast<std::uint16_t>(-1),
+  std::uint32_t FuncClosure::beginLabel() {
+    m_body->labels.emplace_back(static_cast<std::uint32_t>(-1),
                                 "l" + std::to_string(m_body->labels.size()));
 
-    assert(static_cast<std::uint16_t>(m_body->labels.size()) != 0);
+    assert(static_cast<std::uint32_t>(m_body->labels.size()) != 0);
 
-    return static_cast<std::uint16_t>(m_body->labels.size() - 1);
+    return static_cast<std::uint32_t>(m_body->labels.size() - 1);
   }
 
-  void FuncClosure::label(std::uint16_t id) {
+  void FuncClosure::label(std::uint32_t id) {
     m_body->labels.at(id).pos =
-        static_cast<std::uint16_t>(m_body->instructions.size());
+        static_cast<std::uint32_t>(m_body->instructions.size());
   }
 
   void FuncClosure::pushScope() {

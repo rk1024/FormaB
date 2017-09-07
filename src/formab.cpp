@@ -1,9 +1,11 @@
 #include <cstdio>
-
 #include <list>
 
-// #include "formaDumb/interpreter.hpp"
-#include "intermedia/praeCompiler.hpp"
+#include "pipeline/functional.hpp"
+
+#include "intermedia/debug/dumpFunction.hpp"
+#include "intermedia/optimizer/optimizer.hpp"
+#include "intermedia/praeCompiler/compiler.hpp"
 #include "lexerDriver.hpp"
 #include "parser.hpp"
 #include "parserTag.hpp"
@@ -78,12 +80,15 @@ int main(int argc, char **argv) {
     //   std::cerr << "WARNING: no output" << std::endl;
 
     if (success && tag.prims) {
-      fun::FPtr<FIPraeCompiler> compiler = fnew<FIPraeCompiler>();
+      auto compiler  = fnew<FIPraeCompiler>();
+      auto optimizer = fnew<FIOptimizer>();
+      auto dumpFunc  = fnew<FIDumpFunction>(std::cerr);
 
-      auto assem  = compiler->registerAssembly();
-      auto blocks = compiler->compileBlocks(assem, tag.prims);
+      fps::connect<FIFunction>(*compiler, *dumpFunc);
+      fps::connect<std::string>(*compiler, *dumpFunc);
+      fps::connect<FIMessageId>(*compiler, *dumpFunc);
 
-      compiler->dump(std::cerr);
+      auto blocks = compiler->compileBlocks(tag.prims);
     }
 
     // if (success) {

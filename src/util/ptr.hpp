@@ -4,8 +4,8 @@
 #include <functional>
 #include <stdexcept>
 
+#include "object/refTracker.hpp"
 #include "util/hashing.hpp"
-#include "util/object/object.hpp"
 
 // #define FPTR_DIAGNOSTIC
 
@@ -20,6 +20,7 @@
 #endif
 
 namespace fun {
+
 template <typename T>
 class FPtr;
 
@@ -135,6 +136,9 @@ public:
 
   FPtr() : FPtr(static_cast<T *>(nullptr)) { _FPTR_LOG(">>n()"); }
 
+  template <typename U>
+  FPtr(const FPtr<U> &other) : FPtr(other.m_ptr) {}
+
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {
     _FPTR_LOG(">>const copy(\e[38;5;6m" << __FPTR_ID_(&other)
                                         << "\e[39m -> \e[38;5;5m"
@@ -211,17 +215,17 @@ public:
     _FPTR_LOG("\e[38;5;4mop\e[39m ->");
     return m_ptr;
   }
-  inline T *operator*() {
+  inline T &operator*() {
     _FPTR_LOG("\e[38;5;4mop\e[39m *");
-    return m_ptr;
+    return *m_ptr;
   }
   inline const T *operator->() const {
     _FPTR_LOG("const \e[38;5;4mop\e[39m ->");
     return m_ptr;
   }
-  inline const T *operator*() const {
+  inline const T &operator*() const {
     _FPTR_LOG("const \e[38;5;4mop\e[39m *");
-    return m_ptr;
+    return *m_ptr;
   }
 
   inline bool operator==(const FPtr &rhs) const {
@@ -261,6 +265,9 @@ public:
   }
 
   friend struct std::hash<FPtr>;
+
+  template <typename>
+  friend class FPtr; // For access into other pointer types
 };
 
 template <typename T>
@@ -270,7 +277,12 @@ FPtr<T> wrap(T &&obj) {
 
 template <typename T>
 FPtr<T> wrap(const T &obj) {
-  return FPtr<T>(obj);
+  return FPtr<T>(&obj);
+}
+
+template <typename T>
+FPtr<T> wrap(T &obj) {
+  return FPtr<T>(&obj);
 }
 
 template <typename T>

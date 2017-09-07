@@ -6,7 +6,8 @@
 #include <vector>
 
 #include "util/cons.hpp"
-#include "util/object.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 namespace fie {
 namespace pc {

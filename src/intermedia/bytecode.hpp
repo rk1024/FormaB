@@ -72,8 +72,6 @@ struct FIInstruction {
   FIOpcode op;
 
   union {
-    std::int16_t  i2;
-    std::uint16_t u2;
     std::int32_t  i4;
     std::uint32_t u4;
     std::int64_t  i8;
@@ -83,8 +81,8 @@ struct FIInstruction {
 
     struct {
       union {
-        std::int16_t  addr;
-        std::uint16_t id;
+        std::int32_t  addr;
+        std::uint32_t id;
       };
 
       bool lbl;
@@ -92,8 +90,6 @@ struct FIInstruction {
   };
 
   FIInstruction(FIOpcode _op) : op(_op) {}
-  FIInstruction(FIOpcode _op, std::int16_t _i2) : op(_op), i2(_i2) {}
-  FIInstruction(FIOpcode _op, std::uint16_t _u2) : op(_op), u2(_u2) {}
   FIInstruction(FIOpcode _op, std::int32_t _i4) : op(_op), i4(_i4) {}
   FIInstruction(FIOpcode _op, std::uint32_t _u4) : op(_op), u4(_u4) {}
   FIInstruction(FIOpcode _op, std::int64_t _i8) : op(_op), i8(_i8) {}
@@ -101,14 +97,14 @@ struct FIInstruction {
   FIInstruction(FIOpcode _op, float _r4) : op(_op), r4(_r4) {}
   FIInstruction(FIOpcode _op, double _r8) : op(_op), r8(_r8) {}
 
-  static FIInstruction brAddr(FIOpcode op, std::int16_t addr) {
+  static FIInstruction brAddr(FIOpcode op, std::int32_t addr) {
     FIInstruction ret(op);
     ret.br.lbl  = false;
     ret.br.addr = addr;
     return ret;
   }
 
-  static FIInstruction brLbl(FIOpcode op, std::uint16_t id) {
+  static FIInstruction brLbl(FIOpcode op, std::uint32_t id) {
     FIInstruction ret(op);
     ret.br.lbl = true;
     ret.br.id  = id;

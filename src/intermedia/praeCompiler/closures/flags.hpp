@@ -4,26 +4,24 @@
 
 namespace fie {
 namespace pc {
-#define INITFLAGS(type)                                                        \
+#define INITFLAGS(type, base)                                                  \
   namespace type {                                                             \
-    enum Flags : std::uint16_t;                                                \
+    enum Flags : base;                                                         \
                                                                                \
     inline constexpr Flags operator|(Flags a, Flags b) {                       \
-      return static_cast<Flags>(static_cast<std::uint16_t>(a) |                \
-                                static_cast<std::uint16_t>(b));                \
+      return static_cast<Flags>(static_cast<base>(a) | static_cast<base>(b));  \
     }                                                                          \
                                                                                \
     inline constexpr Flags operator&(Flags a, Flags b) {                       \
-      return static_cast<Flags>(static_cast<std::uint16_t>(a) &                \
-                                static_cast<std::uint16_t>(b));                \
+      return static_cast<Flags>(static_cast<base>(a) & static_cast<base>(b));  \
     }                                                                          \
                                                                                \
     inline constexpr Flags operator~(Flags a) {                                \
-      return static_cast<Flags>(~static_cast<std::uint16_t>(a));               \
+      return static_cast<Flags>(~static_cast<base>(a));                        \
     }                                                                          \
   }
 
-  INITFLAGS(ParenFlags)
+  INITFLAGS(ParenFlags, std::uint16_t);
 
   namespace ParenFlags {
     enum Flags : std::uint16_t {

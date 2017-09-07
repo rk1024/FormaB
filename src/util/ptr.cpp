@@ -1,4 +1,4 @@
-#include "object.hpp"
+#include "ptr.hpp"
 
 namespace fun {
 #if defined(FPTR_DIAGNOSTIC)

@@ -21,9 +21,9 @@ public:
 
   virtual ~FObject();
 
-  void acquire();
-  void release();
-  void reset();
+  void acquire() const;
+  void release() const;
+  void reset() const;
 
   friend class FRefTracker;
 };

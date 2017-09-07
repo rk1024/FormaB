@@ -7,9 +7,13 @@
 
 #include "util/atom.hpp"
 
-#include "closures/all.hpp"
+#include "pipeline/stage.hpp"
+
 #include "intermedia/bytecode.hpp"
 #include "intermedia/function.hpp"
+#include "intermedia/message.hpp"
+
+#include "closures/all.hpp"
 
 #include "ast.hpp"
 
@@ -27,9 +31,9 @@ namespace fie {
 // Compiler emitStore header with FuncClosure, matching node type
 #define EMITFS(name, ...) EMITF_(Store##name, name, ##__VA_ARGS__)
 
-class FIPraeCompiler : public fun::FObject {
-  fun::FAtomStore<fun::FPtr<pc::AssemblyClosure>> m_assems;
-
+class FIPraeCompiler : public fps::FProduces<FIFunction, std::uint32_t>,
+                       public fps::FProducesRef<std::string, std::uint32_t>,
+                       public fps::FProducesRef<FIMessageId, std::uint32_t> {
   std::uint32_t EMITF_(LoadExprsInternal, Exprs);
   void EMITFL(Exprs, bool tuple = true);
   void EMITFL(Expr);
@@ -66,19 +70,13 @@ class FIPraeCompiler : public fun::FObject {
   void EMITF(Binding, bool mut);
 
 public:
-  inline auto registerAssembly() {
-    auto ret = m_assems.emplace(fnew<pc::AssemblyClosure>());
-    return ret;
-  }
+  std::uint32_t compileEntryPoint(const frma::FPStmts *);
 
-  std::uint16_t compileEntryPoint(std::size_t, const frma::FPStmts *);
-
-  std::vector<std::pair<const frma::FPBlock *, std::uint16_t>> compileBlocks(
-      std::size_t assem, const frma::FPrims *);
-
-  void dump(std::ostream &os) const;
+  std::vector<std::pair<const frma::FPBlock *, std::uint32_t>> compileBlocks(
+      const frma::FPrims *);
 };
 
+#undef EMITFS
 #undef EMITFL
 #undef EMITF
 #undef EMITF_

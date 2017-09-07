@@ -1,6 +1,7 @@
 #pragma once
 
-#include "util/object.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 #include "ast/astBase.hpp"
 

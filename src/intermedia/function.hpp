@@ -4,7 +4,8 @@
 #include <vector>
 
 #include "bytecode.hpp"
-#include "util/object.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 namespace fie {
 class FIFunction : public fun::FObject {

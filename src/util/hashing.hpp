@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <vector>
 
 namespace fun {
 struct forward_hash {
@@ -10,20 +11,17 @@ struct forward_hash {
 };
 
 template <typename T>
-struct _get_hash;
+struct _get_hash {
+  inline constexpr std::size_t operator()(T &&val) {
+    return std::hash<std::remove_cv_t<std::remove_reference_t<T>>>{}(
+        std::forward<T>(val));
+  }
+};
 
 template <>
 struct _get_hash<forward_hash> {
   inline constexpr std::size_t operator()(forward_hash &&fwd) {
     return fwd.hash;
-  }
-};
-
-template <typename T>
-struct _get_hash {
-  inline constexpr std::size_t operator()(T &&val) {
-    return std::hash<std::remove_cv_t<std::remove_reference_t<T>>>{}(
-        std::forward<T>(val));
   }
 };
 

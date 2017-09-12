@@ -3,20 +3,19 @@
 #include <cstdint>
 #include <iostream>
 
-#include "pipeline/depends.hpp"
+#include "util/cons.hpp"
+#include "util/object/object.hpp"
 
-#include "intermedia/assembly.hpp"
-#include "intermedia/function.hpp"
-#include "intermedia/message.hpp"
+#include "intermedia/inputs.hpp"
 
 namespace fie {
-class FIDumpFunction : public fps::FDepends<fun::FPtr<FIFunction>> {
-  fun::FPtr<FIAssembly> m_assem;
-  std::ostream &        m_os;
+class FIDumpFunction : public fun::FObject {
+  fun::FPtr<FIInputs> m_inputs;
+  std::ostream &      m_os;
 
 public:
-  FIDumpFunction(fun::FPtr<FIAssembly>, std::ostream &);
+  FIDumpFunction(fun::FPtr<FIInputs>, std::ostream &);
 
-  virtual void accept(fun::FPtr<FIFunction>) override;
+  void dumpFunc(fun::cons_cell<std::uint32_t>);
 };
 }

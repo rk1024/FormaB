@@ -9,18 +9,16 @@
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
 
+#include "dataGraph.hpp"
+
 namespace fps {
 class FDepsGraph;
 class FDepsGraphEdge;
 
-class FDepsGraphAction : public virtual fun::FObject {
-public:
-  virtual void run() = 0;
-};
-
 class FDepsGraphNode : public fun::FObject {
   std::string                                m_name;
   std::vector<fun::FWeakPtr<FDepsGraphEdge>> m_ins, m_outs;
+  fun::FWeakPtr<FDataGraphNodeBase>          m_data;
   bool                                       m_ready = false;
 
   void statSelf();
@@ -36,6 +34,13 @@ public:
   inline const fun::FPtr<FDepsGraphEdge> &operator>>(
       const fun::FPtr<FDepsGraphEdge> &);
 
+  template <typename T>
+  fun::FPtr<FDataGraphNode<T>> data(T value) {
+    auto node = fnew<FDataGraphNode<T>>(value);
+    m_data    = fun::weak(node);
+    return node;
+  }
+
   friend class FDepsGraphEdge;
   friend class FDepsGraph;
 };
@@ -43,7 +48,7 @@ public:
 class FDepsGraphEdge : public fun::FObject {
   std::string                                m_name;
   fun::FWeakPtr<FDepsGraph>                  m_graph;
-  fun::FPtr<FDepsGraphAction>                m_action;
+  fun::FPtr<FDataGraphRuleBase>              m_rule;
   std::vector<fun::FWeakPtr<FDepsGraphNode>> m_ins, m_outs;
   enum { Closed, Open, Done } m_state = Closed;
 
@@ -54,7 +59,7 @@ class FDepsGraphEdge : public fun::FObject {
 public:
   FDepsGraphEdge(const std::string &,
                  fun::FWeakPtr<FDepsGraph>,
-                 fun::FPtr<FDepsGraphAction>);
+                 fun::FPtr<FDataGraphRuleBase>);
 
   inline void in(fun::FPtr<FDepsGraphNode> in) {
     m_ins.push_back(fun::weak(in));
@@ -104,7 +109,7 @@ public:
   fun::FPtr<FDepsGraphNode> node(const std::string &);
 
   fun::FPtr<FDepsGraphEdge> edge(const std::string &,
-                                 fun::FPtr<FDepsGraphAction>);
+                                 fun::FPtr<FDataGraphRuleBase>);
 
   void run();
 

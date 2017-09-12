@@ -162,7 +162,7 @@ void EMITFL(XControl) {
 
 void EMITFL(XFunc) {
   MOVE;
-  closure->emit(FIOpcode::Ldfun, -1);
+  closure->emit(FIOpcode::Ldfun, m_inputs->funcs().at(node));
 }
 
 void EMITFL(XInfix) {
@@ -252,6 +252,7 @@ void EMITFL(XMsg) {
     closure->emit(
         FIOpcode::Msg,
         m_inputs->assem()->msgs().intern(fun::cons(count, oss.str())));
+
     break;
   }
   case OF(Error):
@@ -588,26 +589,34 @@ void EMITF(Binding, bool mut) {
 
 FIPraeCompiler::FIPraeCompiler(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
 
-void FIPraeCompiler::accept(const FPStmts *node) {
+std::uint32_t FIPraeCompiler::compileEntryPoint(
+    fun::cons_cell<const FPStmts *> args) {
   FIBytecode body;
-  auto       closure = fnew<FuncClosure>(body, node);
+  auto       closure = fnew<FuncClosure>(body, args.get<0>());
 
-  emitStmts(closure, node);
+  emitStmts(closure, args.get<0>());
 
   closure->emit(FIOpcode::Ldvoid).emit(FIOpcode::Ret);
 
-  /* return */ m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
+  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
+  m_inputs->funcs()[args.get<0>()] = id;
+
+  return id;
 }
 
-void FIPraeCompiler::accept(const FPXFunc *node) {
+std::uint32_t FIPraeCompiler::compileFunc(
+    fun::cons_cell<const FPXFunc *> args) {
   FIBytecode body;
-  auto       closure = fnew<FuncClosure>(body, node);
+  auto       closure = fnew<FuncClosure>(body, args.get<0>());
 
-  emitFuncParams(closure, node->params());
-  emitLoadExpr(closure, node->expr());
+  emitFuncParams(closure, args.get<0>()->params());
+  emitLoadExpr(closure, args.get<0>()->expr());
 
   closure->emit(FIOpcode::Ret);
 
-  /* return */ m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
+  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
+  m_inputs->funcs()[args.get<0>()] = id;
+
+  return id;
 }
 }

@@ -90,11 +90,10 @@ int main(int argc, char **argv) {
     if (success && tag.prims) {
       auto graph = fnew<fps::FDepsGraph>();
 
-      auto assem    = fnew<fie::FIAssembly>();
-      auto inputs   = fnew<fie::FIInputs>(assem);
-      auto compiler = fnew<FIPraeCompiler>(inputs);
+      auto assem  = fnew<fie::FIAssembly>();
+      auto inputs = fnew<fie::FIInputs>(assem);
 
-      auto sched = fnew<fie::FIScheduler>(graph, inputs, compiler);
+      auto sched = fnew<fie::FIScheduler>(graph, inputs);
 
       sched->schedule(tag.prims);
 

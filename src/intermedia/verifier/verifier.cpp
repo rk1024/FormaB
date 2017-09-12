@@ -12,11 +12,12 @@
 using namespace fie::vc;
 
 namespace fie {
-FIVerifier::FIVerifier(fun::FPtr<FIAssembly> assem) : m_assem(assem) {}
+FIVerifier::FIVerifier(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
 
-void FIVerifier::accept(fun::FPtr<FIFunction> func) {
+void FIVerifier::verifyFunc(fun::cons_cell<std::uint32_t> args) {
+  auto func = m_inputs->assem()->funcs().value(args.get<0>());
   std::queue<fun::FPtr<BlockClosure>> q;
-  q.push(fnew<BlockClosure>(m_assem, func, &q));
+  q.push(fnew<BlockClosure>(m_inputs->assem(), func, &q));
 
   while (q.size()) {
     q.front()->iterate();

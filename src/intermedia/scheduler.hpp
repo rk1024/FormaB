@@ -4,6 +4,8 @@
 #include <unordered_map>
 
 #include "util/cons.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 #include "pipeline/depsGraph.hpp"
 
@@ -13,6 +15,8 @@
 
 namespace fie {
 class FIPraeCompiler;
+class FIVerifier;
+class FIDumpFunction;
 
 class FIScheduler : public fun::FObject {
   class WalkerBase;
@@ -24,7 +28,8 @@ class FIScheduler : public fun::FObject {
   };
 
   struct FuncPipeline : Pipeline {
-    fun::FPtr<fps::FDepsGraphEdge> compile;
+    fun::FPtr<fps::FDepsGraphNode> compiled, verified;
+    fun::FPtr<fps::FDepsGraphEdge> compile, verify, dump;
   };
 
   struct EntryPointPipeline : FuncPipeline {};
@@ -32,6 +37,8 @@ class FIScheduler : public fun::FObject {
   fun::FPtr<fps::FDepsGraph> m_graph;
   fun::FPtr<FIInputs>        m_inputs;
   fun::FPtr<FIPraeCompiler>  m_compiler;
+  fun::FPtr<FIVerifier>      m_verifier;
+  fun::FPtr<FIDumpFunction>  m_dumpFunc;
 
   fun::FAtomStore<const frma::FPXFunc *> m_funcIds;
   fun::FAtomStore<const frma::FPStmts *> m_entryPointIds;
@@ -50,9 +57,7 @@ class FIScheduler : public fun::FObject {
   void scheduleFunc(const frma::FPXFunc *);
 
 public:
-  FIScheduler(fun::FPtr<fps::FDepsGraph>,
-              fun::FPtr<FIInputs>,
-              fun::FPtr<FIPraeCompiler>);
+  FIScheduler(fun::FPtr<fps::FDepsGraph>, fun::FPtr<FIInputs>);
 
   void schedule(const frma::FPrims *);
 };

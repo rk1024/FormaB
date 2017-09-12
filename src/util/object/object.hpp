@@ -19,6 +19,12 @@ public:
     return m_tracker->m_tracked;
   }
 
+  FObject() = default;
+
+  FObject(const FObject &) = default;
+  FObject(FObject &)       = default;
+  FObject(FObject &&)      = default;
+
   virtual ~FObject();
 
   void acquire() const;

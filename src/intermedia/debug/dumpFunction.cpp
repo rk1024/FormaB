@@ -3,13 +3,14 @@
 #include "util/dumpHex.hpp"
 
 namespace fie {
-FIDumpFunction::FIDumpFunction(fun::FPtr<FIAssembly> assem, std::ostream &os)
-    : m_assem(assem), m_os(os) {}
+FIDumpFunction::FIDumpFunction(fun::FPtr<FIInputs> inputs, std::ostream &os)
+    : m_inputs(inputs), m_os(os) {}
 
-void FIDumpFunction::accept(fun::FPtr<FIFunction> func) {
+void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
+  auto func = m_inputs->assem()->funcs().value(args.get<0>());
   auto body = func->body();
 
-  m_os << "\e[1m  Function " << m_assem->funcs().key(func) << "\e[0m ("
+  m_os << "\e[1m  Function " << args.get<0>() << "\e[0m ("
        << body.instructions.size() << "):" << std::endl;
 
   for (std::size_t k = 0; k < body.instructions.size(); ++k) {
@@ -83,8 +84,8 @@ void FIDumpFunction::accept(fun::FPtr<FIFunction> func) {
       break;
 
     case FIOpcode::Ldstr:
-      m_os << "ldstr\e[0m \e[38;5;6m\"" << m_assem->strings().value(ins.u4)
-           << "\"";
+      m_os << "ldstr\e[0m \e[38;5;6m\""
+           << m_inputs->assem()->strings().value(ins.u4) << "\"";
       break;
     case FIOpcode::Ldfun:
       m_os << "ldfun\e[0m \e[38;5;2m" << fun::dumpHex(ins.u4);
@@ -106,7 +107,8 @@ void FIDumpFunction::accept(fun::FPtr<FIFunction> func) {
     case FIOpcode::Cvr8: m_os << "cvr8"; break;
 
     case FIOpcode::Msg:
-      m_os << "msg\e[0m \e[38;5;3m" << m_assem->msgs().value(ins.u4).get<1>();
+      m_os << "msg\e[0m \e[38;5;3m"
+           << m_inputs->assem()->msgs().value(ins.u4).get<1>();
       break;
 
     case FIOpcode::Tpl:

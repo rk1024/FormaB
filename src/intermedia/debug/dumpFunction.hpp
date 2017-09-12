@@ -3,25 +3,20 @@
 #include <cstdint>
 #include <iostream>
 
-#include "pipeline/stage.hpp"
+#include "pipeline/depends.hpp"
 
+#include "intermedia/assembly.hpp"
 #include "intermedia/function.hpp"
 #include "intermedia/message.hpp"
 
 namespace fie {
-class FIDumpFunction : public fps::FAccepts<FIFunction, std::uint32_t>,
-                       public fps::FAcceptsRef<std::string, std::uint32_t>,
-                       public fps::FAcceptsRef<FIMessageId, std::uint32_t> {
-  std::ostream &m_os;
-  fun::FAtomStore<fun::FPtr<const FIFunction>, std::uint32_t> m_funcs;
-  fun::FAtomStore<std::string, std::uint32_t>                 m_strings;
-  fun::FAtomStore<FIMessageId, std::uint32_t>                 m_msgs;
+class FIDumpFunction : public fps::FDepends<fun::FPtr<FIFunction>> {
+  fun::FPtr<FIAssembly> m_assem;
+  std::ostream &        m_os;
 
 public:
-  FIDumpFunction(std::ostream &os);
+  FIDumpFunction(fun::FPtr<FIAssembly>, std::ostream &);
 
-  virtual std::uint32_t accept(fun::FPtr<const FIFunction>) override;
-  virtual std::uint32_t accept(const std::string &) override;
-  virtual std::uint32_t accept(const FIMessageId &) override;
+  virtual void accept(fun::FPtr<FIFunction>) override;
 };
 }

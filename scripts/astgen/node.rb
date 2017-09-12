@@ -323,11 +323,20 @@ module ASTGen
     @@class_name_prefix = ""
     @@class_base = ""
     @@class_token = "Token"
+    @@header_dir = ""
+    @@header_base = "node.hpp"
+    @@header_token = "token.hpp"
     @@AltEnumName = "Alt"
     @@AltMembName = "alt"
     @@SymEnumName = "Sym"
     @@SymMembName = "sym"
     @@SymNoneName = "_None"
+
+    def self.AltEnumName; @@AltEnumName end
+    def self.AltMembName; @@AltMembName end
+    def self.SymEnumName; @@SymEnumName end
+    def self.SymMembName; @@SymMembName end
+    def self.SymNoneName; @@SymNoneName end
 
     @@node_name_prefixes = []
     @@node_name_suffixes = []
@@ -349,6 +358,15 @@ module ASTGen
     def self.class_token=(value)
       (*@@namespace_token, @@class_token) = split_namespace(value)
     end
+
+    def self.header_dir; @@header_dir end
+    def self.header_dir=(value) @@header_dir = value end
+
+    def self.header_base; @@header_base end
+    def self.header_base=(value) @@header_base = value end
+
+    def self.header_token; @@header_token end
+    def self.header_token=(value) @@header_token = value end
 
     def self.name_prefixes=(value) @@node_name_prefixes = value.map{|p, s| [s, /^#{p.to_s.downcase}/i]} end
     def self.name_suffixes=(value) @@node_name_suffixes = value.map{|p, s| [s, /(?<!^)#{p.to_s.downcase}$/i]} end
@@ -390,7 +408,14 @@ module ASTGen
       "#{@@namespace.join("::")}::#{class_name(name)}"
     end
 
-    def self.header_name(name) "ast/#{ASTGen.camel_name(name)}.hpp" end
+    def self.qual_name(klass, name) "#{class_name(klass)}::#{name}" end
+
+    def self.header_name(name)
+      name = name.to_s
+      return @@header_token if name == "Token"
+      "#{@@header_dir}/#{ASTGen.camel_name(name)}.hpp"
+    end
+
     def self.field_name(name) "m_#{name}" end
     def self.bison_name(name) "_#{ASTGen.camel_name(name)}" end
 
@@ -408,6 +433,32 @@ module ASTGen
       end
     end
 
+    def self.emit_ns_start(l)
+      @@namespace.each{|n| (l << "namespace #{n} {").group }
+    end
+
+    def self.emit_ns_end(l)
+      @@namespace.length.times{ l.trim << "}" }
+    end
+
+    def self.emit_body_start(l)
+      l << "#include <cassert>"
+
+      l.sep
+
+      l << "#include \"#{@@header_base}\""
+      l << "#include \"#{header_name(:Token)}\""
+      l << "#include \"#{header_name(:Ast)}\""
+
+      l.sep
+
+      emit_ns_start(l)
+    end
+
+    def self.emit_body_end(l)
+      emit_ns_end(l)
+    end
+
     def self.sym_name(sym)
       return "#{@@SymEnumName}::#{sym ? sym.to_s : @@SymNoneName}"
     end
@@ -418,7 +469,7 @@ module ASTGen
     def qual_scoped_name; Node.qual_scoped_name(@name) end
     def header_name; Node.header_name(@name) end
     def bison_name; Node.bison_name(@name) end
-    def qual_name(name) "#{class_name}::#{name}" end
+    def qual_name(name) Node.qual_name(@name, name) end
 
     def enum_name(name)
       name = name.to_s
@@ -453,7 +504,7 @@ module ASTGen
 
         l.sep
 
-        l << "#include \"#{Node.header_name(:AstBase)}\""
+        l << "#include \"#{@@header_base}\""
 
         l.sep
 
@@ -468,7 +519,7 @@ module ASTGen
           l.sep
         end
 
-        @@namespace.each{|n| (l << "namespace #{n} {").group }
+        Node.emit_ns_start(l)
 
         @dep_types.select{|t| !nodes.is_error?(t) }.each do |type|
           l << "class #{Node.class_name(type)};" unless token_ns_separate && type.to_s == "Token"
@@ -607,256 +658,237 @@ module ASTGen
         end
         l.trim << "};"
 
-        @@namespace.length.times{ l.trim << "}" }
+        Node.emit_ns_end(l)
       end << "\n"
     end
 
-    def emit_body(nodes)
-      LineWriter.lines do |l|
-        l << "#include <cassert>"
+    def emit_body(nodes, l)
+      @ctors.each do |sig, syms|
+        sigset = Set.new(sig)
+        memb_inits = @member_order.select{|m| sigset.include?(m) }
+          .map{|m| "#{Node.field_name(m)}(#{m})" }
 
-        l.sep
+        emit_ctor = lambda do |args, inits|
+          l.sep << "#{qual_name(class_name)}(#{[
+            *args,
+            *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
+            "const location &loc"
+          ].join(", ")})"
+          l.peek << " {" if memb_inits.empty? && inits.empty?
+          l.fmt with_indent: "  " do
+            l << ": #{[
+              "FormaAST(loc)",
+              *memb_inits,
+              *inits,
+            ].join(", ")} {" unless memb_inits.empty? && inits.empty?
 
-        l << "#include \"#{header_name}\""
+            sig.each{|a| l << "assert(#{Node.field_name(a)});" }
 
-        l.sep
+            l.sep
 
-        @dep_types.select{|t| !nodes.is_error?(t) }.each do |type|
-          l << "#include \"#{Node.header_name(type)}\""
+            sig.each{|a| l << "#{Node.field_name(a)}->m_rooted = true;" }
+
+            yield if block_given?
+          end
+          l.trim << "}"
         end
 
-        l.sep
+        if syms.length <= 1 && syms.all? {|k, v| (!k || k.length <= 1) && v.length <= 1 }
+          emit_ctor.([], [
+            *("#{Node.field_name(@@AltMembName)}(#{syms.first[1].first})" if use_alts?),
+            *("#{Node.field_name(@@SymMembName)}(#{sym_name(syms.first[0].first)})" if use_syms?),
+          ]) unless syms.empty?
+        else
+          items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
+          emit_ctor.([
+            "#{@@AltEnumName} #{@@AltMembName}",
+            "#{@@SymEnumName} #{@@SymMembName}",
+          ], [
+            "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
+            "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
+          ]) unless items.empty?
 
-        @@namespace.each{|n| (l << "namespace #{n} {").group }
-
-        @ctors.each do |sig, syms|
-          sigset = Set.new(sig)
-          memb_inits = @member_order.select{|m| sigset.include?(m) }
-            .map{|m| "#{Node.field_name(m)}(#{m})" }
-
-          emit_ctor = lambda do |args, inits|
-            l.sep << "#{qual_name(class_name)}(#{[
-              *args,
-              *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
-              "const location &loc"
-            ].join(", ")})"
-            l.peek << " {" if memb_inits.empty? && inits.empty?
+          items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
+          emit_ctor.([
+            "#{@@SymEnumName} #{@@SymMembName}",
+          ], [
+            "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
+          ]) do
+            l << "switch(#{Node.field_name(@@SymMembName)}) {"
+            c = l.curr
             l.fmt with_indent: "  " do
-              l << ": #{[
-                "FormaAST(loc)",
-                *memb_inits,
-                *inits,
-              ].join(", ")} {" unless memb_inits.empty? && inits.empty?
+              items.each do |syms, alts|
+                syms.each{|s| c << "case #{sym_name(s)}:" }
 
-              sig.each{|a| l << "assert(#{Node.field_name(a)});" }
-
-              l.sep
-
-              sig.each{|a| l << "#{Node.field_name(a)}->m_rooted = true;" }
-
-              yield if block_given?
+                l << "#{Node.field_name(@@AltMembName)} = #{alts.first};"
+                l << "break;"
+              end
             end
             l.trim << "}"
+          end unless items.empty?
+
+          items = syms.select{|k, v| !k || k.length <= 1 }
+          emit_ctor.([
+            "#{@@AltEnumName} #{@@AltMembName}",
+          ], [
+            "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
+          ]) do
+            l << "switch(#{Node.field_name(@@AltMembName)}) {"
+            l.group
+            c = l.curr
+            l.fmt with_indent: "  " do
+              items.each do |syms, alts|
+                alts.each{|s| c << "case #{s}:" }
+
+                l << "#{Node.field_name(@@SymMembName)} = #{sym_name(syms.first)};"
+                l << "break;"
+              end
+
+            end
+            l.trim << "}"
+          end unless items.empty?
+        end
+      end
+
+      l.sep
+
+      l << "#{qual_name("~#{class_name}")}() {"
+      l.group
+      l.fmt with_indent: "  " do
+        if use_alts?
+          l << "switch (#{Node.field_name(@@AltMembName)}) {"
+          c = l.curr
+          l.fmt with_indent: "  " do
+            @ctor_alts.each do |sig, alts|
+              alts.each do |alt|
+                c << "case #{enum_name(alt)}:"
+              end
+
+              sig.each do |arg|
+                l << "delete #{Node.field_name(arg)};"
+              end
+
+              l << "break;"
+            end
           end
-
-          if syms.length <= 1 && syms.all? {|k, v| (!k || k.length <= 1) && v.length <= 1 }
-            emit_ctor.([], [
-              *("#{Node.field_name(@@AltMembName)}(#{syms.first[1].first})" if use_alts?),
-              *("#{Node.field_name(@@SymMembName)}(#{sym_name(syms.first[0].first)})" if use_syms?),
-            ]) unless syms.empty?
-          else
-            items = syms.select{|k, v| k && k.length > 1 && v.length > 1 }
-            emit_ctor.([
-              "#{@@AltEnumName} #{@@AltMembName}",
-              "#{@@SymEnumName} #{@@SymMembName}",
-            ], [
-              "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
-              "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
-            ]) unless items.empty?
-
-            items = syms.select{|k, v| k && k.length > 1 && v.length <= 1 }
-            emit_ctor.([
-              "#{@@SymEnumName} #{@@SymMembName}",
-            ], [
-              "#{Node.field_name(@@SymMembName)}(#{@@SymMembName})",
-            ]) do
-              l << "switch(#{Node.field_name(@@SymMembName)}) {"
-              c = l.curr
-              l.fmt with_indent: "  " do
-                items.each do |syms, alts|
-                  syms.each{|s| c << "case #{sym_name(s)}:" }
-
-                  l << "#{Node.field_name(@@AltMembName)} = #{alts.first};"
-                  l << "break;"
-                end
-              end
-              l.trim << "}"
-            end unless items.empty?
-
-            items = syms.select{|k, v| !k || k.length <= 1 }
-            emit_ctor.([
-              "#{@@AltEnumName} #{@@AltMembName}",
-            ], [
-              "#{Node.field_name(@@AltMembName)}(#{@@AltMembName})",
-            ]) do
-              l << "switch(#{Node.field_name(@@AltMembName)}) {"
-              c = l.curr
-              l.fmt with_indent: "  " do
-                items.each do |syms, alts|
-                  alts.each{|s| c << "case #{s}:" }
-
-                  l << "#{Node.field_name(@@SymMembName)} = #{sym_name(syms.first)};"
-                  l << "break;"
-                end
-
-              end
-              l.trim << "}"
-            end unless items.empty?
+          l.trim << "}"
+        else
+          # This handles both cases of @ctors.length = 0..1
+          @ctors.each do |sig, _|
+            sig.each do |arg|
+              l << "delete #{Node.field_name(arg)};"
+            end
           end
         end
+      end
+      l.trim << "}"
 
-        l.sep
+      l.sep
 
-        l << "#{qual_name("~#{class_name}")}() {"
-        l.group
+      l << "void #{qual_name("print")}(std::ostream &"
+      l.peek << "os" if printable?
+      l.peek << ") const {"
+
+      if printable?
         l.fmt with_indent: "  " do
+          emit_format = lambda do |format|
+            format.each do |spec|
+              case spec
+                when String
+                  l << "os << #{spec.inspect};" unless spec.length == 0
+                when Symbol
+                  l << "#{Node.field_name(spec)}->print(os);"
+              end
+            end
+          end
+
           if use_alts?
             l << "switch (#{Node.field_name(@@AltMembName)}) {"
             c = l.curr
             l.fmt with_indent: "  " do
-              @ctor_alts.each do |sig, alts|
+              @format.each do |formats, alts|
                 alts.each do |alt|
                   c << "case #{enum_name(alt)}:"
                 end
 
-                sig.each do |arg|
-                  l << "delete #{Node.field_name(arg)};"
-                end
+                if formats.length > 1
+                  l << "switch (#{Node.field_name(@@SymMembName)}) {"
+                  c = l.curr
+                  l.fmt with_indent: "  " do
+                    formats.each do |sym, fmt|
+                      c << "case #{sym_name(sym)}:"
 
+                      emit_format.(fmt)
+                    end
+
+                    c << "default: break;" if formats.length < format_syms.length
+                  end
+                  l.trim << "}"
+                else
+                  formats.each_value{|f| emit_format.(f) }
+                end
                 l << "break;"
               end
             end
             l.trim << "}"
           else
-            # This handles both cases of @ctors.length = 0..1
-            @ctors.each do |sig, _|
-              sig.each do |arg|
-                l << "delete #{Node.field_name(arg)};"
-              end
+            @format.each_key do |formats|
+              formats.each_value{|f| emit_format.(f) }
             end
           end
         end
         l.trim << "}"
+      else
+        l.peek << "}"
+      end
 
-        l.sep
-
-        l << "void #{qual_name("print")}(std::ostream &"
-        l.peek << "os" if printable?
-        l.peek << ") const {"
-
-        if printable?
-          l.fmt with_indent: "  " do
-            emit_format = lambda do |format|
-              format.each do |spec|
-                case spec
-                  when String
-                    l << "os << #{spec.inspect};" unless spec.length == 0
-                  when Symbol
-                    l << "#{Node.field_name(spec)}->print(os);"
-                end
-              end
-            end
-
-            if use_alts?
+      @members.each do |name, type|
+        l.sep << "const #{Node.just_class_name(type)} *#{qual_name(name)}() const {"
+        l.fmt with_indent: "  " do
+          if use_alts? && use_default_value?(name)
+            if @member_alts[name].length > 1
               l << "switch (#{Node.field_name(@@AltMembName)}) {"
               c = l.curr
               l.fmt with_indent: "  " do
-                @format.each do |formats, alts|
-                  alts.each do |alt|
-                    c << "case #{enum_name(alt)}:"
-                  end
-
-                  if formats.length > 1
-                    l << "switch (#{Node.field_name(@@SymMembName)}) {"
-                    c = l.curr
-                    l.fmt with_indent: "  " do
-                      formats.each do |sym, fmt|
-                        c << "case #{sym_name(sym)}:"
-
-                        emit_format.(fmt)
-                      end
-
-                      c << "default: break;" if formats.length < format_syms.length
-                    end
-                    l.trim << "}"
-                  else
-                    formats.each_value{|f| emit_format.(f) }
-                  end
-                  l << "break;"
+                @member_alts[name].each do |alt|
+                  c << "case #{enum_name(alt)}:"
                 end
+
+                l.peek << " return #{Node.field_name(name)};"
+
+                c << "default: return nullptr;"
               end
               l.trim << "}"
             else
-              @format.each_key do |formats|
-                formats.each_value{|f| emit_format.(f) }
+              l << "if (#{Node.field_name(@@AltMembName)} == #{@member_alts[name].first})"
+              l.fmt with_indent: "  " do
+                l << "return #{Node.field_name(name)};"
               end
+              l << "else return nullptr;"
             end
+          else
+            l << "return #{Node.field_name(name)};"
           end
-          l.trim << "}"
-        else
-          l.peek << "}"
         end
+        l.trim << "}"
+      end
 
-        @members.each do |name, type|
-          l.sep << "const #{Node.just_class_name(type)} *#{qual_name(name)}() const {"
-          l.fmt with_indent: "  " do
-            if use_alts? && use_default_value?(name)
-              if @member_alts[name].length > 1
-                l << "switch (#{Node.field_name(@@AltMembName)}) {"
-                c = l.curr
-                l.fmt with_indent: "  " do
-                  @member_alts[name].each do |alt|
-                    c << "case #{enum_name(alt)}:"
-                  end
+      if use_alts?
+        l.sep << "#{qual_name(@@AltEnumName)} #{qual_name(@@AltMembName)}() const {"
 
-                  l.peek << " return #{Node.field_name(name)};"
-
-                  c << "default: return nullptr;"
-                end
-                l.trim << "}"
-              else
-                l << "if (#{Node.field_name(@@AltMembName)} == #{@member_alts[name].first})"
-                l.fmt with_indent: "  " do
-                  l << "return #{Node.field_name(name)};"
-                end
-                l << "else return nullptr;"
-              end
-            else
-              l << "return #{Node.field_name(name)};"
-            end
-          end
-          l.trim << "}"
+        l.fmt with_indent: "  " do
+          l << "return #{Node.field_name(@@AltMembName)};"
         end
+        l.trim << "}"
+      end
 
-        if use_alts?
-          l.sep << "#{qual_name(@@AltEnumName)} #{qual_name(@@AltMembName)}() const {"
+      if use_syms?
+        l.sep << "#{qual_name(@@SymEnumName)} #{qual_name(@@SymMembName)}() const {"
 
-          l.fmt with_indent: "  " do
-            l << "return #{Node.field_name(@@AltMembName)};"
-          end
-          l.trim << "}"
+        l.fmt with_indent: "  " do
+          l << "return #{Node.field_name(@@SymMembName)};"
         end
-
-        if use_syms?
-          l.sep << "#{qual_name(@@SymEnumName)} #{qual_name(@@SymMembName)}() const {"
-
-          l.fmt with_indent: "  " do
-            l << "return #{Node.field_name(@@SymMembName)};"
-          end
-          l.trim << "}"
-        end
-
-        @@namespace.length.times{ l.trim << "}" }
+        l.trim << "}"
       end
     end
 

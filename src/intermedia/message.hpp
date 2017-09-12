@@ -6,5 +6,5 @@
 #include "util/cons.hpp"
 
 namespace fie {
-using FIMessageId = fun::cons_cell<bool, std::string>;
+using FIMessageId = fun::cons_cell<std::uint32_t, std::string>;
 }

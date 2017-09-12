@@ -134,4 +134,10 @@ struct hash<fun::cons_cell<TItems...>> {
     return fun::consHash(cell);
   }
 };
+template <typename... TItems>
+struct hash<const fun::cons_cell<TItems...>> {
+  std::size_t operator()(const fun::cons_cell<TItems...> &cell) const {
+    return fun::consHash(cell);
+  }
+};
 }

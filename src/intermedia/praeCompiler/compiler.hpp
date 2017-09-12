@@ -7,10 +7,11 @@
 
 #include "util/atom.hpp"
 
-#include "pipeline/stage.hpp"
+#include "pipeline/depends.hpp"
 
 #include "intermedia/bytecode.hpp"
 #include "intermedia/function.hpp"
+#include "intermedia/inputs.hpp"
 #include "intermedia/message.hpp"
 
 #include "closures/all.hpp"
@@ -31,9 +32,10 @@ namespace fie {
 // Compiler emitStore header with FuncClosure, matching node type
 #define EMITFS(name, ...) EMITF_(Store##name, name, ##__VA_ARGS__)
 
-class FIPraeCompiler : public fps::FProduces<FIFunction, std::uint32_t>,
-                       public fps::FProducesRef<std::string, std::uint32_t>,
-                       public fps::FProducesRef<FIMessageId, std::uint32_t> {
+class FIPraeCompiler : public fps::FDepends<const frma::FPStmts *>,
+                       public fps::FDepends<const frma::FPXFunc *> {
+  fun::FPtr<FIInputs> m_inputs;
+
   std::uint32_t EMITF_(LoadExprsInternal, Exprs);
   void EMITFL(Exprs, bool tuple = true);
   void EMITFL(Expr);
@@ -70,10 +72,11 @@ class FIPraeCompiler : public fps::FProduces<FIFunction, std::uint32_t>,
   void EMITF(Binding, bool mut);
 
 public:
-  std::uint32_t compileEntryPoint(const frma::FPStmts *);
+  FIPraeCompiler(fun::FPtr<FIInputs>);
 
-  std::vector<std::pair<const frma::FPBlock *, std::uint32_t>> compileBlocks(
-      const frma::FPrims *);
+  virtual void accept(const frma::FPStmts *) override;
+
+  virtual void accept(const frma::FPXFunc *) override;
 };
 
 #undef EMITFS

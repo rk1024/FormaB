@@ -1,18 +1,17 @@
 #pragma once
 
+#include "util/cons.hpp"
 #include "util/ptr.hpp"
 
-#include "pipeline/depends.hpp"
-
-#include "intermedia/assembly.hpp"
+#include "intermedia/inputs.hpp"
 
 namespace fie {
-class FIVerifier : public fps::FDepends<fun::FPtr<FIFunction>> {
-  fun::FPtr<FIAssembly> m_assem;
+class FIVerifier : public fun::FObject {
+  fun::FPtr<FIInputs> m_inputs;
 
 public:
-  FIVerifier(fun::FPtr<FIAssembly> m_assem);
+  FIVerifier(fun::FPtr<FIInputs>);
 
-  virtual void accept(fun::FPtr<FIFunction>) override;
+  void verifyFunc(fun::cons_cell<std::uint32_t>);
 };
 }

@@ -14,6 +14,10 @@ struct cons_get;
 
 template <>
 struct cons_cell<> {
+  static cons_cell cons() { return cons_cell(); }
+
+  constexpr std::size_t size() const { return 0; }
+
   constexpr bool operator==(const cons_cell &) const { return true; }
   constexpr bool operator!=(const cons_cell &) const { return false; }
   constexpr bool operator<(const cons_cell &) const { return false; }
@@ -24,36 +28,43 @@ struct cons_cell<> {
 
 template <typename TCar, typename... TCdr>
 struct cons_cell<TCar, TCdr...> {
+  static cons_cell cons(TCar car, TCdr... cdr) {
+    return cons_cell(car, cons_cell<TCdr...>::cons(cdr...));
+  }
+
   template <std::size_t index>
-  using select_t = cons_get<index, TCar, TCdr...>;
+  using selector = cons_get<index, TCar, TCdr...>;
 
   TCar               car;
   cons_cell<TCdr...> cdr;
 
   cons_cell() = default;
 
-  cons_cell(const TCar &_car, const TCdr &... _cdr) : car(_car), cdr(_cdr...) {}
+  cons_cell(const TCar &_car, const cons_cell<TCdr...> &_cdr)
+      : car(_car), cdr(_cdr) {}
+
+  constexpr std::size_t size() const { return sizeof...(TCdr) + 1; }
 
   template <std::size_t idx>
   constexpr auto &      get() {
-    return select_t<idx>::get(*this);
+    return selector<idx>::get(*this);
   }
 
   template <std::size_t idx>
   constexpr const auto &get() const {
-    return select_t<idx>::get(*this);
+    return selector<idx>::get(*this);
   }
 
 #define CONS_COMPARE_A(op, inv)                                                \
   bool operator op(const cons_cell &rhs) const {                               \
     if (car inv rhs.car) return false;                                         \
-    return true;                                                               \
+    return cdr op rhs.cdr;                                                     \
   }
 
 #define CONS_COMPARE_E(op)                                                     \
   bool operator op(const cons_cell &rhs) const {                               \
     if (car op rhs.car) return true;                                           \
-    return false;                                                              \
+    return cdr op rhs.cdr;                                                     \
   }
 
   CONS_COMPARE_A(==, !=)
@@ -97,13 +108,8 @@ struct cons_get<0, TCar, TCdr...> {
 };
 
 template <typename... TArgs>
-cons_cell<TArgs...> cons(TArgs... args) {
-  return cons_cell<TArgs...>(std::forward<TArgs>(args)...);
-}
-
-template <typename... TArgs>
-const cons_cell<TArgs...> cons_const(TArgs... args) {
-  return cons_cell<TArgs...>(std::forward<TArgs>(args)...);
+constexpr cons_cell<TArgs...> cons(TArgs... args) {
+  return cons_cell<TArgs...>::cons(args...);
 }
 
 template <typename... TItems>

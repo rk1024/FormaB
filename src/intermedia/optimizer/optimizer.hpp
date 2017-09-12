@@ -1,13 +1,14 @@
 #pragma once
 
-#include "pipeline/depends.hpp"
+#include "util/cons.hpp"
+#include "util/object/object.hpp"
 
 #include "intermedia/function.hpp"
 
 namespace fie {
-class FIOptimizer : public fps::FDepends<fun::FPtr<FIFunction>> {
+class FIOptimizer : public fun::FObject {
 
 public:
-  virtual void accept(fun::FPtr<FIFunction>) override;
+  void optimizeFunc(fun::cons_cell<std::uint32_t>);
 };
 }

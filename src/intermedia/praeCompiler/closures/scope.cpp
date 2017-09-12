@@ -119,8 +119,10 @@ namespace pc {
       auto it = m_borrowed.find(pair.first);
 
       if (it != m_borrowed.end())
-        modified.emplace_back(
-            it->second, pair.first, pair.second.get<0>(), pair.second.get<1>());
+        modified.push_back(fun::cons(it->second,
+                                     pair.first,
+                                     pair.second.get<0>(),
+                                     pair.second.get<1>()));
     }
 
     return modified;
@@ -131,8 +133,8 @@ namespace pc {
 
     for (auto pair : m_vars) {
       if (m_borrowed.find(pair.first) == m_borrowed.end())
-        owned.emplace_back(
-            pair.first, pair.second.get<0>(), pair.second.get<1>());
+        owned.push_back(
+            fun::cons(pair.first, pair.second.get<0>(), pair.second.get<1>()));
     }
 
     return owned;

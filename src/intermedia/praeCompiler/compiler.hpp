@@ -7,8 +7,6 @@
 
 #include "util/atom.hpp"
 
-#include "pipeline/depends.hpp"
-
 #include "intermedia/bytecode.hpp"
 #include "intermedia/function.hpp"
 #include "intermedia/inputs.hpp"
@@ -32,8 +30,7 @@ namespace fie {
 // Compiler emitStore header with FuncClosure, matching node type
 #define EMITFS(name, ...) EMITF_(Store##name, name, ##__VA_ARGS__)
 
-class FIPraeCompiler : public fps::FDepends<const frma::FPStmts *>,
-                       public fps::FDepends<const frma::FPXFunc *> {
+class FIPraeCompiler : public fun::FObject {
   fun::FPtr<FIInputs> m_inputs;
 
   std::uint32_t EMITF_(LoadExprsInternal, Exprs);
@@ -74,9 +71,9 @@ class FIPraeCompiler : public fps::FDepends<const frma::FPStmts *>,
 public:
   FIPraeCompiler(fun::FPtr<FIInputs>);
 
-  virtual void accept(const frma::FPStmts *) override;
+  std::uint32_t compileEntryPoint(fun::cons_cell<const frma::FPStmts *>);
 
-  virtual void accept(const frma::FPXFunc *) override;
+  std::uint32_t compileFunc(fun::cons_cell<const frma::FPXFunc *>);
 };
 
 #undef EMITFS

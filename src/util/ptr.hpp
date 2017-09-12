@@ -310,7 +310,7 @@ public:
 
   template <typename... UArgs>
   U operator()(UArgs &&... args) {
-    (m_ptr.m_ptr->*m_memb)(std::forward<TArgs>(args)...);
+    return (m_ptr.m_ptr->*m_memb)(std::forward<TArgs>(args)...);
   }
 };
 
@@ -346,6 +346,12 @@ public:
   FWeakPtr(decltype(nullptr)) : FWeakPtr() {} // Keep this implicit.
 
   FWeakPtr() : FWeakPtr(static_cast<T *>(nullptr)) {}
+
+  template <typename U>
+  FWeakPtr(const FWeakPtr<U> &other) : m_ptr(other.m_ptr) {
+    static_assert(std::is_convertible<U, T>::value,
+                  "cannot convert pointer base type");
+  }
 
   FWeakPtr(const FWeakPtr<T> &) = default;
   FWeakPtr(FWeakPtr<T> &)       = default;
@@ -415,6 +421,9 @@ public:
   }
 
   friend struct std::hash<FWeakPtr>;
+
+  template <typename>
+  friend class FWeakPtr;
 };
 
 template <typename T>

@@ -2,11 +2,12 @@
 
 #include <cassert>
 
-#include "pipeline/transfer.hpp"
-
 #include "ast/walker.hpp"
 
+#include "debug/dumpFunction.hpp"
+#include "optimizer/optimizer.hpp"
 #include "praeCompiler/compiler.hpp"
+#include "verifier/verifier.hpp"
 
 using namespace frma;
 
@@ -49,14 +50,30 @@ public:
 void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
   auto pipe = fnew<EntryPointPipeline>();
 
-  auto id = std::to_string(m_entryPointIds.intern(stmts) + 1);
+  auto name =
+      "Entry point " + std::to_string(m_entryPointIds.intern(stmts) + 1);
 
-  pipe->input  = m_graph->node("[AST] Entry point " + id);
-  pipe->output = m_graph->node("[Func] Entry point " + id);
+  pipe->input    = m_graph->node("[AST] " + name);
+  pipe->compiled = m_graph->node("[Compiled] " + name);
+  pipe->verified = m_graph->node("[Verified] " + name);
+  pipe->output   = m_graph->node("[Done] " + name);
 
-  pipe->compile = m_graph->edge("compile", fps::transfer(stmts, m_compiler));
+  auto compiledData = pipe->compiled->data<std::uint32_t>(-1);
 
-  pipe->input >> pipe->compile >> pipe->output;
+  auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileEntryPoint);
+  auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
+  auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
+
+  pipe->input->data(stmts) >> compileRule >> compiledData;
+  compiledData >> verifyRule;
+  compiledData >> dumpRule;
+
+  pipe->compile = m_graph->edge("compile", compileRule);
+  pipe->verify  = m_graph->edge("verify", verifyRule);
+  pipe->dump    = m_graph->edge("dump", dumpRule);
+
+  pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
+      pipe->verified >> pipe->dump >> pipe->output;
 
   m_entryPoints[stmts] = pipe;
 
@@ -73,12 +90,27 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
 
   auto name = "Function " + std::to_string(m_funcIds.intern(func) + 1);
 
-  pipe->input  = m_graph->node("[AST] " + name);
-  pipe->output = m_graph->node("[Func] " + name);
+  pipe->input    = m_graph->node("[AST] " + name);
+  pipe->compiled = m_graph->node("[Compiled] " + name);
+  pipe->verified = m_graph->node("[Verified] " + name);
+  pipe->output   = m_graph->node("[Func] " + name);
 
-  pipe->compile = m_graph->edge("compile", fps::transfer(func, m_compiler));
+  auto compiledData = pipe->compiled->data<std::uint32_t>(-1);
 
-  pipe->input >> pipe->compile >> pipe->output;
+  auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileFunc);
+  auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
+  auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
+
+  pipe->input->data(func) >> compileRule >> compiledData;
+  compiledData >> verifyRule;
+  compiledData >> dumpRule;
+
+  pipe->compile = m_graph->edge("compile", compileRule);
+  pipe->verify  = m_graph->edge("verify", verifyRule);
+  pipe->dump    = m_graph->edge("dump", dumpRule);
+
+  pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
+      pipe->verified >> pipe->dump >> pipe->output;
 
   m_funcs[func] = pipe;
 
@@ -91,9 +123,12 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
 }
 
 FIScheduler::FIScheduler(fun::FPtr<fps::FDepsGraph> graph,
-                         fun::FPtr<FIInputs>        inputs,
-                         fun::FPtr<FIPraeCompiler>  compiler)
-    : m_graph(graph), m_inputs(inputs), m_compiler(compiler) {}
+                         fun::FPtr<FIInputs>        inputs)
+    : m_graph(graph),
+      m_inputs(inputs),
+      m_compiler(fnew<FIPraeCompiler>(inputs)),
+      m_verifier(fnew<FIVerifier>(inputs)),
+      m_dumpFunc(fnew<FIDumpFunction>(inputs, std::cerr)) {}
 
 void FIScheduler::schedule(const frma::FPrims *prims) {
   Walker walker(fun::wrap(this));

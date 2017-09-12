@@ -56,16 +56,16 @@ void FDepsGraphEdge::run() {
   for (auto out : m_outs) assert(!out.lock()->m_ready);
 #endif
 
-  m_action->run();
+  m_rule->run();
   m_state = Done;
 
   for (auto out : m_outs) out.lock()->stat();
 }
 
-FDepsGraphEdge::FDepsGraphEdge(const std::string &         name,
-                               fun::FWeakPtr<FDepsGraph>   graph,
-                               fun::FPtr<FDepsGraphAction> action)
-    : m_name(name), m_graph(graph), m_action(action) {}
+FDepsGraphEdge::FDepsGraphEdge(const std::string &           name,
+                               fun::FWeakPtr<FDepsGraph>     graph,
+                               fun::FPtr<FDataGraphRuleBase> rule)
+    : m_name(name), m_graph(graph), m_rule(rule) {}
 
 fun::FPtr<FDepsGraphNode> FDepsGraph::node(const std::string &name) {
   auto node = fnew<FDepsGraphNode>(name);
@@ -73,9 +73,9 @@ fun::FPtr<FDepsGraphNode> FDepsGraph::node(const std::string &name) {
   return node;
 }
 
-fun::FPtr<FDepsGraphEdge> FDepsGraph::edge(const std::string &         name,
-                                           fun::FPtr<FDepsGraphAction> action) {
-  auto edge = fnew<FDepsGraphEdge>(name, fun::weak(this), action);
+fun::FPtr<FDepsGraphEdge> FDepsGraph::edge(const std::string &           name,
+                                           fun::FPtr<FDataGraphRuleBase> rule) {
+  auto edge = fnew<FDepsGraphEdge>(name, fun::weak(this), rule);
   m_edges.push_back(edge);
   return edge;
 }

@@ -56,7 +56,6 @@ RNinja.run(rn_dir: "build/rninja") do
       "-Wdeprecated",
       "-Wextra",
       "-Wimplicit",
-      "-Wimplicit-fallthrough",
       "-Winvalid-noreturn",
       "-Wmissing-noreturn",
       "-Wmissing-prototypes",
@@ -71,6 +70,7 @@ RNinja.run(rn_dir: "build/rninja") do
       "-Wthread-safety",
       "-Wunreachable-code-aggressive",
       "-Wunused",
+      "-Werror=implicit-fallthrough",
       "-Werror=old-style-cast",
       "-Werror=return-type",
       *(diagnostic ? [
@@ -152,8 +152,8 @@ RNinja.run(rn_dir: "build/rninja") do
 
   build astgen_from, also: astgen_imply, with: "ruby",
     from: "$astgen",
-    imply: var_paths(:src_d, "parser.in.ypp", "scanner.in.lpp", "ast/token.in.hpp"),
-    after: [
+    imply: [
+      *var_paths(:src_d, "parser.in.ypp", "scanner.in.lpp", "ast/token.in.hpp"),
       "$script_d/ast.rb",
       *var_glob(:script_d, "astgen/**/*.rb"),
     ],
@@ -165,9 +165,11 @@ RNinja.run(rn_dir: "build/rninja") do
 
   set includes: ["$src_d", "$build_d"].map{|i| "-I#{i}" }
 
+  folders = %i[ast intermedia pipeline util]
+
   [
     "$src_d/formab.cpp",
-    *%i[ast intermedia util].flat_map{|f| var_glob(:src_d, "#{f}/**/*.cpp") },
+    *folders.flat_map{|f| var_glob(:src_d, "#{f}/**/*.cpp") },
   ].each do |file|
     obj = File.change_ext(file.sub("$src_d", "$build_d"), ".o")
     build obj, from: file,
@@ -176,7 +178,7 @@ RNinja.run(rn_dir: "build/rninja") do
   end
 
   [
-    *%i[ast intermedia utils].flat_map{|f| var_glob(:src_d, "#{f}/**/*.re") },
+    *folders.flat_map{|f| var_glob(:src_d, "#{f}/**/*.re") },
   ].each do |file|
     rel = File.rel_path(file, "$src_d")
     src = var_path(:build_d, "#{rel}.cpp")

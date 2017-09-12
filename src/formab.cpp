@@ -1,14 +1,19 @@
 #include <cstdio>
 #include <list>
 
-#include "pipeline/functional.hpp"
+#include "pipeline/depsGraph.hpp"
+
+#include "lexerDriver.hpp"
+#include "parser.hpp"
+#include "parserTag.hpp"
+
+#include "ast/walker.hpp"
 
 #include "intermedia/debug/dumpFunction.hpp"
 #include "intermedia/optimizer/optimizer.hpp"
 #include "intermedia/praeCompiler/compiler.hpp"
-#include "lexerDriver.hpp"
-#include "parser.hpp"
-#include "parserTag.hpp"
+#include "intermedia/scheduler.hpp"
+#include "intermedia/verifier/verifier.hpp"
 
 using namespace frma;
 using namespace fie;
@@ -16,7 +21,8 @@ using namespace fie;
 int main(int argc, char **argv) {
   FILE *      infile;
   std::string filename("???");
-#ifdef _DEBUG
+  bool        dot = false;
+#if defined(DEBUG)
   bool verbose = false;
 #endif
 
@@ -27,12 +33,14 @@ int main(int argc, char **argv) {
     for (size_t i = 1; i < argc; ++i) {
       std::string arg(argv[i]);
       if (doFlags) {
-#ifdef _DEBUG
+#if defined(DEBUG)
         if (arg == "-v")
           verbose = true;
         else
 #endif
-            if (arg == "--")
+            if (arg == "--dot")
+          dot = true;
+        else if (arg == "--")
           doFlags = false;
         else
           args.push_back(arg);
@@ -54,7 +62,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-#ifdef _NDEBUG
+#if defined(NDEBUG)
   try {
 #endif
     frma::FormaParserTag tag(filename);
@@ -63,7 +71,7 @@ int main(int argc, char **argv) {
 
     lex.inFile(infile);
 
-#ifdef _DEBUG
+#if defined(DEBUG)
     if (verbose) {
       lex.debug(true);
       parse.set_debug_level(1);
@@ -80,31 +88,39 @@ int main(int argc, char **argv) {
     //   std::cerr << "WARNING: no output" << std::endl;
 
     if (success && tag.prims) {
-      auto compiler  = fnew<FIPraeCompiler>();
-      auto optimizer = fnew<FIOptimizer>();
-      auto dumpFunc  = fnew<FIDumpFunction>(std::cerr);
+      auto graph = fnew<fps::FDepsGraph>();
 
-      fps::connect<FIFunction>(*compiler, *dumpFunc);
-      fps::connect<std::string>(*compiler, *dumpFunc);
-      fps::connect<FIMessageId>(*compiler, *dumpFunc);
+      auto assem    = fnew<fie::FIAssembly>();
+      auto inputs   = fnew<fie::FIInputs>(assem);
+      auto compiler = fnew<FIPraeCompiler>(inputs);
 
-      auto blocks = compiler->compileBlocks(tag.prims);
+      auto sched = fnew<fie::FIScheduler>(graph, inputs, compiler);
+
+      sched->schedule(tag.prims);
+
+      if (dot)
+        graph->dot(std::cout);
+      else
+        graph->run();
+
+      // auto assem     = fnew<FIAssembly>();
+      // auto verifier  = fnew<FIVerifier>(assem);
+      // auto optimizer = fnew<FIOptimizer>();
+      // auto dumpFunc  = fnew<FIDumpFunction>(assem, std::cerr);
+
+      // compiler->connect(verifier);
+
+      // fps::connect<FIFunction>(*verifier, *dumpFunc);
+
+      // auto blocks = compiler->compileBlocks(tag.prims);
     }
-
-    // if (success) {
-    //   // FDumbInterpreter interp(tag.prims);
-
-    //   // interp.run();
-    // }
-
-    std::cout << std::endl;
 
     std::cerr << tag.errors().size() << " error";
     if (tag.errors().size() != 1) std::cerr << "s";
     std::cerr << "." << std::endl;
 
     return tag.errors().size() ? 1 : 0;
-#ifdef _NDEBUG
+#if defined(NDEBUG)
   } catch (std::exception &e) {
     std::cerr << e.what() << std::endl;
     return -1;

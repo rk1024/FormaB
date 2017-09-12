@@ -6,6 +6,10 @@ module ASTGen
   Node.class_base = "frma::FormaAST"
   Node.class_token = "frma::FToken"
 
+  Node.header_dir = "ast"
+  Node.header_base = "ast/astBase.hpp"
+  Node.header_token = "ast/token.hpp"
+
   Node.name_prefixes = {
     prae: "P",
   }

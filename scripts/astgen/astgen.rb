@@ -31,11 +31,14 @@ module ASTGen
 
         p = File.join(data[:astDir], ASTGen.camel_name(name.to_s))
 
-        list << "#{p}.cpp" if outs
         list << "#{p}.hpp" if impl
       end
 
+      list << File.join(data[:astDir], "ast.cpp") if outs
       list << File.join(data[:astDir], "ast.hpp") if impl
+
+      list << File.join(data[:astDir], "walker.cpp") if outs
+      list << File.join(data[:astDir], "walker.hpp") if impl
 
       list
     end
@@ -329,15 +332,22 @@ module ASTGen
               File.open(file_path(data[:astDir], name, "hpp"), "w") do |f|
                 f << node.emit_head(nodes) << "\n"
               end
+            end
 
-              File.open(file_path(data[:astDir], name, "cpp"), "w") do |f|
-                f << node.emit_body(nodes) << "\n"
-              end
+            File.open(File.join(data[:astDir], "ast.cpp"), "w") do |f|
+              f << LineWriter.lines do |l|
+                Node.emit_body_start(l)
+
+                nodes.each do |name, node|
+                  node.emit_body(nodes, l)
+                end
+
+                Node.emit_body_end(l)
+              end<< "\n"
             end
 
             nodes.each_error do |name|
               File.open(file_path(data[:astDir], name, "hpp"), "w") {|f| f << "// Node header omitted\n" }
-              File.open(file_path(data[:astDir], name, "cpp"), "w") {|f| f << "// Node body omitted\n" }
             end
 
             File.open(File.join(data[:astDir], "ast.hpp"), "w") do |f|
@@ -347,6 +357,115 @@ module ASTGen
                 end << "\n"
               end
             end unless @@errored
+
+            File.open(File.join(data[:astDir], "walker.hpp"), "w") do |f|
+              f << LineWriter.lines do |l|
+                l << "#pragma once"
+
+                l.sep
+
+                l << "#include \"#{Node.header_name(:Ast)}\""
+
+                l.sep
+
+                Node.emit_ns_start(l)
+
+                l << "class #{Node.class_name(:Walker)} {"
+                l.group
+
+                vis = Vis.new(l, :private)
+
+                l.fmt with_indent: "  " do
+                  l << "bool m_walk = true;"
+
+                  vis << :protected
+
+                  nodes.each do |_, node|
+                    l << "virtual void visit(const #{node.just_class_name} *);"
+                  end
+
+                  l.sep << "inline void noWalk() { m_walk = false; }"
+
+                  vis << :public
+
+                  nodes.each do |_, node|
+                    l << "void walk(const #{node.just_class_name} *, bool = false);"
+                  end
+
+                  l.sep
+                end
+
+                l.trim << "};"
+
+                Node.emit_ns_end(l)
+              end << "\n"
+            end
+
+            File.open(File.join(data[:astDir], "walker.cpp"), "w") do |f|
+              f << LineWriter.lines do |l|
+                l << "#include \"#{Node.header_name(:Walker)}\""
+
+                l.sep
+
+                Node.emit_ns_start(l)
+
+                nodes.each do |_, node|
+                  l << "void #{Node.qual_name(:Walker, "visit")}(const #{node.just_class_name} *) {}"
+                end
+
+                nodes.each do |_, node|
+                  l.sep << "void #{Node.qual_name(:Walker, "walk")}(const #{node.just_class_name} *node, bool skip) {"
+
+                  l.fmt with_indent: "  " do
+                    l << "if (!skip) visit(node);"
+
+                    l.sep << "if (m_walk) {"
+                    l.group
+
+                    l.fmt with_indent: "  " do
+                      if node.use_alts?
+                        l.sep << "switch (node->#{Node.AltMembName}()) {"
+                        l.group
+                        c = l.curr
+
+                        l.fmt with_indent: "  " do
+                          node.ctor_alts.each do |sig_, alts|
+                            alts.each do |alt|
+                              c << "case #{node.qual_name(node.enum_name(alt))}:"
+                            end
+
+                            sig = sig_.select{|a| node.members[a] != :Token }
+
+                            if sig.length < 2
+                              l.peek << " #{[*sig.map{|a| "walk(node->#{a}());" }, "break;"].join(" ")}"
+                            else
+                              sig.each do |arg|
+                                l << "walk(node->#{arg}());"
+                              end
+                              l << "break;"
+                            end
+                          end
+                        end
+
+                        l.trim << "}"
+                      else
+                        node.ctors.each do |sig, _|
+                          sig.select{|a| node.members[a] != :Token }.each do |arg|
+                            l << "walk(node->#{arg}());"
+                          end
+                        end
+                      end
+                    end
+                    l.trim << "}"
+
+                    l << "else m_walk = true;"
+                  end
+                  l << "}"
+                end
+
+                Node.emit_ns_end(l)
+              end << "\n"
+            end
 
             File.open(data[:tokenOut], "w") do |f|
               File.foreach(data[:tokenIn]) do |line|

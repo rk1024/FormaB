@@ -97,6 +97,9 @@ void __fptr_log_id(std::ostream &, std::size_t, bool);
 #define _FPTR_INDENT _FPTR_DIAG(++__fptr_indent_lvl)
 #define _FPTR_OUTDENT _FPTR_DIAG(--__fptr_indent_lvl)
 
+template <typename, typename, typename...>
+class FMFPtr;
+
 template <typename T>
 class FPtr {
   T *m_ptr = nullptr;
@@ -112,8 +115,7 @@ class FPtr {
 #endif
 
 public:
-  inline T *      get() { return m_ptr; }
-  inline const T *get() const { return m_ptr; }
+  inline T *get() const { return m_ptr; }
 
   explicit FPtr(T *ptr) : m_ptr(ptr) {
     if (ptr)
@@ -211,21 +213,29 @@ public:
     return *this;
   }
 
-  inline T *operator->() {
+  inline T *operator->() const {
     _FPTR_LOG("\e[38;5;4mop\e[39m ->");
+    assert(m_ptr);
     return m_ptr;
   }
-  inline T &operator*() {
+  inline T &operator*() const {
     _FPTR_LOG("\e[38;5;4mop\e[39m *");
+    assert(m_ptr);
     return *m_ptr;
   }
-  inline const T *operator->() const {
-    _FPTR_LOG("const \e[38;5;4mop\e[39m ->");
-    return m_ptr;
+
+  template <typename U>
+  inline U operator->*(U T::*memb) const {
+    _FPTR_LOG("\e[38;5;4mop\e[39m ->*");
+    assert(m_ptr);
+    return m_ptr->*memb;
   }
-  inline const T &operator*() const {
-    _FPTR_LOG("const \e[38;5;4mop\e[39m *");
-    return *m_ptr;
+
+  template <typename U, typename... TArgs>
+  inline FMFPtr<T, U, TArgs...> operator->*(U (T::*memb)(TArgs...)) const {
+    _FPTR_LOG("\e[38;5;4mop\e[39m ->*");
+    assert(m_ptr);
+    return FMFPtr<T, U, TArgs...>(*this, memb);
   }
 
   inline bool operator==(const FPtr &rhs) const {
@@ -264,10 +274,44 @@ public:
     return !!m_ptr;
   }
 
+  template <typename U>
+  inline auto operator<<(U &&rhs) {
+    return m_ptr->operator<<(std::forward<U>(rhs));
+  }
+
+  template <typename U>
+  inline auto operator>>(U &&rhs) {
+    return m_ptr->operator>>(std::forward<U>(rhs));
+  }
+
+  template <typename... TArgs>
+  inline auto operator[](TArgs &&... args) {
+    return m_ptr->operator[](std::forward<TArgs>(args)...);
+  }
+
   friend struct std::hash<FPtr>;
 
   template <typename>
   friend class FPtr; // For access into other pointer types
+
+  template <typename, typename, typename...>
+  friend class FMFPtr;
+};
+
+template <typename T, typename U, typename... TArgs>
+class FMFPtr {
+  using PMF_t = U (T::*)(TArgs...);
+
+  fun::FPtr<T> m_ptr;
+  PMF_t        m_memb;
+
+public:
+  FMFPtr(fun::FPtr<T> ptr, PMF_t memb) : m_ptr(ptr), m_memb(memb) {}
+
+  template <typename... UArgs>
+  U operator()(UArgs &&... args) {
+    (m_ptr.m_ptr->*m_memb)(std::forward<TArgs>(args)...);
+  }
 };
 
 template <typename T>

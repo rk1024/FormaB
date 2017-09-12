@@ -7,8 +7,6 @@
 
 #include "util/dumpHex.hpp"
 
-#include "pipeline/functional.hpp"
-
 using namespace frma;
 using namespace fie::pc;
 
@@ -164,21 +162,7 @@ void EMITFL(XControl) {
 
 void EMITFL(XFunc) {
   MOVE;
-  FIBytecode body;
-  auto       closure2 = fnew<FuncClosure>(body, node);
-
-  emitFuncParams(closure2, node->params());
-
-  emitLoadExpr(closure2, node->expr());
-
-  if (closure2->body()->instructions.empty() ||
-      closure2->body()
-              ->instructions.at(closure2->body()->instructions.size() - 1)
-              .op != FIOpcode::Ret)
-    closure2->emit(FIOpcode::Ret);
-
-  closure->emit(FIOpcode::Ldfun,
-                produce<FIFunction>(this, fnew<FIFunction>(body)));
+  closure->emit(FIOpcode::Ldfun, -1);
 }
 
 void EMITFL(XInfix) {
@@ -229,8 +213,9 @@ void EMITFL(XMsg) {
 
     auto sel = node->sel();
 
-    std::ostringstream          oss;
-    std::vector<const FPExpr *> exprs;
+    std::ostringstream oss;
+    std::uint32_t      count =
+        1; // The count's already at 1 because of the message receiver
 
     MATCH_(sel) {
     case OF_(sel, Unary): oss << sel->tok()->toString(); break;
@@ -256,6 +241,7 @@ void EMITFL(XMsg) {
         auto kw = kwStack.top();
         kwStack.pop();
         oss << kw->id()->toString();
+        ++count;
         emitLoadExpr(closure, kw->expr());
       }
       break;
@@ -265,7 +251,7 @@ void EMITFL(XMsg) {
 
     closure->emit(
         FIOpcode::Msg,
-        produce<FIMessageId>(this, fun::cons(IS_(sel, Unary), oss.str())));
+        m_inputs->assem()->msgs().intern(fun::cons(count, oss.str())));
     break;
   }
   case OF(Error):
@@ -308,7 +294,7 @@ void EMITFL(XPrim) {
   case OF(Parens): return emitLoadXParen(closure, node->paren());
   case OF(DQLiteral):
     closure->emit(FIOpcode::Ldstr,
-                  produce<std::string>(this, node->tok()->toString()));
+                  m_inputs->assem()->strings().intern(node->tok()->toString()));
     break;
   case OF(SQLiteral): NOTIMPL;
   default: FAIL;
@@ -600,49 +586,28 @@ void EMITF(Binding, bool mut) {
       FIOpcode::Stvar, closure->scope()->bind(node->id()->value(), mut));
 }
 
-std::uint32_t FIPraeCompiler::compileEntryPoint(const FPStmts *stmts) {
+FIPraeCompiler::FIPraeCompiler(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
+
+void FIPraeCompiler::accept(const FPStmts *node) {
   FIBytecode body;
-  auto       closure = fnew<FuncClosure>(body, stmts);
+  auto       closure = fnew<FuncClosure>(body, node);
 
-  emitStmts(closure, stmts);
+  emitStmts(closure, node);
 
-  if (closure->body()->instructions.empty() ||
-      closure->body()
-              ->instructions.at(closure->body()->instructions.size() - 1)
-              .op != FIOpcode::Ret)
-    closure->emit(FIOpcode::Ret);
+  closure->emit(FIOpcode::Ldvoid).emit(FIOpcode::Ret);
 
-  return produce<FIFunction>(this, fnew<FIFunction>(body));
+  /* return */ m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
 }
 
+void FIPraeCompiler::accept(const FPXFunc *node) {
+  FIBytecode body;
+  auto       closure = fnew<FuncClosure>(body, node);
 
-std::vector<std::pair<const FPBlock *, std::uint32_t>> FIPraeCompiler::
-    compileBlocks(const FPrims *node) {
-  std::stack<const FPrim *> stack;
+  emitFuncParams(closure, node->params());
+  emitLoadExpr(closure, node->expr());
 
-  while (node) {
-    MATCH {
-    case OF(Empty): node = nullptr; break;
-    case OF(Primaries):
-      stack.push(node->prim());
-      node = node->prims();
-      break;
-    case OF(Primary):
-      stack.push(node->prim());
-      node = nullptr;
-      break;
-    }
-  }
+  closure->emit(FIOpcode::Ret);
 
-  std::vector<std::pair<const FPBlock *, std::uint32_t>> ret;
-
-  while (stack.size()) {
-    if (stack.top()->alt() == FPrim::PraeBlock)
-      ret.emplace_back(stack.top()->praeblk(),
-                       compileEntryPoint(stack.top()->praeblk()->stmts()));
-    stack.pop();
-  }
-
-  return ret;
+  /* return */ m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
 }
 }

@@ -674,13 +674,12 @@ module ASTGen
             *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
             "const location &loc"
           ].join(", ")})"
-          l.peek << " {" if memb_inits.empty? && inits.empty?
           l.fmt with_indent: "  " do
             l << ": #{[
               "FormaAST(loc)",
               *memb_inits,
               *inits,
-            ].join(", ")} {" unless memb_inits.empty? && inits.empty?
+            ].join(", ")} {"
 
             sig.each{|a| l << "assert(#{Node.field_name(a)});" }
 

@@ -13,10 +13,12 @@ namespace fie {
 class FIInputs : public fun::FObject {
   fun::FPtr<FIAssembly> m_assem;
   std::unordered_map<const frma::FormaAST *, std::uint32_t> m_funcs;
+  std::unordered_map<const frma::FormaAST *, std::uint32_t> m_structs;
 
 public:
   inline fun::FPtr<FIAssembly> assem() { return m_assem; }
-  inline decltype(m_funcs) &   funcs() { return m_funcs; }
+  inline auto &                funcs() { return m_funcs; }
+  inline auto &                structs() { return m_structs; }
 
   FIInputs(fun::FPtr<FIAssembly>);
 };

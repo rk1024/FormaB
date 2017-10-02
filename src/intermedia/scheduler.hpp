@@ -27,12 +27,19 @@ class FIScheduler : public fun::FObject {
     fun::FPtr<fps::FDepsGraphNode> input, output;
   };
 
-  struct FuncPipeline : Pipeline {
+  struct CompilePipeline : fun::FObject {
+    fun::FPtr<fps::FDepsGraphNode> input, output;
+    fun::FPtr<fps::FDepsGraphEdge> compile;
+  };
+
+  struct FuncPipeline : CompilePipeline {
     fun::FPtr<fps::FDepsGraphNode> compiled, verified;
-    fun::FPtr<fps::FDepsGraphEdge> compile, verify, dump;
+    fun::FPtr<fps::FDepsGraphEdge> verify, dump;
   };
 
   struct EntryPointPipeline : FuncPipeline {};
+
+  struct TypePipeline : CompilePipeline {};
 
   fun::FPtr<fps::FDepsGraph> m_graph;
   fun::FPtr<FIInputs>        m_inputs;
@@ -41,6 +48,7 @@ class FIScheduler : public fun::FObject {
   fun::FPtr<FIDumpFunction>  m_dumpFunc;
 
   fun::FAtomStore<const frma::FPXFunc *> m_funcIds;
+  fun::FAtomStore<const frma::FPDType *> m_typeIds;
   fun::FAtomStore<const frma::FPStmts *> m_entryPointIds;
 
   std::unordered_map<const frma::FPXFunc *, fun::FPtr<FuncPipeline>> m_funcs;
@@ -55,6 +63,8 @@ class FIScheduler : public fun::FObject {
   void scheduleEntryPoint(const frma::FPStmts *);
 
   void scheduleFunc(const frma::FPXFunc *);
+
+  void scheduleType(const frma::FPDType *);
 
 public:
   FIScheduler(fun::FPtr<fps::FDepsGraph>, fun::FPtr<FIInputs>);

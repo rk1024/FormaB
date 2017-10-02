@@ -19,11 +19,12 @@ namespace pc {
         std::uint32_t>;
 
   private:
-    fun::FPtr<ScopeClosure> m_scope;
+    fun::FPtr<ScopeClosure> m_args, m_scope;
     unsigned int            m_nextScopeId = 0;
     FIBytecode *            m_body;
 
   public:
+    inline fun::FPtr<ScopeClosure> args() { return m_args; }
     inline fun::FPtr<ScopeClosure> scope() const { return m_scope; }
     inline FIBytecode *            body() const { return m_body; }
 

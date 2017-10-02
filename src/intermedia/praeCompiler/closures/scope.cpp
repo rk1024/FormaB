@@ -9,23 +9,43 @@ namespace pc {
   std::string ScopeClosure::assembleName(const std::string &name,
                                          unsigned int       phi,
                                          unsigned int       count) {
-    assert(m_id != ID_NONE);
+    assert(m_isArgs || m_id != ID_NONE);
 
     std::ostringstream oss;
-    oss << m_id << "@" << name;
+    if (m_isArgs)
+      oss << 'a';
+    else
+      oss << m_id;
+    oss << '@' << name;
     if (count != COUNT_CONST) {
-      if (phi) oss << "^" << phi;
-      oss << "`" << count;
+      if (phi) oss << '^' << phi;
+      oss << '`' << count;
     }
     return oss.str();
   }
+
+  template <bool          required>
+  fun::FPtr<ScopeClosure> ScopeClosure::holderOf(const std::string &name) {
+    if (m_vars.find(name) != m_vars.end()) return fun::wrap(this);
+    if (m_parent) return m_parent->holderOf<required>(name);
+    if (required)
+      m_func.lock()->error("variable '" + name + "' not declared");
+    else
+      return nullptr;
+  }
+
+  template fun::FPtr<ScopeClosure> ScopeClosure::holderOf<false>(
+      const std::string &name);
+
+  template fun::FPtr<ScopeClosure> ScopeClosure::holderOf<true>(
+      const std::string &name);
 
   std::uint32_t ScopeClosure::recordName(const std::string &name,
                                          unsigned int       phi,
                                          unsigned int       count) {
     auto func = m_func.lock();
 
-    if (m_id == ID_NONE) {
+    if (!m_isArgs && m_id == ID_NONE) {
       m_id = func->m_nextScopeId;
       ++func->m_nextScopeId;
 
@@ -53,25 +73,10 @@ namespace pc {
     return recordName(name, phi, count);
   }
 
-  template <bool          required>
-  fun::FPtr<ScopeClosure> ScopeClosure::holderOf(const std::string &name) {
-    if (m_vars.find(name) != m_vars.end()) return fun::wrap(this);
-    if (m_parent) return m_parent->holderOf<required>(name);
-    if (required)
-      m_func.lock()->error("variable '" + name + "' not declared");
-    else
-      return nullptr;
-  }
-
-  template fun::FPtr<ScopeClosure> ScopeClosure::holderOf<false>(
-      const std::string &name);
-
-  template fun::FPtr<ScopeClosure> ScopeClosure::holderOf<true>(
-      const std::string &name);
-
-  ScopeClosure::ScopeClosure(fun::FWeakPtr<FuncClosure> func_,
+  ScopeClosure::ScopeClosure(bool                       isArgs,
+                             fun::FWeakPtr<FuncClosure> func_,
                              fun::FPtr<ScopeClosure>    parent)
-      : m_func(func_), m_parent(parent), m_id(ID_NONE) {}
+      : m_func(func_), m_parent(parent), m_id(ID_NONE), m_isArgs(isArgs) {}
 
   std::uint32_t ScopeClosure::bind(const std::string &name, bool mut) {
     return recordVar(fun::weak(this), name, 0, mut ? 0 : COUNT_CONST, mut);

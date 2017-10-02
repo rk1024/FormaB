@@ -5,7 +5,10 @@
 namespace fie {
 namespace pc {
   FuncClosure::FuncClosure(FIBytecode &body, const frma::FormaAST *curr)
-      : PositionTracker(curr), m_body(&body) {
+      : PositionTracker(curr),
+        m_args(fnew<ScopeClosure>(true, fun::weak(this), nullptr)),
+        m_body(&body) {
+    m_scope = m_args;
     pushScope();
   }
 
@@ -29,7 +32,7 @@ namespace pc {
   }
 
   void FuncClosure::pushScope() {
-    m_scope = fnew<ScopeClosure>(fun::weak(this), m_scope);
+    m_scope = fnew<ScopeClosure>(false, fun::weak(this), m_scope);
   }
 
   void FuncClosure::dropScope() { m_scope = m_scope->parent(); }

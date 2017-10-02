@@ -110,6 +110,10 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
       m_os << "msg\e[0m \e[38;5;3m"
            << m_inputs->assem()->msgs().value(ins.u4).get<1>();
       break;
+    case FIOpcode::Curry:
+      m_os << "curry\e[0m \e[38;5;3m"
+           << m_inputs->assem()->keywords().value(ins.u4).get<1>();
+      break;
 
     case FIOpcode::Tpl:
       m_os << "tpl\e[0m \e[38;5;5m" << fun::dumpHex(ins.u4);

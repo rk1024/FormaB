@@ -63,7 +63,8 @@ enum class FIOpcode : std::int8_t {
   Cvr4, // cvr4 [val -> r4]
   Cvr8, // cvr8 [val -> r8]
 
-  Msg, // msg <msg:u4> [args... -> return]
+  Msg,   // msg   <msg:u4> [recv, args... -> return]
+  Curry, // curry <msg:u4> [recv, arg -> return]
 
   Tpl, // tpl  <size:u4> [value[size] -> tuple]
 };

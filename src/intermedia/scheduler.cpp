@@ -22,13 +22,15 @@ public:
 
 class FIScheduler::Walker : public WalkerBase {
 protected:
-  virtual void visit(const FPBlock *blk) {
+  virtual void visit(const FPBlock *blk) override {
     assert(blk->alt() != FPBlock::Error);
 
     m_sched->scheduleEntryPoint(blk->stmts());
   }
 
-  virtual void visit(const FPXFunc *func) { m_sched->scheduleFunc(func); }
+  virtual void visit(const FPXFunc *func) override {
+    m_sched->scheduleFunc(func);
+  }
 
 public:
   Walker(fun::FPtr<FIScheduler> sched) : WalkerBase(sched) {}
@@ -38,7 +40,7 @@ class FIScheduler::DepWalker : public WalkerBase, public fun::FObject {
   fun::FPtr<fps::FDepsGraphEdge> m_edge;
 
 protected:
-  virtual void visit(const FPXFunc *func) {
+  virtual void visit(const FPXFunc *func) override {
     m_sched->m_funcs.at(func)->output >> m_edge;
   }
 
@@ -120,6 +122,19 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
                     static_cast<void (DepWalker::*)(const FPXFunc *, bool)>(
                         &DepWalker::walk)),
                 reinterpret_cast<const void *>(func)));
+}
+
+void FIScheduler::scheduleType(const FPDType *type) {
+  auto pipe = fnew<TypePipeline>();
+
+  auto name = "Type " + std::to_string(m_typeIds.intern(type) + 1);
+
+  pipe->input  = m_graph->node("[AST] " + name);
+  pipe->output = m_graph->node("[Type] " + name);
+
+  auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileType);
+
+  pipe->compile = m_graph->edge("compile", compileRule);
 }
 
 FIScheduler::FIScheduler(fun::FPtr<fps::FDepsGraph> graph,

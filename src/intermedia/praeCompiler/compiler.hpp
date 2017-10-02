@@ -54,19 +54,22 @@ class FIPraeCompiler : public fun::FObject {
   void EMITFS(XPrim);
   void EMITFS(XUnary);
 
-  void EMITF(FuncParams);
-  void EMITF(FuncParam);
-
   void EMITF(Stmts);
   void EMITF(Stmt);
 
   void EMITFL(SAssign);
   void EMITF(SBind);
   void EMITF(SControl);
+  void EMITF(SKeyword);
 
   void EMITFL(AssignValue);
   void EMITF(Bindings, bool mut);
   void EMITF(Binding, bool mut);
+
+  void EMITF(Decl);
+
+  void EMITF(DMsg);
+  void EMITF(DType);
 
 public:
   FIPraeCompiler(fun::FPtr<FIInputs>);
@@ -74,6 +77,8 @@ public:
   std::uint32_t compileEntryPoint(fun::cons_cell<const frma::FPStmts *>);
 
   std::uint32_t compileFunc(fun::cons_cell<const frma::FPXFunc *>);
+
+  std::uint32_t compileType(fun::cons_cell<const frma::FPDType *>);
 };
 
 #undef EMITFS

@@ -19,6 +19,7 @@ class FIAssembly : public fun::FObject {
   fun::FAtomStore<fun::FPtr<FIStruct>, std::uint32_t>         m_structs;
   fun::FAtomStore<fun::FPtr<FIInterface>, std::uint32_t>      m_interfaces;
   fun::FAtomStore<FIMessageId, std::uint32_t>                 m_msgs;
+  fun::FAtomStore<FIMessageKeyword, std::uint32_t>            m_keywords;
 
 public:
   auto &      funcs() { return m_funcs; }
@@ -31,6 +32,8 @@ public:
   const auto &interfaces() const { return m_interfaces; }
   auto &      msgs() { return m_msgs; }
   const auto &msgs() const { return m_msgs; }
+  auto &      keywords() { return m_keywords; }
+  const auto &keywords() const { return m_keywords; }
 
   FIAssembly();
 };

@@ -7,6 +7,8 @@
 
 #include "util/dumpHex.hpp"
 
+#include "intermedia/types/builtins.hpp"
+
 using namespace frma;
 using namespace fie::pc;
 
@@ -207,15 +209,52 @@ void EMITFL(XMember) {
 
 void EMITFL(XMsg) {
   MOVE;
-  MATCH {
-  case OF(Message): {
-    emitLoadXPrim(closure, node->expr());
 
+  emitLoadXPrim(closure, node->expr());
+
+  MATCH {
+  case OF(Coerce):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().intern(
+                      fun::cons<std::uint32_t, std::string>(0, "!")));
+    break;
+  case OF(Curry): {
     auto sel = node->sel();
 
+    MATCH_(sel) {
+    case OF_(sel, Unary):
+      closure->emit(FIOpcode::Curry,
+                    m_inputs->assem()->keywords().intern(
+                        fun::cons(false, sel->tok()->toString())));
+      break;
+    case OF_(sel, Keyword): {
+      std::stack<const FPMsgKeyword *> kwStack;
+      const FPMsgKeywords *            kws = sel->kws();
+
+      while (kws) {
+        kwStack.push(kws->kw());
+        kws = kws->kws();
+      }
+
+      while (kwStack.size()) {
+        auto kw = kwStack.top();
+        kwStack.pop();
+
+        emitLoadExpr(closure, kw->expr());
+        closure->emit(FIOpcode::Curry,
+                      m_inputs->assem()->keywords().intern(
+                          fun::cons(true, kw->id()->toString())));
+      }
+      break;
+    }
+    }
+
+    break;
+  }
+  case OF(Message): {
+    auto               sel = node->sel();
     std::ostringstream oss;
-    std::uint32_t      count =
-        1; // The count's already at 1 because of the message receiver
+    std::uint32_t      count = 1; // The receiver is the first parameter
 
     MATCH_(sel) {
     case OF_(sel, Unary): oss << sel->tok()->toString(); break;
@@ -224,17 +263,8 @@ void EMITFL(XMsg) {
       const FPMsgKeywords *            kws = sel->kws();
 
       while (kws) {
-        MATCH_(kws) {
-        case OF_(kws, Keywords):
-          kwStack.push(kws->kw());
-          kws = kws->kws();
-          break;
-        case OF_(kws, Keyword):
-          kwStack.push(kws->kw());
-          kws = nullptr;
-          break;
-        default: FAIL;
-        }
+        kwStack.push(kws->kw());
+        kws = kws->kws();
       }
 
       while (kwStack.size()) {
@@ -377,26 +407,6 @@ void EMITFS(XUnary) {
   }
 }
 
-void EMITF(FuncParams) {
-  MOVE;
-  MATCH {
-  case OF(Empty): break;
-  case OF(List): emitFuncParams(closure, node->params()); break;
-  case OF(Parameters): emitFuncParams(closure, node->params()); NEXT;
-  case OF(Parameter): emitFuncParam(closure, node->param()); break;
-  case OF(Error):
-  default: FAIL;
-  }
-}
-
-void EMITF(FuncParam) {
-  MOVE;
-  // NB: param->id()->value() ends with a colon (i.e. 'var:' instead of 'var')
-  closure->scope()->bind(
-      std::string(node->id()->value(), 0, node->id()->value().size() - 1),
-      false);
-}
-
 void EMITF(Stmts) {
   MOVE;
   MATCH {
@@ -414,6 +424,9 @@ void EMITF(Stmt) {
   case OF(Assign): emitLoadSAssign(closure, node->assign()); goto pop;
   case OF(Bind): emitSBind(closure, node->bind()); break;
   case OF(Control): emitSControl(closure, node->ctl()); break;
+  case OF(Keyword): emitSKeyword(closure, node->kw()); break;
+  case OF(NonSemiDecl):
+  case OF(SemiDecl): emitDecl(closure, node->decl()); break;
   case OF(NonSemiExpr):
   case OF(SemiExpr): emitLoadExpr(closure, node->expr()); goto pop;
   case OF(Error):
@@ -561,6 +574,20 @@ void EMITF(SControl) {
   }
 }
 
+void EMITF(SKeyword) {
+  MOVE;
+
+  MATCH {
+  case OF(Return): emitLoadExpr(closure, node->expr()); break;
+  default: break;
+  }
+
+  MATCH {
+  case OF(Return): closure->emit(FIOpcode::Ret); break;
+  default: FAIL;
+  }
+}
+
 void EMITFL(AssignValue) {
   MOVE;
   MATCH {
@@ -587,6 +614,68 @@ void EMITF(Binding, bool mut) {
       FIOpcode::Stvar, closure->scope()->bind(node->id()->value(), mut));
 }
 
+void EMITF(Decl) {
+  MOVE;
+  MATCH {
+  case OF(Message): emitDMsg(closure, node->msg()); break;
+  case OF(Type): emitDType(closure, node->type()); break;
+  default: FAIL;
+  }
+}
+
+void EMITF(DMsg) {
+  MOVE;
+
+  auto               sel = node->sel();
+  std::ostringstream oss;
+  std::uint32_t      count = 1; // The receiver is the first parameter
+
+  MATCH_(sel) {
+  case OF_(sel, Unary): oss << sel->tok()->toString(); break;
+  case OF_(sel, Keyword): {
+    std::stack<const FPMsgDeclKeyword *> kwStack;
+    const FPMsgDeclKeywords *            kws = sel->kws();
+
+    while (kws) {
+      MATCH_(kws) {
+      case OF_(kws, Keywords):
+        kwStack.push(kws->kw());
+        kws = kws->kws();
+        break;
+      case OF_(kws, Keyword):
+        kwStack.push(kws->kw());
+        kws = nullptr;
+        break;
+      default: FAIL;
+      }
+    }
+
+    while (kwStack.size()) {
+      auto kw = kwStack.top();
+      kwStack.pop();
+      oss << kw->key()->toString();
+      ++count;
+      // TODO
+    }
+    break;
+  }
+  default: FAIL;
+  }
+
+  // TODO: Introduce this message to the current scope or something.
+}
+
+void EMITF(DType) {
+  MOVE;
+
+  MATCH {
+  case OF(Interface): break;
+  case OF(Struct): break;
+  case OF(Variant): break;
+  default: FAIL;
+  }
+}
+
 FIPraeCompiler::FIPraeCompiler(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
 
 std::uint32_t FIPraeCompiler::compileEntryPoint(
@@ -598,7 +687,12 @@ std::uint32_t FIPraeCompiler::compileEntryPoint(
 
   closure->emit(FIOpcode::Ldvoid).emit(FIOpcode::Ret);
 
-  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
+  std::unordered_map<std::uint32_t, std::uint32_t> funcArgs;
+
+  for (auto info : closure->args()->getOwned())
+    funcArgs[closure->args()->get(info.get<0>())] = builtins::FIErrorT;
+
+  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
   m_inputs->funcs()[args.get<0>()] = id;
 
   return id;
@@ -607,16 +701,57 @@ std::uint32_t FIPraeCompiler::compileEntryPoint(
 std::uint32_t FIPraeCompiler::compileFunc(
     fun::cons_cell<const FPXFunc *> args) {
   FIBytecode body;
-  auto       closure = fnew<FuncClosure>(body, args.get<0>());
+  auto       node    = args.get<0>();
+  auto       closure = fnew<FuncClosure>(body, node);
 
-  emitFuncParams(closure, args.get<0>()->params());
-  emitLoadExpr(closure, args.get<0>()->expr());
+  std::stack<const FPFuncParam *> paramStack;
+  auto                            params = node->params();
+
+  while (params) {
+    MATCH_(params) {
+    case OF_(params, List): params  = params->params(); break;
+    case OF_(params, Empty): params = nullptr; break;
+    case OF_(params, Parameters):
+    case OF_(params, Parameter):
+      paramStack.push(params->param());
+      params = params->params();
+      break;
+    default: FAIL;
+    }
+  }
+
+  while (paramStack.size()) {
+    auto param = paramStack.top();
+    auto pat   = param->pat();
+    paramStack.pop();
+
+    MATCH_(pat) {
+    case OF_(pat, AnonAny):
+    case OF_(pat, AnonPattern): break;
+    case OF_(pat, NamedAny):
+    case OF_(pat, NamedPattern):
+      closure->args()->bind(pat->id()->value(), false);
+      break;
+    }
+  }
+
+  emitLoadExpr(closure, node->expr());
 
   closure->emit(FIOpcode::Ret);
 
-  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(body));
-  m_inputs->funcs()[args.get<0>()] = id;
+  std::unordered_map<std::uint32_t, std::uint32_t> funcArgs;
+
+  for (auto info : closure->args()->getOwned())
+    funcArgs[closure->args()->get(info.get<0>())] = builtins::FIErrorT;
+
+  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
+  m_inputs->funcs()[node] = id;
 
   return id;
+}
+
+std::uint32_t FIPraeCompiler::compileType(
+    fun::cons_cell<const frma::FPDType *>) {
+  return -1;
 }
 }

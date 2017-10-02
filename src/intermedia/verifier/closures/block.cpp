@@ -62,7 +62,7 @@ namespace vc {
   BlockClosure::BlockClosure(fun::FPtr<FIAssembly>                assem,
                              fun::FPtr<const FIFunction>          func,
                              std::queue<fun::FPtr<BlockClosure>> *q)
-      : m_assem(assem), m_func(func), m_q(q) {}
+      : m_assem(assem), m_func(func), m_q(q), m_vars(func->args()) {}
 
   BlockClosure::BlockClosure(fun::FPtr<BlockClosure> block, std::size_t pc)
       : m_assem(block->m_assem),
@@ -209,6 +209,11 @@ namespace vc {
                    builtins::FIVoid,
                    "message");
         break;
+      case FIOpcode::Curry:
+        handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
+                   builtins::FIErrorT,
+                   "curry");
+        break;
 
       case FIOpcode::Tpl: handlePHOp(ins.u4, builtins::FIVoid, "tuple"); break;
       }
@@ -217,6 +222,7 @@ namespace vc {
       case Move: ++m_pc; break;
       case Stay: break;
       case Stop: return;
+      default: assert(false);
       }
     }
   }

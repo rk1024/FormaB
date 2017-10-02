@@ -29,6 +29,7 @@ namespace pc {
     fun::FWeakPtr<FuncClosure> m_func;
     fun::FPtr<ScopeClosure>    m_parent;
     unsigned int               m_id;
+    bool                       m_isArgs;
     std::unordered_map<std::string, fun::cons_cell<unsigned int, unsigned int>>
         m_vars;
     std::unordered_map<std::string, fun::FWeakPtr<ScopeClosure>> m_borrowed;
@@ -49,7 +50,7 @@ namespace pc {
   public:
     inline fun::FPtr<ScopeClosure> parent() const { return m_parent; }
 
-    ScopeClosure(fun::FWeakPtr<FuncClosure>, fun::FPtr<ScopeClosure>);
+    ScopeClosure(bool, fun::FWeakPtr<FuncClosure>, fun::FPtr<ScopeClosure>);
 
     std::uint32_t bind(const std::string &, bool mut);
     std::uint32_t get(const std::string &);

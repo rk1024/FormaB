@@ -9,9 +9,11 @@ using System;
 @!prae{
   let min = (of:, and:) => if (of < and) of else and,
     max = (of:, and:) => if (of > and) of else and,
-    test = () => cout[print: "This is just a test."];
+    test = () => (let cout = 0; cout[print: "This is just a test."]); @@ TODO: Fix cout
 
   test[call];
+
+  let cout = nil, Rect = nil, assert = nil; @@ Because there's no standard library
 
   cout
     [print: 2 + 3]
@@ -27,16 +29,16 @@ using System;
     [print: (let x = 3, y = 2; "Min of x and y is: " + min[of: x and: y])]
     [print: 1.5[toString][replace: "." with: ","]];
 
-  @@ 3++;
+  @@ ++3;
 
-  @@ [Rect w: 16 h: 9];
+  Rect[w: 16 h: 9];
 
-  @@ let fn = [Rect curry: (2, 1)];
+  let fn = Rect[curry: (2, 1)];
 
-  @@ [assert
-  @@   expected: [fn call: (7, 3)]
-  @@   actual: [fn call: 7 | call: 3]
-  @@ ];
+  assert[
+    expected: fn[call: (7, 3)]
+    actual: fn[call: 7][call: 3]
+  ];
 
   @@ let myFn = (a:, b:) => {
   @@   [Kernel @return: 5];
@@ -50,6 +52,17 @@ using System;
 
   let functionalWhere = () => (let x = 5; x);
   let imperative = () => { let x = 5; x; };
+
+  var my = (let a = 5; a);
+  var your = (var b = 5; b);
+
+  {
+    your += 5;
+  };
+
+  your = my = -1;
+
+  while (var i = 0; i < 100) ++i;
 
   while (var i = 0; i < 100) {
     cout[print: i + (if (i % 2 == 0) " is even" else " is odd")];

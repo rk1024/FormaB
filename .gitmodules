@@ -1,8 +1,5 @@
-[submodule "scripts/NinjaSnek"]
-	path = scripts/NinjaSnek
-	url = git@github.com:rookie1024/NinjaSnek.git
-[submodule "scripts/RNinja"]
-	path = scripts/RNinja
+[submodule "scripts/rninja"]
+	path = scripts/rninja
 	url = git@github.com:rk1024/RNinja.git
 [submodule "tools/re2c"]
 	path = tools/re2c

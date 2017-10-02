@@ -19,11 +19,17 @@ public:
     return m_tracker->m_tracked;
   }
 
+  FObject() = default;
+
+  FObject(const FObject &) = default;
+  FObject(FObject &)       = default;
+  FObject(FObject &&)      = default;
+
   virtual ~FObject();
 
-  void acquire();
-  void release();
-  void reset();
+  void acquire() const;
+  void release() const;
+  void reset() const;
 
   friend class FRefTracker;
 };

@@ -1,9 +1,6 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
 
 require_relative "rninja/rninja"
-
-require "pathname"
-require "subprocess"
 
 RNinja.run(rn_dir: "build/rninja") do
   afl = false # Compile with afl-fuzz instrumentation

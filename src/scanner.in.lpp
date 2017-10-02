@@ -116,7 +116,7 @@ SQuote \'
 DQuote \"
 BQuote \`
 
-IDStart [a-zA-Z_]
+IDStart [a-zA-Z]
 IDEscape @
 PPStart @#
 NumDecStart \.
@@ -132,6 +132,7 @@ QLEscape \\.
 PraeNumSign [-+]
 PraeDecPoint \.
 PraeHexNumStart 0x
+PraeDecNumStart [0-9]
 PraeOctNumStart 0o
 PraeBinNumStart 0b
 PraeHexDigit [0-9a-fA-F_]
@@ -189,7 +190,7 @@ PraeQLLineEsc \\\n
   /*{ignore me}*/
   {PraeBlockID} { $SL $ML $SSBEGIN(PraeBlockID) }
 
-  %astgen-token RawBlockID /{IDStart}{Identifier}*/ { $SL $ML $SSBEGIN(RawBlockID) } capture
+  %astgen-token RawBlockID /({IDStart}{Identifier}*|{Anon}{Identifier}+)/ { $SL $ML $SSBEGIN(RawBlockID) } capture
 }
 
 <SSRawBlockID>{
@@ -219,10 +220,10 @@ PraeQLLineEsc \\\n
   %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
   %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecNumStart}{PraeDecDigit}*{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
   %astgen-token PraeOctLiteral /{PraeNumSign}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
   %astgen-token PraeBinLiteral /{PraeNumSign}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeFloatLiteral /{PraeNumSign}?{PraeDecDigit}*{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}/ { $SL $ML } capture //: ignore me
+  %astgen-token PraeFloatLiteral /{PraeNumSign}?({PraeDecNumStart}|{Anon}{PraeDecDigit}+)?{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}/ { $SL $ML } capture //: ignore me
 
   %astgen-token KWBreak     "break"     { $SL $ML }
   %astgen-token KWCase      "case"      { $SL $ML }
@@ -247,9 +248,12 @@ PraeQLLineEsc \\\n
   %astgen-token KWTry       "try"       { $SL $ML }
   %astgen-token KWUnless    "unless"    { $SL $ML }
   %astgen-token KWVar       "var"       { $SL $ML }
+  %astgen-token KWVariant   "variant"   { $SL $ML }
+  %astgen-token KWVoid      "void"      { $SL $ML }
   %astgen-token KWWhile     "while"     { $SL $ML }
   %astgen-token KWYield     "yield"     { $SL $ML }
 
+  %astgen-token Anon     "_"   { $SL $ML }
   %astgen-token Asg      "="   { $SL $ML }
   %astgen-token Colon    ":"   { $SL $ML }
   %astgen-token Comma    ","   { $SL $ML }
@@ -259,6 +263,7 @@ PraeQLLineEsc \\\n
   %astgen-token DisAsg   "||=" { $SL $ML }
   %astgen-token Div      "/"   { $SL $ML }
   %astgen-token DivAsg   "/="  { $SL $ML }
+  %astgen-token Dot      "."   { $SL $ML }
   %astgen-token DotDot   ".."  { $SL $ML }
   %astgen-token Eql      "=="  { $SL $ML }
   %astgen-token FatArrow "=>"  { $SL $ML }
@@ -275,7 +280,6 @@ PraeQLLineEsc \\\n
   %astgen-token Mul      "*"   { $SL $ML }
   %astgen-token MulAsg   "*="  { $SL $ML }
   %astgen-token Neq      "!="  { $SL $ML }
-  %astgen-token Period   "."   { $SL $ML }
   %astgen-token Pipe     "|"   { $SL $ML }
   %astgen-token Add      "+"   { $SL $ML }
   %astgen-token AddAsg   "+="  { $SL $ML }

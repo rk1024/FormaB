@@ -15,7 +15,7 @@ FObject::~FObject() {
   }
 }
 
-void FObject::acquire() { tracker()->trackAcquire(); }
-void FObject::release() { tracker()->trackRelease(); }
-void FObject::reset() { tracker()->trackReset(); }
+void FObject::acquire() const { tracker()->trackAcquire(); }
+void FObject::release() const { tracker()->trackRelease(); }
+void FObject::reset() const { tracker()->trackReset(); }
 }

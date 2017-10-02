@@ -6,6 +6,10 @@ module ASTGen
   Node.class_base = "frma::FormaAST"
   Node.class_token = "frma::FToken"
 
+  Node.header_dir = "ast"
+  Node.header_base = "ast/astBase.hpp"
+  Node.header_token = "ast/token.hpp"
+
   Node.name_prefixes = {
     prae: "P",
   }
@@ -14,10 +18,12 @@ module ASTGen
     expression: "X",
     literal: "L",
     statement: "S",
+    declaration: "D",
   }
 
   Node.name_abbrevs = [
     ["Argument", "Arg"],
+    ["Declaration", "Decl"],
     ["Expression", "Expr"],
     ["Function", "Func"],
     ["Message", "Msg"],
@@ -151,7 +157,6 @@ ASTGen.run do
     ctor :Empty, fmt: []
     ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
     ctor :Statement, :stmt, fmt: :stmt
-    # ctor :Error, :stmts, fmt: [:stmts, "\n<ERROR>"]
 
     symbol :PraeStatementsPart do
       rule :Statements, [:PraeStatementsPart, :stmts], :stmt
@@ -160,7 +165,6 @@ ASTGen.run do
 
     symbol do
       rule :self, [:PraeStatementsPart, :self]
-      # rule :Error, [:PraeStatementsPart, :stmts], [:error], action: "yyerrok;"
     end
 
     symbol :PraeStatementsOpt do
@@ -194,18 +198,24 @@ ASTGen.run do
 
   node :PraeStatement do
     union do
+      let :PraeDeclaration, :decl
       let :PraeExpression, :expr
+      let :PraeKeywordStatement, :kw
       let :PraeBindStatement, :bind
       let :PraeAssignStatement, :assign
       let :PraeControlStatement, :ctl
     end
 
+    ctor [:SemiDecl, :NonSemiDecl], :decl
     ctor [:SemiExpr, :NonSemiExpr], :expr
+    ctor :Keyword, :kw, fmt: [:kw, ";"]
     ctor :Bind, :bind, fmt: [:bind, ";"]
     ctor :Assign, :assign, fmt: [:assign, ";"]
     ctor :Control, :ctl, fmt: :ctl
     ctor :Error, fmt: "<ERROR> ;"
 
+    fmt :SemiDecl, :decl, ";"
+    fmt :NonSemiDecl, :decl
     fmt :SemiExpr, :expr, ";"
     fmt :NonSemiExpr, :expr
 
@@ -220,8 +230,15 @@ ASTGen.run do
         end
       end
 
+      symbol :"Prae#{parts}DeclStatement" do
+        rule :SemiDecl, [:"Prae#{parts}SemiDeclaration", :decl], ";"
+        rule :NonSemiDecl, [:"Prae#{parts}NonSemiDeclaration", :decl]
+      end
+
       symbol :"Prae#{parts}Statement" do
         rule :self, [:"Prae#{parts}PureStatement", :self]
+        rule :self, [:"Prae#{parts}DeclStatement", :self]
+        rule :Keyword, [:"Prae#{parts}KeywordStatement", :kw], ";"
         rule :Bind, [:"Prae#{parts}BindStatement", :bind], ";"
         rule :Control, [:"Prae#{parts}ControlStatement", :ctl]
 
@@ -237,6 +254,243 @@ ASTGen.run do
     end
   end
 
+  node :PraeDeclaration do
+    union do
+      let :PraeMessageDeclaration, :msg
+      let :PraeTypeDeclaration, :type
+    end
+
+    ctor :Message, :msg, fmt: :msg
+    ctor :Type, :type, fmt: :type
+
+    do_exprs.() do |parts, open|
+      symbol :"Prae#{parts}SemiDeclaration" do
+        rule :Message, [:"Prae#{parts}MessageDeclaration", :msg]
+
+        case open
+          when :Closed
+            rule :Type, :type
+        end
+      end
+
+      symbol :"Prae#{parts}NonSemiDeclaration" do end
+    end
+  end
+
+  node :PraeMessageDeclaration do
+    let :PraeDeclPatternSpec, :target
+    let :PraeMessageDeclSelector, :sel
+    let :PraeExpression, :body
+
+    ctor :Message, :target, :sel, :body, fmt: ["let ", :target, " [", :sel, "] => ", :body]
+
+    do_exprs.() do |parts|
+      symbol :"Prae#{parts}MessageDeclaration" do
+        rule :Message, "let", :target, "[", :sel, "]", "=>", [:"Prae#{parts}Expression", :body]
+      end
+    end
+  end
+
+  node :PraeMessageDeclSelector do
+    union do
+      let :Token, :tok
+      let :PraeMessageDeclKeywords, :kws
+    end
+
+    ctor :Unary, :tok, fmt: :tok
+    ctor :Keyword, :kws, fmt: :kws
+
+    symbol do
+      rule :Unary, [:Identifier, :tok]
+      rule :Keyword, :kws
+    end
+  end
+
+  node :PraeMessageDeclKeywords do
+    let :PraeMessageDeclKeywords, :kws
+    let :PraeMessageDeclKeyword, :kw
+
+    ctor :Keywords, :kws, :kw, fmt: [:kws, " ", :kw]
+    ctor :Keyword, :kw, fmt: :kw
+
+    symbol do
+      rule :Keywords, :kws, :kw
+      rule :Keyword, :kw
+    end
+  end
+
+  node :PraeMessageDeclKeyword do
+    let :Token, :key
+    let :PraeDeclPatternSpec, :pat
+
+    ctor :Keyword, :key, :pat, fmt: [:key, " ", :pat]
+
+    symbol do
+      rule :Keyword, [:AtomKeyword, :key], :pat
+    end
+  end
+
+  node :PraeDeclPatternSpec do
+    let :Token, :id
+    let :PraeDeclPattern, :pat
+
+    ctor :AnonAny, fmt: "_"
+    ctor :NamedAny, :id, fmt: :id
+    ctor :AnonPattern, :pat, fmt: ""
+    ctor :NamedPattern, :pat, :id, fmt: [" ", :id]
+
+    symbol do
+      rule :self, [:PraeAnonDeclPatternSpec, :self]
+      rule :self, [:PraeNamedDeclPatternSpec, :self]
+    end
+
+    symbol :PraeAnonDeclPatternSpec do
+      rule :AnonAny, "_"
+      rule :AnonPattern, :pat, "_"
+    end
+
+    symbol :PraeNamedDeclPatternSpec do
+      rule :NamedAny, [:Identifier, :id]
+      rule :NamedPattern, :pat, [:Identifier, :id]
+    end
+  end
+
+  node :PraeDeclPattern do
+    let :Token, :tok
+
+    ctor :Type, :tok, fmt: :tok
+
+    symbol do
+      rule :Type, [:Identifier, :tok]
+    end
+  end
+
+  node :PraeTypeDeclaration do
+    let :PraeTypeDeclId, :id
+
+    union do
+      let :PraeStructStatements, :strukt
+      let :PraeVariantStatements, :variant
+    end
+
+    ctor :Struct, :id, :strukt, fmt: ["let ", :id, " => struct {\n", :strukt, "\n}"]
+    ctor :Variant, :id, :variant, fmt: ["let ", :id, " => variant {\n", :variant, "\n}"]
+    ctor :Interface, :id, fmt: ["let ", :id, " => interface {\n", "\n}"]
+
+    symbol do
+      rule :Struct, "let", :id, "=>", "struct", "{", [:PraeStructStatementsOpt, :strukt], "}"
+      rule :Variant, "let", :id, "=>", "variant", "{", [:PraeVariantStatementsOpt, :variant], "}"
+      rule :Interface, "let", :id, "=>", "interface", "{", "}"
+    end
+  end
+
+  node :PraeTypeDeclId do
+    let :Token, :id
+    let :PraeMessageDeclSelector, :sel
+
+    ctor :Simple, :id, fmt: :id
+    ctor :Template, :id, :sel, fmt: [:id, "(", :sel, ")"]
+
+    symbol do
+      rule :Simple, [:Identifier, :id]
+      rule :Template, [:Identifier, :id], "(", :sel, ")"
+    end
+  end
+
+  node :PraeStructStatements do
+    let :PraeStructStatements, :stmts
+    let :PraeStructStatement, :stmt
+
+    ctor :Empty, fmt: []
+    ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
+    ctor :Statement, :stmt, fmt: :stmt
+
+    symbol :PraeStructStatementsOpt do
+      rule :Empty
+      rule :self, [:PraeStructStatements, :self]
+    end
+
+    symbol do
+      rule :Statements, :stmts, :stmt
+      rule :Statement, :stmt
+    end
+  end
+
+  node :PraeStructStatement do
+    let :Token, :type
+    let :Token, :id
+
+    ctor :Member, :type, :id, fmt: ["let ", :type, " ", :id, ";"]
+
+    symbol do
+      rule :Member, "let", [:Identifier, :type], [:Identifier, :id], ";"
+    end
+  end
+
+  node :PraeVariantStatements do
+    let :PraeVariantStatements, :stmts
+    let :PraeVariantStatement, :stmt
+
+    ctor :Empty, fmt: []
+    ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
+    ctor :Statement, :stmt, fmt: :stmt
+
+    symbol :PraeVariantStatementsOpt do
+      rule :Empty
+      rule :self, [:PraeVariantStatements, :self]
+    end
+
+    symbol do
+      rule :Statements, :stmts, :stmt
+      rule :Statement, :stmt
+    end
+  end
+
+  node :PraeVariantStatement do
+    let :Token, :type
+    let :Token, :id
+
+    ctor :Type, :type, :id, fmt: ["let ", :type, " => ", :id, ";"]
+    ctor :VoidType, :type, fmt: ["let ", :type, " => void;"]
+
+    symbol do
+      rule :Type, "let", [:Identifier, :type], "=>", [:Identifier, :id], ";"
+      rule :VoidType, "let", [:Identifier, :type], "=>", "void", ";"
+    end
+  end
+
+  node :PraeKeywordStatement do
+    let :PraeExpression, :expr
+
+    toks = {
+      Break: "break",
+      Next: "next",
+      Return: "return",
+      Yield: "yield",
+    }
+
+    single = [:Return, :Yield]
+
+    unary = [:Break, :Next]
+
+    ctor single, :expr
+    ctor unary
+
+    single.each{|a| fmt a, "#{toks[a]} ", :expr }
+    unary.each{|a| fmt a, toks[a] }
+
+    do_exprs.() do |parts, open|
+      symbol :"Prae#{parts}KeywordStatement" do
+        single.each{|a| rule a, toks[a], [:"Prae#{parts}Expression", :expr] }
+
+        case open
+          when :Closed
+            unary.each{|a| rule a, toks[a] }
+        end
+      end
+    end
+  end
+
   node :PraeBindStatement do
     let :PraeBindings, :binds
 
@@ -248,13 +502,11 @@ ASTGen.run do
     do_exprs.() do |parts|
       symbol :"Prae#{parts}LetStatement" do
         rule :Let, "let", [:"Prae#{parts}Bindings", :binds]
-        # rule :Let, "let", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
 
       symbol :"Prae#{parts}BindStatement" do
         rule :self, [:"Prae#{parts}LetStatement", :self]
         rule :Var, "var", [:"Prae#{parts}Bindings", :binds]
-        # rule :Var, "var", [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
       end
     end
 
@@ -423,11 +675,12 @@ ASTGen.run do
 
   node :PraeFunctionParameter do
     let :Token, :id
+    let :PraeDeclPatternSpec, :pat
 
-    ctor :Parameter, :id, fmt: :id
+    ctor :Parameter, :id, :pat, fmt: [:id, " ", :pat]
 
     symbol do
-      rule :Parameter, [:AtomKeyword, :id]
+      rule :Parameter, [:AtomKeyword, :id], :pat
     end
   end
 
@@ -613,6 +866,7 @@ ASTGen.run do
       let :Token, :tok
       let :PraeNumericLiteral, :numeric
       let :PraeBooleanLiteral, :boolean
+      let :PraeNullLiteral, :null
       let :PraeParenExpression, :paren
       let :PraeBlockExpression, :block
       let :PraeMessageExpression, :message
@@ -627,6 +881,7 @@ ASTGen.run do
     ctor toks, :tok, fmt: :tok
     ctor :Numeric, :numeric, fmt: :numeric
     ctor :Boolean, :boolean, fmt: :boolean
+    ctor :Null, :null, fmt: :null
     ctor :Parens, :paren, fmt: :paren
     ctor :Block, :block, fmt: :block
     ctor :Message, :message, fmt: :message
@@ -635,6 +890,7 @@ ASTGen.run do
       toks.select{|t| t != :Identifier }.each{|t| rule t, [t, :tok] }
       rule :Numeric, :numeric
       rule :Boolean, :boolean
+      rule :Null, :null
       rule :Parens, :paren
       rule :Block, :block
       rule :Message, :message
@@ -667,6 +923,16 @@ ASTGen.run do
     symbol do
       rule :True, "true"
       rule :False, "false"
+    end
+  end
+
+  node :PraeNullLiteral do
+    ctor :Nil, fmt: "nil"
+    ctor :Void, fmt: "void"
+
+    symbol do
+      rule :Nil, "nil"
+      rule :Void, "void"
     end
   end
 
@@ -712,11 +978,17 @@ ASTGen.run do
     let :PraePrimaryExpression, :expr
     let :PraeMessageSelector, :sel
 
-    ctor :Message, :expr, :sel, fmt: [:expr, "[", :sel, "]"]
+    ctor [:Message, :Curry], :expr, :sel
+    ctor :Coerce, :expr, fmt: [:expr, "!"]
     ctor :Error, :expr, fmt: [:expr, "[ <ERROR> ]"]
+
+    fmt :Message, :expr, " [", :sel, "]"
+    fmt :Curry, :expr, " ?[", :sel, "]"
 
     symbol do
       rule :Message, :expr, "[", :sel, "]"
+      rule :Curry, :expr, "?", "[", :sel, "]"
+      rule :Coerce, :expr, "!"
       rule :Error, :expr, "[", [:error], "]", action: "yyerrok;"
     end
   end

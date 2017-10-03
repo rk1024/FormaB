@@ -111,6 +111,8 @@ module ASTGen
         symbol_list.errors
       )
 
+      tokens = Token.scan(data[:flexIn], @d)
+
       used_syms = Set[*@no_elide]
       q = [*used_syms]
 
@@ -149,6 +151,31 @@ module ASTGen
         pass += 1
       end
 
+      term_syms = Set[]
+
+      loop do
+        any = false
+
+        symbols.reject{|n, _| term_syms.include?(n) }.each do |name, sym|
+          if sym.syntax.any? do |syms, _|
+            syms.map{|s| s.is_a?(String) ? s : sym.symbol_from_spec(s) }
+              .all?{|s| term_syms.include?(s) || !symbols.include?(s) }
+          end
+            term_syms << name
+            any = true unless any
+          end
+        end
+
+        break unless any
+      end
+
+      symbols.each_valid_key.reject{|n, _| term_syms.include?(n) }.each do |sym|
+        @d.info_v("eliding non-terminating symbol #{@d.hl(sym)}")
+        symbols.make_error(sym)
+      end
+
+      symbols.each_value{|s| s.prune_syntax(symbols) }
+
       elided_aliases = Set.new
 
       symbols.each do |name, sym|
@@ -179,8 +206,6 @@ module ASTGen
       symbols.each_value{|s| used_nodes << s.node.name }
 
       nodes.each{|m, n| n.unused = true unless used_nodes.include?(m) }
-
-      tokens = Token.scan(data[:flexIn], @d)
 
       [nodes, symbols, tokens]
     end

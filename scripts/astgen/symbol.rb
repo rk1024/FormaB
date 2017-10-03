@@ -234,7 +234,7 @@ module ASTGen
 
     def symbol_from_spec(spec)
       case spec
-        when Symbol; return @node.members.is_error?(spec) ? nil : @node.members[spec]
+        when Symbol; return @node.members[spec] unless @node.members.is_error?(spec)
         when Array; return spec[0] if (1..2) === spec.length
       end
       nil
@@ -286,7 +286,9 @@ module ASTGen
           end
 
           l.fmt with_indent: "  " do
+            @d.p(@syntax, long: true) if @name === :PraeExpression
             @syntax.each_with_index.select{|(_, a), _| !@actions.is_error?(a) }.each do |(syms, alt), i|
+              @d.p([syms, alt], long: true) if @name === :PraeExpression
               l.peek << " |" if i > 0
 
               l << "#{syms.none? ? "%empty" : syms.map do |sym|

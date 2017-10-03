@@ -371,16 +371,17 @@ ASTGen.run do
     union do
       let :PraeStructStatements, :strukt
       let :PraeVariantStatements, :variant
+      let :PraeInterfaceStatements, :interface
     end
 
     ctor :Struct, :id, :strukt, fmt: ["let ", :id, " => struct {\n", :strukt, "\n}"]
     ctor :Variant, :id, :variant, fmt: ["let ", :id, " => variant {\n", :variant, "\n}"]
-    ctor :Interface, :id, fmt: ["let ", :id, " => interface {\n", "\n}"]
+    ctor :Interface, :id, :interface, fmt: ["let ", :id, " => interface {\n", :interface, "\n}"]
 
     symbol do
       rule :Struct, "let", :id, "=>", "struct", "{", [:PraeStructStatementsOpt, :strukt], "}"
       rule :Variant, "let", :id, "=>", "variant", "{", [:PraeVariantStatementsOpt, :variant], "}"
-      rule :Interface, "let", :id, "=>", "interface", "{", "}"
+      rule :Interface, "let", :id, "=>", "interface", "{", [:PraeInterfaceStatementsOpt, :interface], "}"
     end
   end
 
@@ -456,6 +457,47 @@ ASTGen.run do
     symbol do
       rule :Type, "let", [:Identifier, :type], "=>", [:Identifier, :id], ";"
       rule :VoidType, "let", [:Identifier, :type], "=>", "void", ";"
+    end
+  end
+
+  node :PraeInterfaceStatements do
+    let :PraeInterfaceStatements, :stmts
+    let :PraeInterfaceStatement, :stmt
+
+    ctor :Empty, fmt: []
+    ctor :Statements, :stmts, :stmt, fmt: [:stmts, "\n", :stmt]
+    ctor :Statement, :stmt, fmt: :stmt
+
+    symbol :PraeInterfaceStatementsOpt do
+      rule :Empty
+      rule :self, [:PraeInterfaceStatements, :self]
+    end
+
+    symbol do
+      rule :Statements, :stmts, :stmt
+      rule :Statement, :stmt
+    end
+  end
+
+  node :PraeInterfaceStatement do
+    let :PraeInterfaceMessageDeclaration, :msg
+
+    ctor :Message, :msg, fmt: :msg
+
+    symbol do
+      rule :Message, :msg
+    end
+  end
+
+  node :PraeInterfaceMessageDeclaration do
+    let :Token, :id
+    let :PraeMessageDeclSelector, :sel
+    let :PraeExpression, :body
+
+    ctor :Message, :id, :sel, :body, fmt: ["let ", :id, " [", :sel, "] => ", :body]
+
+    symbol do
+      rule :Message, "let", [:Identifier, :id], "[", :sel, "]", "=>", [:PraeExpression, :body]
     end
   end
 

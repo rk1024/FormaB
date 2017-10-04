@@ -21,7 +21,7 @@ RNinja.run(rn_dir: "build/rninja") do
     ruby: "ruby",
     astgen: "$script_d/ast.rb",
     flex: "flex",
-    bison: "$script_d/run-bison.sh bison",
+    bison: "$script_d/run-bison bison",
     re2c: "$tool_d/re2c/re2c/re2c",
     cxx: afl ? "afl-clang++" : "clang++",
     ld: "$cxx",

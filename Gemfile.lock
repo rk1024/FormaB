@@ -1,0 +1,16 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    subprocess (1.3.2)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  subprocess (~> 1.3.2)
+
+RUBY VERSION
+   ruby 2.4.1p111
+
+BUNDLED WITH
+   1.15.4

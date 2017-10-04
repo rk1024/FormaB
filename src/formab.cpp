@@ -34,11 +34,11 @@ int main(int argc, char **argv) {
       std::string arg(argv[i]);
       if (doFlags) {
 #if defined(DEBUG)
-        if (arg == "-v")
+        if (arg == "--verbose" || arg == "-v")
           verbose = true;
         else
 #endif
-            if (arg == "--dot")
+            if (arg == "--dot" || arg == "-d")
           dot = true;
         else if (arg == "--")
           doFlags = false;
@@ -58,7 +58,12 @@ int main(int argc, char **argv) {
     filename = argv[1];
     break;
   default:
-    std::cerr << "Usage: " << argv[0] << " [input]" << std::endl;
+    std::cerr << "Usage: " << argv[0] << "[flags] [--] [input]" << std::endl;
+
+    std::cerr << "Flags:\n  \e[1m--verbose, -v\e[0m: Output extra information."
+              << std::endl
+              << "  \e[1m--dot, -d\e[0m: Output dependency graph as a dotfile."
+              << std::endl;
     return 1;
   }
 

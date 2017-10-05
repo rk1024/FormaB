@@ -75,18 +75,21 @@ typedef frma::parser::token tk;
 
 #define $SL yylloc->step();
 
-#define $MN(n) do { \
-  yylloc->columns(n); \
+#define $MN(n) yylloc->columns(n);
+
+#define $WN(n) do { \
+  yylloc->lines(n); \
   yylineno += n; \
 } while (false);
-
-#define $WN(n) yylloc->lines(n);
 
 #define $ML $MN(yyleng)
 #define $MO $MN(1)
 
 #define $WL $WN(yyleng)
 #define $WO $WN(1)
+
+#define $LN(n) yyless(n);
+
 YY_DECL;
 %}
 
@@ -96,6 +99,7 @@ Whitespace [ \r\t]
 Newline [\v\n]
 
 LCommentOpen @@
+LShebangCommentOpen #!
 LCommentClose \n
 LCommentInput [^\n]
 
@@ -148,6 +152,8 @@ PraeDQChar [^"\\\n]
 PraeQLEscape \\[^\n]
 PraeQLLineEsc \\\n
 
+%x SSStart
+
 %x SSBComment
 
 %x SSRawBlockStart
@@ -158,17 +164,21 @@ PraeQLLineEsc \\\n
 %x SSPraeSQLiteral
 %x SSPraeDQLiteral
 
-%x SSSyntaxExtArgs
-
 %x SSEscapedID
 
 %%
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<SSStart>{
+  /*{ignore me}*/
+  {LShebangCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO $SSPOP }
+  . { $SSPOP $LN(0) }
+}
+
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   {Whitespace}+ { $SL $ML }
 }
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
@@ -216,8 +226,6 @@ PraeQLLineEsc \\\n
 <SSPraeBlock>{
   /*{ignore me}*/
   %astgen-token PraeBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
-
-  %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
   %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
   %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecNumStart}{PraeDecDigit}*{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
@@ -298,19 +306,9 @@ PraeQLLineEsc \\\n
   <<EOF>> { $ML $E("unterminated Praeforma block") }
 }
 
-<SSSyntaxExtArgs>{
-  /*{ignore me}*/
-  %astgen-token SAEnd /{BQuote}/ "`" { $SL $ML $SSPOP }
-
-  %astgen-token LLBrace "{{" { $SL $ML }
-  %astgen-token RRBrace "}}" { $SL $ML }
-
-  <<EOF>> { $ML $BE $E("unterminated syntax extension arguments") }
-}
-
 %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   %astgen-token LParen "(" { $SL $ML }
   %astgen-token RParen ")" { $SL $ML }
@@ -326,7 +324,7 @@ PraeQLLineEsc \\\n
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs,SSEscapedID>{
+<INITIAL,SSPraeBlock,SSEscapedID>{
   /*{ignore me}*/
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
   %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
@@ -383,6 +381,10 @@ namespace frma {
   lexer::~lexer() {
     if (int ret = frmalex_destroy(m_yyscanner))
       throw std::runtime_error(std::string("Scanner destructor failed with code ") + std::to_string(ret));
+  }
+
+  void lexer::init() {
+    yy_push_state(SSStart, m_yyscanner);
   }
 
 #if defined(_DEBUG)

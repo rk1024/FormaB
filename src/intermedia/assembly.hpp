@@ -7,7 +7,7 @@
 #include "util/ptr.hpp"
 
 #include "function.hpp"
-#include "message.hpp"
+#include "messaging/message.hpp"
 
 #include "types/interface.hpp"
 #include "types/struct.hpp"
@@ -18,7 +18,7 @@ class FIAssembly : public fun::FObject {
   fun::FAtomStore<std::string, std::uint32_t>                 m_strings;
   fun::FAtomStore<fun::FPtr<FIStruct>, std::uint32_t>         m_structs;
   fun::FAtomStore<fun::FPtr<FIInterface>, std::uint32_t>      m_interfaces;
-  fun::FAtomStore<FIMessageId, std::uint32_t>                 m_msgs;
+  fun::FAtomStore<FIMessage, std::uint32_t>                   m_msgs;
   fun::FAtomStore<FIMessageKeyword, std::uint32_t>            m_keywords;
 
 public:

@@ -27,7 +27,7 @@ namespace pc {
   }
 
   void FuncClosure::label(std::uint32_t id) {
-    m_body->labels.at(id).pos =
+    m_body->labels.at(id).pos() =
         static_cast<std::uint32_t>(m_body->instructions.size());
   }
 

@@ -1,33 +1,15 @@
 #pragma once
 
-#include <cstdint>
-#include <string>
-
-#include "util/hashing.hpp"
+#include "util/consPod.hpp"
 
 namespace fie {
-struct FILabel {
-  std::uint32_t pos;
-  std::string   name;
+FUN_CONSPOD(FILabel, std::uint32_t, std::string) {
+  FCP_ACC(0, pos);
+  FCP_ACC(1, name);
 
-  FILabel(std::uint32_t _pos, std::string _name) : pos(_pos), name(_name) {}
-
-  inline bool operator==(const FILabel &rhs) const {
-    return pos == rhs.pos && name == rhs.name;
-  }
-  inline bool operator!=(const FILabel &rhs) const {
-    return !this->operator==(rhs);
-  }
-
-  friend struct std::hash<FILabel>;
+  inline FILabel(std::uint32_t _pos, std::string _name)
+      : FCP_INIT(_pos, _name) {}
 };
 }
 
-namespace std {
-template <>
-struct hash<fie::FILabel> {
-  size_t operator()(const fie::FILabel &lbl) const {
-    return fun::multiHash(lbl.pos, lbl.name);
-  }
-};
-}
+FCP_HASH(fie::FILabel);

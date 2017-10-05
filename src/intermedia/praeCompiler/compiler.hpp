@@ -10,7 +10,7 @@
 #include "intermedia/bytecode.hpp"
 #include "intermedia/function.hpp"
 #include "intermedia/inputs.hpp"
-#include "intermedia/message.hpp"
+#include "intermedia/messaging/message.hpp"
 
 #include "closures/all.hpp"
 

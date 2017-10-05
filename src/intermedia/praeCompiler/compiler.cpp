@@ -7,6 +7,7 @@
 
 #include "util/dumpHex.hpp"
 
+#include "intermedia/messaging/builtins.hpp"
 #include "intermedia/types/builtins.hpp"
 
 using namespace frma;
@@ -179,19 +180,58 @@ void EMITFL(XInfix) {
     emitLoadXInfix(closure, node->infixr());
 
   MATCH {
-  case OF(Add): closure->emit(FIOpcode::Add); break;
-  case OF(Con): closure->emit(FIOpcode::Con); break;
-  case OF(Dis): closure->emit(FIOpcode::Dis); break;
-  case OF(Div): closure->emit(FIOpcode::Div); break;
-  case OF(Eql): closure->emit(FIOpcode::Ceq); break;
-  case OF(Grt): closure->emit(FIOpcode::Cgt); break;
-  case OF(Geq): closure->emit(FIOpcode::Clt).emit(FIOpcode::Inv); break;
-  case OF(Lss): closure->emit(FIOpcode::Clt); break;
-  case OF(Leq): closure->emit(FIOpcode::Cgt).emit(FIOpcode::Inv); break;
-  case OF(Mod): closure->emit(FIOpcode::Mod); break;
-  case OF(Mul): closure->emit(FIOpcode::Mul); break;
-  case OF(Neq): closure->emit(FIOpcode::Ceq).emit(FIOpcode::Inv); break;
-  case OF(Sub): closure->emit(FIOpcode::Sub); break;
+  case OF(Add):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIAdd));
+    break;
+  case OF(Con):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FICon));
+    break;
+  case OF(Dis):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIDis));
+    break;
+  case OF(Div):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIDiv));
+    break;
+  case OF(Eql):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FICeq));
+    break;
+  case OF(Grt):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FICgt));
+    break;
+  case OF(Geq):
+    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIClt))
+        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    break;
+  case OF(Lss):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIClt));
+    break;
+  case OF(Leq):
+    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FICgt))
+        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    break;
+  case OF(Mod):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIMod));
+    break;
+  case OF(Mul):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIMul));
+    break;
+  case OF(Neq):
+    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FICeq))
+        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    break;
+  case OF(Sub):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FISub));
+    break;
   case OF(Unary):
   default: FAIL;
   }
@@ -215,17 +255,19 @@ void EMITFL(XMsg) {
   MATCH {
   case OF(Coerce):
     closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().intern(
-                      fun::cons<std::uint32_t, std::string>(0, "!")));
+                  m_inputs->assem()->msgs().key(builtins::FICoerce));
     break;
   case OF(Curry): {
     auto sel = node->sel();
 
     MATCH_(sel) {
     case OF_(sel, Unary):
-      closure->emit(FIOpcode::Curry,
-                    m_inputs->assem()->keywords().intern(
-                        fun::cons(false, sel->tok()->toString())));
+      closure
+          ->emit(FIOpcode::Ldkw,
+                 m_inputs->assem()->keywords().intern(
+                     FIMessageKeyword(false, sel->tok()->toString())))
+          .emit(FIOpcode::Msg,
+                m_inputs->assem()->msgs().key(builtins::FICurry));
       break;
     case OF_(sel, Keyword): {
       std::stack<const FPMsgKeyword *> kwStack;
@@ -241,9 +283,12 @@ void EMITFL(XMsg) {
         kwStack.pop();
 
         emitLoadExpr(closure, kw->expr());
-        closure->emit(FIOpcode::Curry,
-                      m_inputs->assem()->keywords().intern(
-                          fun::cons(true, kw->id()->toString())));
+        closure
+            ->emit(FIOpcode::Ldkw,
+                   m_inputs->assem()->keywords().intern(
+                       FIMessageKeyword(true, kw->id()->toString())))
+            .emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FICurry));
       }
       break;
     }
@@ -281,7 +326,7 @@ void EMITFL(XMsg) {
 
     closure->emit(
         FIOpcode::Msg,
-        m_inputs->assem()->msgs().intern(fun::cons(count, oss.str())));
+        m_inputs->assem()->msgs().intern(FIMessage(count, oss.str())));
 
     break;
   }
@@ -345,16 +390,27 @@ void EMITFL(XUnary) {
   MATCH {
   case OF(Dec): inc = I_Dec; break;
   case OF(Inc): inc = I_Inc; break;
-  case OF(Inv): closure->emit(FIOpcode::Inv); break;
-  case OF(Neg): closure->emit(FIOpcode::Neg); break;
-  case OF(Pos): closure->emit(FIOpcode::Pos); break;
+  case OF(Inv):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIInv));
+    break;
+  case OF(Neg):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FINeg));
+    break;
+  case OF(Pos):
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().key(builtins::FIPos));
+    break;
   case OF(Member):
   default: FAIL;
   }
 
   if (inc) {
     closure->emit<std::int32_t>(FIOpcode::Ldci4, 1)
-        .emit(inc == I_Inc ? FIOpcode::Add : FIOpcode::Sub)
+        .emit(FIOpcode::Msg,
+              m_inputs->assem()->msgs().intern(inc == I_Inc ? builtins::FIAdd :
+                                                              builtins::FISub))
         .emit(FIOpcode::Dup);
 
     emitStoreXUnary(closure, node->unary());
@@ -441,25 +497,26 @@ pop:
 void EMITFL(SAssign) {
   MOVE;
 
-  FIOpcode op = FIOpcode::Nop;
+  FIMessage op(0, "");
 
   MATCH {
-  case OF(Add): op = FIOpcode::Add; break;
-  case OF(Con): op = FIOpcode::Con; break;
-  case OF(Dis): op = FIOpcode::Dis; break;
-  case OF(Div): op = FIOpcode::Div; break;
-  case OF(Mod): op = FIOpcode::Mod; break;
-  case OF(Mul): op = FIOpcode::Mul; break;
-  case OF(Sub): op = FIOpcode::Sub; break;
+  case OF(Add): op = builtins::FIAdd; break;
+  case OF(Con): op = builtins::FICon; break;
+  case OF(Dis): op = builtins::FIDis; break;
+  case OF(Div): op = builtins::FIDiv; break;
+  case OF(Mod): op = builtins::FIMod; break;
+  case OF(Mul): op = builtins::FIMul; break;
+  case OF(Sub): op = builtins::FISub; break;
   case OF(Assign): break;
   default: FAIL;
   }
 
-  if (op != FIOpcode::Nop) emitLoadXMember(closure, node->memb());
+  if (op.arity()) emitLoadXMember(closure, node->memb());
 
   emitLoadAssignValue(closure, node->value());
 
-  if (op != FIOpcode::Nop) closure->emit(op);
+  if (op.arity())
+    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().intern(op));
 
   closure->emit(FIOpcode::Dup);
 

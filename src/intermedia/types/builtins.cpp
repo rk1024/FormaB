@@ -2,26 +2,26 @@
 
 namespace fie {
 namespace builtins {
-  fun::FPtr<FIStruct> FIErrorT = fnew<FIStruct>("<error-t>");
+  fun::FPtr<FIStruct> FIErrorT = fnew<FIStruct>("<error-t>"),
 
-  fun::FPtr<FIStruct> FIInt8   = fnew<FIStruct>("sbyte");
-  fun::FPtr<FIStruct> FIUint8  = fnew<FIStruct>("byte");
-  fun::FPtr<FIStruct> FIInt16  = fnew<FIStruct>("short");
-  fun::FPtr<FIStruct> FIUint16 = fnew<FIStruct>("ushort");
-  fun::FPtr<FIStruct> FIInt32  = fnew<FIStruct>("int");
-  fun::FPtr<FIStruct> FIUint32 = fnew<FIStruct>("uint");
-  fun::FPtr<FIStruct> FIInt64  = fnew<FIStruct>("long");
-  fun::FPtr<FIStruct> FIUint64 = fnew<FIStruct>("ulong");
+                      FIInt8   = fnew<FIStruct>("sbyte"),
+                      FIUint8  = fnew<FIStruct>("byte"),
+                      FIInt16  = fnew<FIStruct>("short"),
+                      FIUint16 = fnew<FIStruct>("ushort"),
+                      FIInt32  = fnew<FIStruct>("int"),
+                      FIUint32 = fnew<FIStruct>("uint"),
+                      FIInt64  = fnew<FIStruct>("long"),
+                      FIUint64 = fnew<FIStruct>("ulong"),
 
-  fun::FPtr<FIStruct> FIFloat  = fnew<FIStruct>("float");
-  fun::FPtr<FIStruct> FIDouble = fnew<FIStruct>("double");
+                      FIFloat  = fnew<FIStruct>("float"),
+                      FIDouble = fnew<FIStruct>("double"),
 
-  fun::FPtr<FIStruct> FIBool = fnew<FIStruct>("bool");
+                      FIBool = fnew<FIStruct>("bool"),
 
-  fun::FPtr<FIStruct> FINil  = fnew<FIStruct>("<nil-t>");
-  fun::FPtr<FIStruct> FIVoid = fnew<FIStruct>("<void-t>");
+                      FINilT  = fnew<FIStruct>("<nil-t>"),
+                      FIVoidT = fnew<FIStruct>("<void-t>"),
 
-  fun::FPtr<FIStruct> FIString = fnew<FIStruct>("string");
+                      FIString = fnew<FIStruct>("string");
 }
 
 static std::vector<fun::FPtr<FIStruct>> builtin_vec;
@@ -44,8 +44,8 @@ const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs() {
 
     builtin_vec.push_back(builtins::FIBool);
 
-    builtin_vec.push_back(builtins::FINil);
-    builtin_vec.push_back(builtins::FIVoid);
+    builtin_vec.push_back(builtins::FINilT);
+    builtin_vec.push_back(builtins::FIVoidT);
 
     builtin_vec.push_back(builtins::FIString);
   }

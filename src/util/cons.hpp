@@ -14,6 +14,8 @@ struct cons_get;
 
 template <>
 struct cons_cell<> {
+  using cell_t = cons_cell<>;
+
   static cons_cell cons() { return cons_cell(); }
 
   constexpr std::size_t size() const { return 0; }
@@ -28,6 +30,8 @@ struct cons_cell<> {
 
 template <typename TCar, typename... TCdr>
 struct cons_cell<TCar, TCdr...> {
+  using cell_t = cons_cell<TCar, TCdr...>;
+
   static cons_cell cons(TCar car, TCdr... cdr) {
     return cons_cell(car, cons_cell<TCdr...>::cons(cdr...));
   }
@@ -140,6 +144,7 @@ struct hash<fun::cons_cell<TItems...>> {
     return fun::consHash(cell);
   }
 };
+
 template <typename... TItems>
 struct hash<const fun::cons_cell<TItems...>> {
   std::size_t operator()(const fun::cons_cell<TItems...> &cell) const {

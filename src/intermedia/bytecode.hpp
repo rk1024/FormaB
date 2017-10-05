@@ -2,8 +2,10 @@
 
 #include <cstdint>
 
-#include "label.hpp"
 #include "util/atom.hpp"
+
+#include "label.hpp"
+#include "variable.hpp"
 
 namespace fie {
 enum class FIOpcode : std::int8_t {
@@ -13,42 +15,43 @@ enum class FIOpcode : std::int8_t {
   Pop, // pop [value -> ]
   Ret, // ret [return, $ -> ]
 
-  Add, // add [a, b -> result]
-  Sub, // sub [a, b -> result]
-  Mul, // mul [a, b -> result]
-  Div, // div [a, b -> result]
-  Mod, // mod [a, b -> result]
+  // Add, // add [a, b -> result]
+  // Sub, // sub [a, b -> result]
+  // Mul, // mul [a, b -> result]
+  // Div, // div [a, b -> result]
+  // Mod, // mod [a, b -> result]
 
-  Neg, // inv [a -> result]
-  Pos, // inv [a -> result]
+  // Neg, // inv [a -> result]
+  // Pos, // inv [a -> result]
 
-  Ceq,  // ceq  [a, b -> result]
-  Cgt,  // cgt  [a, b -> result]
-  Cgtu, // cgtu [a, b -> result]
-  Clt,  // clt  [a, b -> result]
-  Cltu, // cltu [a, b -> result]
+  // Ceq,  // ceq  [a, b -> result]
+  // Cgt,  // cgt  [a, b -> result]
+  // Cgtu, // cgtu [a, b -> result]
+  // Clt,  // clt  [a, b -> result]
+  // Cltu, // cltu [a, b -> result]
 
-  Con, // con [a, b -> result]
-  Dis, // dis [a, b -> result]
+  // Con, // con [a, b -> result]
+  // Dis, // dis [a, b -> result]
 
-  Inv, // inv [a -> result]
+  // Inv, // inv [a -> result]
 
-  Br,  // br  <addr:i2> [ -> ]
-  Bez, // bez <addr:i2> [cond -> ]
-  Bnz, // bnz <addr:i2> [cond -> ]
+  Br,  // br  [<addr:i4> | <label:u4>] [ -> ]
+  Bez, // bez [<addr:i4> | <label:u4>] [cond -> ]
+  Bnz, // bnz [<addr:i4> | <label:u4>] [cond -> ]
 
   Ldci4, // ldci4 <i4:i4> [ -> i4]
   Ldci8, // ldci8 <i8:i8> [ -> i8]
-  Ldcr4, // ldcr4 <r4:i4> [ -> r4]
-  Ldcr8, // ldcr8 <r8:i8> [ -> r8]
+  Ldcr4, // ldcr4 <r4:r4> [ -> r4]
+  Ldcr8, // ldcr8 <r8:r8> [ -> r8]
 
   Ldnil,  // ldnil [ -> nil]
   Ldvoid, // ldvoid [ -> void]
 
   Ldvar, // ldvar <var:u4> [ -> var]
 
-  Ldstr, // ldstr <atom:u4> [ -> str]
-  Ldfun, // ldfun <atom:u2> [ -> fun]
+  Ldstr, // ldstr <str:u4> [ -> str]
+  Ldfun, // ldfun <fun:u4> [ -> fun]
+  Ldkw,  // ldkw  <kw:u4> [ -> kw]
 
   Stvar, // stvar <var:u4> [var -> ]
 
@@ -63,8 +66,8 @@ enum class FIOpcode : std::int8_t {
   Cvr4, // cvr4 [val -> r4]
   Cvr8, // cvr8 [val -> r8]
 
-  Msg,   // msg   <msg:u4> [recv, args... -> return]
-  Curry, // curry <msg:u4> [recv, arg -> return]
+  Msg, // msg   <msg:u4> [recv, args... -> return]
+  // Curry, // curry <msg:u4> [recv, arg -> return]
 
   Tpl, // tpl  <size:u4> [value[size] -> tuple]
 };
@@ -116,6 +119,6 @@ struct FIInstruction {
 struct FIBytecode {
   std::vector<FIInstruction> instructions;
   std::vector<FILabel>       labels;
-  fun::FAtomStore<std::string, std::uint32_t> vars;
+  fun::FAtomStore<FIVariable, std::uint32_t> vars;
 };
 }

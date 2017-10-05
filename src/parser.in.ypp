@@ -7,9 +7,11 @@
 %define parse.trace
 
 %param {frma::FormaParserTag *tag}
+%param {frma::lexer *lex}
 
 %code requires {
 #include "ast.hpp"
+#include "lexerDriver.hpp"
 #include "parserTag.hpp"
 }
 
@@ -18,10 +20,9 @@
 #define YYSTRIM($$) if (!$$->rooted()) delete $$;
 #undef yylex
 
-
 int frmalex(YYSTYPE *, frma::location *, void *);
 
-static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *tag) {
+static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *tag, frma::lexer *) {
   return frmalex(yylval, yylloc, tag->scan);
 }
 }
@@ -49,6 +50,7 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 %start Input
 
 %initial-action {
+  lex->init();
   @$.begin.filename = @$.end.filename = &tag->filename();
 }
 

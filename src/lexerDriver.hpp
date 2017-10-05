@@ -11,7 +11,7 @@ public:
 
   ~lexer();
 
-  void restart(FILE *input_file);
+  void init();
 
 #ifdef _DEBUG
   bool debug() const;

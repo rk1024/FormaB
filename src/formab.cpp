@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
 #endif
     frma::FormaParserTag tag(filename);
     frma::lexer          lex(tag);
-    frma::parser         parse(&tag);
+    frma::parser         parse(&tag, &lex);
 
     lex.inFile(infile);
 

@@ -1,0 +1,134 @@
+#!/usr/bin/env ruby
+
+require "fileutils"
+require "yaml"
+
+def lcs(a, b)
+  table = []
+
+  begin
+    i = 0
+    loop do
+      wb = b.next
+
+      row = []
+      table.push(row)
+      begin
+        j = 0
+        loop do
+          wa = a.next
+
+          row.push(if wa == wb
+            i == 0 || j == 0 ? 1 : table[i - 1][j - 1] + 1
+          else
+            [j == 0 ? 0 : table[i][j - 1], i == 0 ? 0 : table[i - 1][j]].max
+          end)
+
+          j += 1
+        end
+      rescue StopIteration
+      end
+
+      a.rewind
+      i += 1
+    end
+  rescue StopIteration
+  end
+
+  table[-1][-1]
+end
+
+config = YAML.load(File.open(File.join(File.dirname($0), "license.yaml")))
+
+search = config.fetch("search", []).group_by{|p| p[0] }.map{|k, v| [k, v.map{|s| s[1..-1] }] }.to_h
+
+exclude = search.fetch("-", [])
+files = search.fetch("+", []).flat_map{|p| Dir[p] }.select{|f| File.file?(f) }
+  .reject{|f| exclude.any?{|e| File.fnmatch?(f, e) } }
+
+formats = config.fetch("format", {}).map{|k, v| [k, v] }
+
+notice = config.fetch("notice") { raise "Notice not found in config!" }.split(/\n/)
+
+notice.shift while notice[0].empty?
+notice.pop while notice[-1].empty?
+
+notice.unshift("")
+notice.push("")
+
+notice.each{|l| l.gsub!(/\$\{YEAR\}/i, Time.now.year.to_s) }
+
+puts "INFO: Checking #{files.count} file(s)..."
+
+ret = 0
+
+files.each do |file|
+  matches = formats.select{|g, _| File.fnmatch(g, file, File::FNM_EXTGLOB) }
+
+  raise "no patterns matched '#{file}'" if matches.empty?
+  puts "WARNING: multiple patterns matched '#{file}': #{matches.map{|p, _| "'#{p}'" }.join(", ")}" if matches.length > 1
+
+  format = matches[0][1]
+
+  str = ""
+  body = ""
+  width = 0
+
+  notice.each do |line|
+    curr = format["line"] % [line.gsub(/\$\{FILE\}/, File.basename(file))]
+    curr.rstrip!
+
+    body << curr << "\n"
+
+    width = [curr.strip.length, width].max
+  end
+
+  do_border = lambda do |fmt|
+    str << fmt % [format["border"] * [0, ((width - (fmt % [""]).length) / format["border"].length)].max] << "\n"
+  end
+
+  do_border.(format["start"])
+  str << body
+  do_border.(format["end"])
+  str << "\n"
+
+  a = str.split(/\s+/)
+
+  b = Enumerator.new do |y|
+    File.foreach(file) do |line|
+      line.split(/\s+/).each{|w| y << w }
+    end
+  end
+
+  l = lcs(a.each, b)
+
+  if l < a.length / 2
+    file2 = file.clone
+
+    file2 << "~" while File.exist?(file2)
+
+    begin
+      File.open(file2, "w") do |f|
+        f << str
+        IO.copy_stream(File.open(file, "r"), f)
+      end
+
+      FileUtils.mv(file2, file)
+
+      puts "INFO: added license notice to '#{file}'"
+    rescue Exception => e
+      File.delete(file2)
+
+      raise e
+    end
+  elsif l < a.length
+    # This could probably be a little smarter, but I don't foresee it being a
+    # problem in the near future.
+    puts "WARNING: file '#{file}' appears to have an altered license header (#{l}/#{a.length} match)"
+    ret = 1
+  end
+end
+
+puts "INFO: Done."
+
+exit(ret)

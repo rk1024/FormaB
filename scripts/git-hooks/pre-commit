@@ -15,3 +15,11 @@ if [ $RETCODE -eq 1 ]; then
   echo "Some files are not yet formatted.  Run ./format.sh, then try again." >&2
   exit 1
 fi
+
+scripts/license
+RETCODE=$?
+
+if [ $RETCODE -ne 0 ]; then
+  echo "Some files require additional attention for licensing."
+  exit $RETCODE
+fi

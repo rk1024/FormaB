@@ -27,9 +27,6 @@ std::ostream &operator<<(std::ostream &os, const _dumpHex<T> &&dh) {
   constexpr bool is_char =
       std::is_same<std::make_signed<T>, signed char>::value;
 
-  static_assert(!is_char || sizeof(T) < sizeof(int),
-                "Don't know how to dump char!");
-
   if (is_char)
     os << static_cast<int>(dh.m_num);
   else

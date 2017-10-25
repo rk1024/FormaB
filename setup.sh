@@ -4,7 +4,7 @@ OLDWD=$PWD
 cd "$(dirname $0)"
 
 bundle lock
-git submodule update --init --recursive --remote --force
+git submodule update --recursive --remote
 git config --local core.hooksPath scripts/git-hooks
 scripts/setup-re2c.sh
 

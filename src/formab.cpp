@@ -1,3 +1,23 @@
+/*************************************************************************
+*
+* FormaB - the bootstrap Forma compiler (formab.cpp)
+* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+*
+* FormaB is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* FormaB is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+*
+*************************************************************************/
+
 #include <cstdio>
 #include <list>
 
@@ -34,11 +54,11 @@ int main(int argc, char **argv) {
       std::string arg(argv[i]);
       if (doFlags) {
 #if defined(DEBUG)
-        if (arg == "-v")
+        if (arg == "--verbose" || arg == "-v")
           verbose = true;
         else
 #endif
-            if (arg == "--dot")
+            if (arg == "--dot" || arg == "-d")
           dot = true;
         else if (arg == "--")
           doFlags = false;
@@ -58,7 +78,12 @@ int main(int argc, char **argv) {
     filename = argv[1];
     break;
   default:
-    std::cerr << "Usage: " << argv[0] << " [input]" << std::endl;
+    std::cerr << "Usage: " << argv[0] << "[flags] [--] [input]" << std::endl;
+
+    std::cerr << "Flags:\n  \e[1m--verbose, -v\e[0m: Output extra information."
+              << std::endl
+              << "  \e[1m--dot, -d\e[0m: Output dependency graph as a dotfile."
+              << std::endl;
     return 1;
   }
 
@@ -67,7 +92,7 @@ int main(int argc, char **argv) {
 #endif
     frma::FormaParserTag tag(filename);
     frma::lexer          lex(tag);
-    frma::parser         parse(&tag);
+    frma::parser         parse(&tag, &lex);
 
     lex.inFile(infile);
 

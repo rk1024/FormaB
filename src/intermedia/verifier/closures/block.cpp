@@ -1,3 +1,23 @@
+/*************************************************************************
+*
+* FormaB - the bootstrap Forma compiler (block.cpp)
+* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+*
+* FormaB is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* FormaB is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+*
+*************************************************************************/
+
 #include "block.hpp"
 
 #include <iostream>
@@ -95,43 +115,47 @@ namespace vc {
         action = Stop;
         break;
 
-      case FIOpcode::Add: handlePHOp(2, builtins::FIErrorT, "addition"); break;
-      case FIOpcode::Sub:
-        handlePHOp(2, builtins::FIErrorT, "subtraction");
-        break;
-      case FIOpcode::Mul:
-        handlePHOp(2, builtins::FIErrorT, "multiplication");
-        break;
-      case FIOpcode::Div: handlePHOp(2, builtins::FIErrorT, "division"); break;
-      case FIOpcode::Mod: handlePHOp(2, builtins::FIErrorT, "modulo"); break;
+      // case FIOpcode::Add: handlePHOp(2, builtins::FIErrorT, "addition");
+      // break;
+      // case FIOpcode::Sub:
+      //   handlePHOp(2, builtins::FIErrorT, "subtraction");
+      //   break;
+      // case FIOpcode::Mul:
+      //   handlePHOp(2, builtins::FIErrorT, "multiplication");
+      //   break;
+      // case FIOpcode::Div: handlePHOp(2, builtins::FIErrorT, "division");
+      // break;
+      // case FIOpcode::Mod: handlePHOp(2, builtins::FIErrorT, "modulo"); break;
 
-      case FIOpcode::Neg: handlePHOp(1, builtins::FIErrorT, "negation"); break;
-      case FIOpcode::Pos: handlePHOp(1, builtins::FIErrorT, "identity"); break;
+      // case FIOpcode::Neg: handlePHOp(1, builtins::FIErrorT, "negation");
+      // break;
+      // case FIOpcode::Pos: handlePHOp(1, builtins::FIErrorT, "identity");
+      // break;
 
-      case FIOpcode::Ceq:
-        handlePHOp(2, builtins::FIErrorT, "equality comparison");
-        break;
-      case FIOpcode::Cgt:
-        handlePHOp(2, builtins::FIBool, "greater-than comparison");
-        break;
-      case FIOpcode::Cgtu:
-        handlePHOp(2, builtins::FIBool, "unsigned greater-than comparison");
-        break;
-      case FIOpcode::Clt:
-        handlePHOp(2, builtins::FIBool, "less-than comparison");
-        break;
-      case FIOpcode::Cltu:
-        handlePHOp(2, builtins::FIBool, "unsigned less-than comparison");
-        break;
+      // case FIOpcode::Ceq:
+      //   handlePHOp(2, builtins::FIErrorT, "equality comparison");
+      //   break;
+      // case FIOpcode::Cgt:
+      //   handlePHOp(2, builtins::FIBool, "greater-than comparison");
+      //   break;
+      // case FIOpcode::Cgtu:
+      //   handlePHOp(2, builtins::FIBool, "unsigned greater-than comparison");
+      //   break;
+      // case FIOpcode::Clt:
+      //   handlePHOp(2, builtins::FIBool, "less-than comparison");
+      //   break;
+      // case FIOpcode::Cltu:
+      //   handlePHOp(2, builtins::FIBool, "unsigned less-than comparison");
+      //   break;
 
-      case FIOpcode::Con: handleBoolOp(2, "conjunction"); break;
-      case FIOpcode::Dis: handleBoolOp(2, "disjunction"); break;
+      // case FIOpcode::Con: handleBoolOp(2, "conjunction"); break;
+      // case FIOpcode::Dis: handleBoolOp(2, "disjunction"); break;
 
-      case FIOpcode::Inv: handleBoolOp(1, "inversion"); break;
+      // case FIOpcode::Inv: handleBoolOp(1, "inversion"); break;
 
       case FIOpcode::Br:
         if (ins.br.lbl)
-          m_pc = body.labels.at(ins.br.id).pos;
+          m_pc = body.labels.at(ins.br.id).pos();
         else
           m_pc += ins.br.addr;
         action = Stay;
@@ -142,7 +166,7 @@ namespace vc {
         handlePopBool("Invalid condition type for branch.");
         m_q->emplace(fnew<BlockClosure>(
             fun::wrap(this),
-            ins.br.lbl ? body.labels.at(ins.br.id).pos : m_pc + ins.br.addr));
+            ins.br.lbl ? body.labels.at(ins.br.id).pos() : m_pc + ins.br.addr));
         break;
 
       case FIOpcode::Ldci4:
@@ -159,18 +183,18 @@ namespace vc {
         break;
 
       case FIOpcode::Ldnil:
-        m_stack.push(m_assem->structs().value(builtins::FINil));
+        m_stack.push(m_assem->structs().value(builtins::FINilT));
         break;
       case FIOpcode::Ldvoid:
-        m_stack.push(m_assem->structs().value(builtins::FIVoid));
+        m_stack.push(m_assem->structs().value(builtins::FIVoidT));
         break;
 
       case FIOpcode::Ldvar: {
         auto it = m_vars.find(ins.u4);
 
         if (it == m_vars.end()) {
-          std::cerr << "load-before-store (" << body.vars.value(ins.u4) << ")"
-                    << std::endl;
+          std::cerr << "load-before-store (" << body.vars.value(ins.u4).name()
+                    << ")" << std::endl;
           m_stack.push(m_assem->structs().value(builtins::FIErrorT));
         } else
           m_stack.push(it->second);
@@ -183,11 +207,14 @@ namespace vc {
       case FIOpcode::Ldfun:
         m_stack.push(m_assem->structs().key(builtins::FIErrorT));
         break;
+      case FIOpcode::Ldkw:
+        m_stack.push(m_assem->structs().key(builtins::FIErrorT));
+        break;
 
       case FIOpcode::Stvar:
         if (m_vars.count(ins.u4))
-          std::cerr << "variable reassignment (" << body.vars.value(ins.u4)
-                    << ")" << std::endl;
+          std::cerr << "variable reassignment ("
+                    << body.vars.value(ins.u4).name() << ")" << std::endl;
 
         m_vars[ins.u4] = m_stack.top();
         m_stack.pop();
@@ -206,16 +233,16 @@ namespace vc {
 
       case FIOpcode::Msg:
         handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
-                   builtins::FIVoid,
+                   builtins::FIVoidT,
                    "message");
         break;
-      case FIOpcode::Curry:
-        handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
-                   builtins::FIErrorT,
-                   "curry");
-        break;
+      // case FIOpcode::Curry:
+      //   handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
+      //              builtins::FIErrorT,
+      //              "curry");
+      //   break;
 
-      case FIOpcode::Tpl: handlePHOp(ins.u4, builtins::FIVoid, "tuple"); break;
+      case FIOpcode::Tpl: handlePHOp(ins.u4, builtins::FIVoidT, "tuple"); break;
       }
 
       switch (action) {

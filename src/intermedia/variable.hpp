@@ -1,6 +1,6 @@
 /*************************************************************************
 *
-* FormaB - the bootstrap Forma compiler (optimizer.cpp)
+* FormaB - the bootstrap Forma compiler (variable.hpp)
 * Copyright (C) 2017 Ryan Schroeder, Colin Unger
 *
 * FormaB is free software: you can redistribute it and/or modify
@@ -18,8 +18,16 @@
 *
 *************************************************************************/
 
-#include "optimizer.hpp"
+#pragma once
+
+#include "util/consPod.hpp"
 
 namespace fie {
-void FIOptimizer::optimizeFunc(fun::cons_cell<std::uint32_t>) {}
+FUN_CONSPOD(FIVariable, std::string) {
+  FCP_GET(0, name);
+
+  inline FIVariable(const std::string &_name) : FCP_INIT(_name) {}
+};
 }
+
+FCP_HASH(fie::FIVariable)

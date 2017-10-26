@@ -1,27 +1,47 @@
+/*************************************************************************
+*
+* FormaB - the bootstrap Forma compiler (builtins.cpp)
+* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+*
+* FormaB is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* FormaB is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+*
+*************************************************************************/
+
 #include "builtins.hpp"
 
 namespace fie {
 namespace builtins {
-  fun::FPtr<FIStruct> FIErrorT = fnew<FIStruct>("<error-t>");
+  fun::FPtr<FIStruct> FIErrorT = fnew<FIStruct>("<error-t>"),
 
-  fun::FPtr<FIStruct> FIInt8   = fnew<FIStruct>("sbyte");
-  fun::FPtr<FIStruct> FIUint8  = fnew<FIStruct>("byte");
-  fun::FPtr<FIStruct> FIInt16  = fnew<FIStruct>("short");
-  fun::FPtr<FIStruct> FIUint16 = fnew<FIStruct>("ushort");
-  fun::FPtr<FIStruct> FIInt32  = fnew<FIStruct>("int");
-  fun::FPtr<FIStruct> FIUint32 = fnew<FIStruct>("uint");
-  fun::FPtr<FIStruct> FIInt64  = fnew<FIStruct>("long");
-  fun::FPtr<FIStruct> FIUint64 = fnew<FIStruct>("ulong");
+                      FIInt8   = fnew<FIStruct>("sbyte"),
+                      FIUint8  = fnew<FIStruct>("byte"),
+                      FIInt16  = fnew<FIStruct>("short"),
+                      FIUint16 = fnew<FIStruct>("ushort"),
+                      FIInt32  = fnew<FIStruct>("int"),
+                      FIUint32 = fnew<FIStruct>("uint"),
+                      FIInt64  = fnew<FIStruct>("long"),
+                      FIUint64 = fnew<FIStruct>("ulong"),
 
-  fun::FPtr<FIStruct> FIFloat  = fnew<FIStruct>("float");
-  fun::FPtr<FIStruct> FIDouble = fnew<FIStruct>("double");
+                      FIFloat  = fnew<FIStruct>("float"),
+                      FIDouble = fnew<FIStruct>("double"),
 
-  fun::FPtr<FIStruct> FIBool = fnew<FIStruct>("bool");
+                      FIBool = fnew<FIStruct>("bool"),
 
-  fun::FPtr<FIStruct> FINil  = fnew<FIStruct>("<nil-t>");
-  fun::FPtr<FIStruct> FIVoid = fnew<FIStruct>("<void-t>");
+                      FINilT  = fnew<FIStruct>("<nil-t>"),
+                      FIVoidT = fnew<FIStruct>("<void-t>"),
 
-  fun::FPtr<FIStruct> FIString = fnew<FIStruct>("string");
+                      FIString = fnew<FIStruct>("string");
 }
 
 static std::vector<fun::FPtr<FIStruct>> builtin_vec;
@@ -44,8 +64,8 @@ const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs() {
 
     builtin_vec.push_back(builtins::FIBool);
 
-    builtin_vec.push_back(builtins::FINil);
-    builtin_vec.push_back(builtins::FIVoid);
+    builtin_vec.push_back(builtins::FINilT);
+    builtin_vec.push_back(builtins::FIVoidT);
 
     builtin_vec.push_back(builtins::FIString);
   }

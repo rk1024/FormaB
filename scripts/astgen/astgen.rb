@@ -1,3 +1,23 @@
+##########################################################################
+# 
+# FormaB - the bootstrap Forma compiler (astgen.rb)
+# Copyright (C) 2017 Ryan Schroeder, Colin Unger
+# 
+# FormaB is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+# 
+# FormaB is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+# 
+##########################################################################
+
 require_relative 'diag'
 require_relative 'loosehash'
 require_relative 'node'
@@ -111,6 +131,8 @@ module ASTGen
         symbol_list.errors
       )
 
+      tokens = Token.scan(data[:flexIn], @d)
+
       used_syms = Set[*@no_elide]
       q = [*used_syms]
 
@@ -149,6 +171,31 @@ module ASTGen
         pass += 1
       end
 
+      term_syms = Set[]
+
+      loop do
+        any = false
+
+        symbols.reject{|n, _| term_syms.include?(n) }.each do |name, sym|
+          if sym.syntax.any? do |syms, _|
+            syms.map{|s| s.is_a?(String) ? s : sym.symbol_from_spec(s) }
+              .all?{|s| term_syms.include?(s) || !symbols.include?(s) }
+          end
+            term_syms << name
+            any = true unless any
+          end
+        end
+
+        break unless any
+      end
+
+      symbols.each_valid_key.reject{|n, _| term_syms.include?(n) }.each do |sym|
+        @d.info_v("eliding non-terminating symbol #{@d.hl(sym)}")
+        symbols.make_error(sym)
+      end
+
+      symbols.each_value{|s| s.prune_syntax(symbols) }
+
       elided_aliases = Set.new
 
       symbols.each do |name, sym|
@@ -179,8 +226,6 @@ module ASTGen
       symbols.each_value{|s| used_nodes << s.node.name }
 
       nodes.each{|m, n| n.unused = true unless used_nodes.include?(m) }
-
-      tokens = Token.scan(data[:flexIn], @d)
 
       [nodes, symbols, tokens]
     end

@@ -1,6 +1,8 @@
 *.o
 *.pyc
 lex.backup
+Gemfile.lock
+build.yaml
 
 bin/
 build/

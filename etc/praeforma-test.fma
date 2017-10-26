@@ -1,3 +1,5 @@
+#! /usr/bin/env bin/formab
+
 using System;
 
 @!somelanguage{
@@ -22,10 +24,14 @@ using System;
     let False => void;
   };
 
-  let MaybeInt => variant {
-    let Just => int;
+  let Maybe(is: T) => variant {
+    let Just => T;
     let None => void;
   };
+
+  @@ let Vector(dimension: n) => module {
+
+  @@ };
 
   let Comparable => interface {};
   let Printable => interface {};

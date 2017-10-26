@@ -1,3 +1,23 @@
+##########################################################################
+# 
+# FormaB - the bootstrap Forma compiler (symbol.rb)
+# Copyright (C) 2017 Ryan Schroeder, Colin Unger
+# 
+# FormaB is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+# 
+# FormaB is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+# 
+# You should have received a copy of the GNU Affero General Public License
+# along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+# 
+##########################################################################
+
 module ASTGen
   class ASymbol
     module FormatBuilder
@@ -234,7 +254,7 @@ module ASTGen
 
     def symbol_from_spec(spec)
       case spec
-        when Symbol; return @node.members.is_error?(spec) ? nil : @node.members[spec]
+        when Symbol; return @node.members[spec] unless @node.members.is_error?(spec)
         when Array; return spec[0] if (1..2) === spec.length
       end
       nil
@@ -286,7 +306,9 @@ module ASTGen
           end
 
           l.fmt with_indent: "  " do
+            @d.p(@syntax, long: true) if @name === :PraeExpression
             @syntax.each_with_index.select{|(_, a), _| !@actions.is_error?(a) }.each do |(syms, alt), i|
+              @d.p([syms, alt], long: true) if @name === :PraeExpression
               l.peek << " |" if i > 0
 
               l << "#{syms.none? ? "%empty" : syms.map do |sym|

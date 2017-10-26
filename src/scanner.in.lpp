@@ -1,3 +1,23 @@
+/*************************************************************************
+* 
+* FormaB - the bootstrap Forma compiler (scanner.in.lpp)
+* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+* 
+* FormaB is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+* 
+* FormaB is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+* 
+* You should have received a copy of the GNU Affero General Public License
+* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+* 
+*************************************************************************/
+
 /*%array*/
 
 %option 8bit
@@ -75,18 +95,21 @@ typedef frma::parser::token tk;
 
 #define $SL yylloc->step();
 
-#define $MN(n) do { \
-  yylloc->columns(n); \
+#define $MN(n) yylloc->columns(n);
+
+#define $WN(n) do { \
+  yylloc->lines(n); \
   yylineno += n; \
 } while (false);
-
-#define $WN(n) yylloc->lines(n);
 
 #define $ML $MN(yyleng)
 #define $MO $MN(1)
 
 #define $WL $WN(yyleng)
 #define $WO $WN(1)
+
+#define $LN(n) yyless(n);
+
 YY_DECL;
 %}
 
@@ -96,6 +119,7 @@ Whitespace [ \r\t]
 Newline [\v\n]
 
 LCommentOpen @@
+LShebangCommentOpen #!
 LCommentClose \n
 LCommentInput [^\n]
 
@@ -148,6 +172,8 @@ PraeDQChar [^"\\\n]
 PraeQLEscape \\[^\n]
 PraeQLLineEsc \\\n
 
+%x SSStart
+
 %x SSBComment
 
 %x SSRawBlockStart
@@ -158,17 +184,21 @@ PraeQLLineEsc \\\n
 %x SSPraeSQLiteral
 %x SSPraeDQLiteral
 
-%x SSSyntaxExtArgs
-
 %x SSEscapedID
 
 %%
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<SSStart>{
+  /*{ignore me}*/
+  {LShebangCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO $SSPOP }
+  . { $SSPOP $LN(0) }
+}
+
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   {Whitespace}+ { $SL $ML }
 }
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
 
@@ -216,8 +246,6 @@ PraeQLLineEsc \\\n
 <SSPraeBlock>{
   /*{ignore me}*/
   %astgen-token PraeBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
-
-  %astgen-token SAStart /{BQuote}/ "`" { $SL $ML $SSPUSH(SyntaxExtArgs) }
 
   %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
   %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecNumStart}{PraeDecDigit}*{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
@@ -298,19 +326,9 @@ PraeQLLineEsc \\\n
   <<EOF>> { $ML $E("unterminated Praeforma block") }
 }
 
-<SSSyntaxExtArgs>{
-  /*{ignore me}*/
-  %astgen-token SAEnd /{BQuote}/ "`" { $SL $ML $SSPOP }
-
-  %astgen-token LLBrace "{{" { $SL $ML }
-  %astgen-token RRBrace "}}" { $SL $ML }
-
-  <<EOF>> { $ML $BE $E("unterminated syntax extension arguments") }
-}
-
 %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs>{
+<INITIAL,SSPraeBlock>{
   /*{ignore me}*/
   %astgen-token LParen "(" { $SL $ML }
   %astgen-token RParen ")" { $SL $ML }
@@ -326,7 +344,7 @@ PraeQLLineEsc \\\n
   {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
 }
 
-<INITIAL,SSPraeBlock,SSSyntaxExtArgs,SSEscapedID>{
+<INITIAL,SSPraeBlock,SSEscapedID>{
   /*{ignore me}*/
   %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
   %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
@@ -375,19 +393,25 @@ PraeQLLineEsc \\\n
 namespace frma {
   lexer::lexer(frma::FormaParserTag &tag) {
     if (int ret = frmalex_init_extra(&tag, &m_yyscanner))
-      throw new std::runtime_error(std::string("Scanner creation failed with code ") + std::to_string(ret));
+      throw std::runtime_error(std::string("Scanner creation failed with code ") + std::to_string(ret));
 
     tag.scan = m_yyscanner;
   }
 
   lexer::~lexer() {
     if (int ret = frmalex_destroy(m_yyscanner))
-      throw new std::runtime_error(std::string("Scanner destructor failed with code ") + std::to_string(ret));
+      throw std::runtime_error(std::string("Scanner destructor failed with code ") + std::to_string(ret));
   }
 
+  void lexer::init() {
+    yy_push_state(SSStart, m_yyscanner);
+  }
+
+#if defined(_DEBUG)
   bool lexer::debug() const { return frmaget_debug(m_yyscanner); }
 
   void lexer::debug(bool value) { frmaset_debug(value, m_yyscanner); }
+#endif
 
   FILE *lexer::inFile() const { return frmaget_in(m_yyscanner); }
 

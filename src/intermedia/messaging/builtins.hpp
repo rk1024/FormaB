@@ -1,6 +1,6 @@
 /*************************************************************************
 *
-* FormaB - the bootstrap Forma compiler (optimizer.cpp)
+* FormaB - the bootstrap Forma compiler (builtins.hpp)
 * Copyright (C) 2017 Ryan Schroeder, Colin Unger
 *
 * FormaB is free software: you can redistribute it and/or modify
@@ -18,8 +18,30 @@
 *
 *************************************************************************/
 
-#include "optimizer.hpp"
+#pragma once
+
+#include <vector>
+
+#include "util/ptr.hpp"
+
+#include "message.hpp"
 
 namespace fie {
-void FIOptimizer::optimizeFunc(fun::cons_cell<std::uint32_t>) {}
+namespace builtins {
+  extern FIMessage FIAdd, FISub, FIMul, FIDiv, FIMod,
+
+      FINeg, FIPos,
+
+      FICeq, FICgt, FIClt,
+
+      FICon, FIDis,
+
+      FIInv,
+
+      FICast,
+
+      FICurry, FICoerce;
+}
+
+const std::vector<FIMessage> &fiBuiltinMsgs();
 }

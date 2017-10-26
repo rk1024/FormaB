@@ -2,15 +2,45 @@
 
 require_relative "rninja/rninja"
 
-RNinja.run(rn_dir: "build/rninja") do
-  afl = false # Compile with afl-fuzz instrumentation
-  debug = true || afl # Compile debuggable binaries
-  diagnostic = false && debug # Add extra diagnostic warnings
-  sanitize = true && !afl # Compile with sanitizers enabled
-  optimize = false # Perform optimizations
-  dashOFast = false && !afl # Use -Ofast
+RNinja.config(file: "build.yaml") do
+  init :afl, :debug, :diagnostic, :sanitize, :optimize
 
-  san_flags = (["address", "undefined"].map{|s| "-fsanitize=#{s}" } if sanitize)
+  defaults dashOFast: false
+
+  profile :release, {
+    afl: false,
+    debug: false,
+    diagnostic: false,
+    sanitize: false,
+    optimize: true
+  }
+
+  profile :debug, {
+    afl: false,
+    debug: true,
+    diagnostic: false,
+    sanitize: true,
+    optimize: false
+  }
+
+  profile :afl, {
+    afl: true,
+    debug: true,
+    diagnostic: false,
+    sanitize: false,
+    optimize: false
+  }
+end
+
+RNinja.run(rn_dir: "build/rninja") do
+  # afl = true # Compile with afl-fuzz instrumentation
+  # debug = true || afl # Compile debuggable binaries
+  # diagnostic = false && debug # Add extra diagnostic warnings
+  # sanitize = true && !afl # Compile with sanitizers enabled
+  # optimize = false # Perform optimizations
+  # dashOFast = false && !afl # Use -Ofast
+
+  san_flags = (["address", "undefined"].map{|s| "-fsanitize=#{s}" } if config(:sanitize))
 
   set bin_d: "bin",
     build_d: "build",
@@ -21,15 +51,15 @@ RNinja.run(rn_dir: "build/rninja") do
     ruby: "ruby",
     astgen: "$script_d/ast.rb",
     flex: "flex",
-    bison: "$script_d/run-bison.sh bison",
+    bison: "$script_d/run-bison bison",
     re2c: "$tool_d/re2c/re2c/re2c",
-    cxx: afl ? "afl-clang++" : "clang++",
+    cxx: config(:afl) ? "afl-clang++" : "clang++",
     ld: "$cxx",
     astgen_flags: [
       "-f$src_d/scanner.in.lpp:$build_d/scanner.lpp",
       "-b$src_d/parser.in.ypp:$build_d/parser.ypp",
       "-t$src_d/ast/token.in.hpp:$build_d/ast/token.hpp",
-      *("-v" if debug),
+      *("-v" if config(:debug)),
     ],
     flex_flags: [
       "--ecs",
@@ -70,7 +100,7 @@ RNinja.run(rn_dir: "build/rninja") do
       "-Werror=implicit-fallthrough",
       "-Werror=old-style-cast",
       "-Werror=return-type",
-      *(diagnostic ? [
+      *(config(:diagnostic) ? [
         "-fdiagnostics-show-template-tree",
         "-Wswitch-bool",
         "-Wswitch-enum",
@@ -85,9 +115,9 @@ RNinja.run(rn_dir: "build/rninja") do
         "-fno-elide-type",
         "-ftemplate-backtrace-limit=0",
       ]),
-      *(debug ? [
+      *(config(:debug) ? [
         "-g",
-        *("-O0" unless optimize),
+        *("-O0" unless config(:optimize)),
         "-D_GLIBCXX_DEBUG",
         "-D_GLIBCXX_DEBUG_PEDANTIC",
         "-D_LIBCPP_DEBUG",
@@ -98,7 +128,7 @@ RNinja.run(rn_dir: "build/rninja") do
         "-D_NDEBUG",
       ]),
       *san_flags,
-      *("-O#{dashOFast ? "fast" : 3}" if optimize),
+      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
     ],
     ld_flags: [
       *san_flags,
@@ -141,10 +171,8 @@ RNinja.run(rn_dir: "build/rninja") do
     also: var_paths(:build_d, "parser.hpp", "parser.output", "location.hh", "position.hh", "stack.hh"),
     from: "$build_d/parser.ypp"
 
-  (astgen_from, astgen_imply) = ["l", "i"].map! do |flag|
-    var_rel_paths(:ast_d, *Subprocess.check_output(
-      ["ruby", get(:astgen), "-#{flag}", *get(:astgen_flags), get(:ast_d)])
-        .split(" "))
+  (astgen_from, astgen_imply) = %w[l i].map! do |flag|
+    var_rel_paths(:ast_d, *Command.read(expand("ruby '$astgen' -#{flag} $astgen_flags '$ast_d'")).split(" "))
   end
 
   build astgen_from, also: astgen_imply, with: "ruby",

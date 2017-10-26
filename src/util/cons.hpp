@@ -1,3 +1,23 @@
+/*************************************************************************
+*
+* FormaB - the bootstrap Forma compiler (cons.hpp)
+* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+*
+* FormaB is free software: you can redistribute it and/or modify
+* it under the terms of the GNU Affero General Public License as
+* published by the Free Software Foundation, either version 3 of the
+* License, or (at your option) any later version.
+*
+* FormaB is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU Affero General Public License for more details.
+*
+* You should have received a copy of the GNU Affero General Public License
+* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+*
+*************************************************************************/
+
 #pragma once
 
 #include <cstdint>
@@ -14,6 +34,8 @@ struct cons_get;
 
 template <>
 struct cons_cell<> {
+  using cell_t = cons_cell<>;
+
   static cons_cell cons() { return cons_cell(); }
 
   constexpr std::size_t size() const { return 0; }
@@ -28,6 +50,8 @@ struct cons_cell<> {
 
 template <typename TCar, typename... TCdr>
 struct cons_cell<TCar, TCdr...> {
+  using cell_t = cons_cell<TCar, TCdr...>;
+
   static cons_cell cons(TCar car, TCdr... cdr) {
     return cons_cell(car, cons_cell<TCdr...>::cons(cdr...));
   }
@@ -140,6 +164,7 @@ struct hash<fun::cons_cell<TItems...>> {
     return fun::consHash(cell);
   }
 };
+
 template <typename... TItems>
 struct hash<const fun::cons_cell<TItems...>> {
   std::size_t operator()(const fun::cons_cell<TItems...> &cell) const {

@@ -1,7 +1,7 @@
 /*************************************************************************
 *
 * FormaB - the bootstrap Forma compiler (uuid.hpp)
-* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
 *
 * FormaB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License as

@@ -19,7 +19,15 @@ fi
 scripts/license
 RETCODE=$?
 
-if [ $RETCODE -ne 0 ]; then
-  echo "Some files require additional attention for licensing."
-  exit $RETCODE
-fi
+case $RETCODE in
+  1)
+    echo "Some files have been modified for licensing and need to be staged." >&2
+    ;;
+  2)
+    echo "Some files require additional attention for licensing." >&2
+    ;;
+esac
+
+[ $RETCODE -ne 0 ] && exit $RETCODE
+
+exit 0

@@ -1,7 +1,7 @@
 /*************************************************************************
 *
 * FormaB - the bootstrap Forma compiler (compiler.cpp)
-* Copyright (C) 2017 Ryan Schroeder, Colin Unger
+* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
 *
 * FormaB is free software: you can redistribute it and/or modify
 * it under the terms of the GNU Affero General Public License as
@@ -578,6 +578,7 @@ void EMITF(SControl) {
     closure->pushScope();
 
     // TODO: Add proper phi-handling (i.e. id-recording) here
+    //       NOTE: Currently uses standard mutable variables, but reassigns them
     emitLoadXParen(closure, node->cond(), ParenFlags::Bind);
 
     FuncClosure::VarIds loopPhiVars;

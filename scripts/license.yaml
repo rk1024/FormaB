@@ -13,9 +13,14 @@ format: #The keys are full glob expressions
     end: "%s*/"
     border: "*"
     line: "* %s"
-notice: | #Okay, don't touch this one. Also, I'm pretty sure the (at your option) part is supposed to be removed.
+  "*.fma":
+    start: "@[%s"
+    end: "%s@]"
+    border: "@"
+    line: "@ %s"
+notice: | #Okay, don't touch this one.
   FormaB - the bootstrap Forma compiler (${FILE})
-  Copyright (C) ${YEAR} Ryan Schroeder, Colin Unger
+  Copyright (C) 2017-${YEAR} Ryan Schroeder, Colin Unger
 
   FormaB is free software: you can redistribute it and/or modify
   it under the terms of the GNU Affero General Public License as

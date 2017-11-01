@@ -35,26 +35,6 @@ enum class FIOpcode : std::int8_t {
   Pop, // pop [value -> ]
   Ret, // ret [return, $ -> ]
 
-  // Add, // add [a, b -> result]
-  // Sub, // sub [a, b -> result]
-  // Mul, // mul [a, b -> result]
-  // Div, // div [a, b -> result]
-  // Mod, // mod [a, b -> result]
-
-  // Neg, // inv [a -> result]
-  // Pos, // inv [a -> result]
-
-  // Ceq,  // ceq  [a, b -> result]
-  // Cgt,  // cgt  [a, b -> result]
-  // Cgtu, // cgtu [a, b -> result]
-  // Clt,  // clt  [a, b -> result]
-  // Cltu, // cltu [a, b -> result]
-
-  // Con, // con [a, b -> result]
-  // Dis, // dis [a, b -> result]
-
-  // Inv, // inv [a -> result]
-
   Br,  // br  [<addr:i4> | <label:u4>] [ -> ]
   Bez, // bez [<addr:i4> | <label:u4>] [cond -> ]
   Bnz, // bnz [<addr:i4> | <label:u4>] [cond -> ]
@@ -87,7 +67,6 @@ enum class FIOpcode : std::int8_t {
   Cvr8, // cvr8 [val -> r8]
 
   Msg, // msg   <msg:u4> [recv, args... -> return]
-  // Curry, // curry <msg:u4> [recv, arg -> return]
 
   Tpl, // tpl  <size:u4> [value[size] -> tuple]
 };

@@ -368,7 +368,7 @@ void EMITFL(XParen, ParenFlags::Flags flags) {
     if (flags & ParenFlags::Bind) emitSBind(closure, node->bind());
     if (flags & ParenFlags::Eval) emitLoadExpr(closure, node->expr());
 
-    if (flags & ParenFlags::Scope) closure->applyScope();
+    if (flags & ParenFlags::Scope) closure->dropScope();
     break;
   }
   case OF(Error):

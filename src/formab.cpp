@@ -107,10 +107,7 @@ int main(int argc, char **argv) {
 
     for (auto r : tag.errors()) r.print(std::cerr);
 
-    // if (tag.prims)
-    //   std::cout << tag.prims << std::endl;
-    // else if (success)
-    //   std::cerr << "WARNING: no output" << std::endl;
+    assert(tag.prims || !success);
 
     if (success && tag.prims) {
       auto graph = fnew<fps::FDepsGraph>();
@@ -126,17 +123,6 @@ int main(int argc, char **argv) {
         graph->dot(std::cout);
       else
         graph->run();
-
-      // auto assem     = fnew<FIAssembly>();
-      // auto verifier  = fnew<FIVerifier>(assem);
-      // auto optimizer = fnew<FIOptimizer>();
-      // auto dumpFunc  = fnew<FIDumpFunction>(assem, std::cerr);
-
-      // compiler->connect(verifier);
-
-      // fps::connect<FIFunction>(*verifier, *dumpFunc);
-
-      // auto blocks = compiler->compileBlocks(tag.prims);
     }
 
     std::cerr << tag.errors().size() << " error";

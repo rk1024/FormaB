@@ -58,26 +58,6 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
       m_os << "ret";
       break;
 
-    // case FIOpcode::Add: m_os << "add"; break;
-    // case FIOpcode::Sub: m_os << "sub"; break;
-    // case FIOpcode::Mul: m_os << "mul"; break;
-    // case FIOpcode::Div: m_os << "div"; break;
-    // case FIOpcode::Mod: m_os << "mod"; break;
-
-    // case FIOpcode::Neg: m_os << "neg"; break;
-    // case FIOpcode::Pos: m_os << "pos"; break;
-
-    // case FIOpcode::Ceq: m_os << "ceq"; break;
-    // case FIOpcode::Cgt: m_os << "cgt"; break;
-    // case FIOpcode::Cgtu: m_os << "cgtu"; break;
-    // case FIOpcode::Clt: m_os << "clt"; break;
-    // case FIOpcode::Cltu: m_os << "cltu"; break;
-
-    // case FIOpcode::Con: m_os << "con"; break;
-    // case FIOpcode::Dis: m_os << "dis"; break;
-
-    // case FIOpcode::Inv: m_os << "inv"; break;
-
     case FIOpcode::Br:
       m_os << "br\e[0m \e[38;5;7m"
            << (ins.br.lbl ? body.labels.at(ins.br.id).name() :
@@ -137,10 +117,6 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
       m_os << "msg\e[0m \e[38;5;3m"
            << m_inputs->assem()->msgs().value(ins.u4).get<1>();
       break;
-    // case FIOpcode::Curry:
-    //   m_os << "curry\e[0m \e[38;5;3m"
-    //        << m_inputs->assem()->keywords().value(ins.u4).get<1>();
-    //   break;
 
     case FIOpcode::Tpl:
       m_os << "tpl\e[0m \e[38;5;5m" << fun::dumpHex(ins.u4);

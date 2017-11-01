@@ -37,6 +37,7 @@ namespace vc {
     fun::FPtr<FIAssembly>                m_assem;
     fun::FPtr<const FIFunction>          m_func;
     std::queue<fun::FPtr<BlockClosure>> *m_q;
+    std::unordered_set<std::size_t> *    m_checked;
     std::size_t                          m_pc = 0;
     std::stack<std::uint32_t>            m_stack;
     std::unordered_map<std::uint32_t, std::uint32_t> m_vars;
@@ -52,7 +53,8 @@ namespace vc {
   public:
     BlockClosure(fun::FPtr<FIAssembly>,
                  fun::FPtr<const FIFunction>,
-                 std::queue<fun::FPtr<BlockClosure>> *);
+                 std::queue<fun::FPtr<BlockClosure>> *,
+                 std::unordered_set<std::size_t> *);
 
     BlockClosure(fun::FPtr<BlockClosure>, std::size_t);
 

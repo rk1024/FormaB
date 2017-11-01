@@ -81,25 +81,33 @@ namespace vc {
 
   BlockClosure::BlockClosure(fun::FPtr<FIAssembly>                assem,
                              fun::FPtr<const FIFunction>          func,
-                             std::queue<fun::FPtr<BlockClosure>> *q)
-      : m_assem(assem), m_func(func), m_q(q), m_vars(func->args()) {}
+                             std::queue<fun::FPtr<BlockClosure>> *q,
+                             std::unordered_set<std::size_t> *    checked)
+      : m_assem(assem),
+        m_func(func),
+        m_q(q),
+        m_checked(checked),
+        m_vars(func->args()) {}
 
   BlockClosure::BlockClosure(fun::FPtr<BlockClosure> block, std::size_t pc)
       : m_assem(block->m_assem),
         m_func(block->m_func),
         m_q(block->m_q),
+        m_checked(block->m_checked),
         m_pc(pc),
         m_stack(block->m_stack),
         m_vars(block->m_vars) {}
 
   void BlockClosure::iterate() {
     auto body = m_func->body();
-    enum { Move, Stay, Stop } action = Move;
+    enum { Move, Stay, Stop } action;
 
     std::unordered_set<std::size_t> covered;
 
     while (m_pc < body.instructions.size()) {
       if (!covered.insert(m_pc).second) break;
+
+      action = Move;
 
       auto ins = body.instructions.at(m_pc);
 
@@ -115,44 +123,6 @@ namespace vc {
         action = Stop;
         break;
 
-      // case FIOpcode::Add: handlePHOp(2, builtins::FIErrorT, "addition");
-      // break;
-      // case FIOpcode::Sub:
-      //   handlePHOp(2, builtins::FIErrorT, "subtraction");
-      //   break;
-      // case FIOpcode::Mul:
-      //   handlePHOp(2, builtins::FIErrorT, "multiplication");
-      //   break;
-      // case FIOpcode::Div: handlePHOp(2, builtins::FIErrorT, "division");
-      // break;
-      // case FIOpcode::Mod: handlePHOp(2, builtins::FIErrorT, "modulo"); break;
-
-      // case FIOpcode::Neg: handlePHOp(1, builtins::FIErrorT, "negation");
-      // break;
-      // case FIOpcode::Pos: handlePHOp(1, builtins::FIErrorT, "identity");
-      // break;
-
-      // case FIOpcode::Ceq:
-      //   handlePHOp(2, builtins::FIErrorT, "equality comparison");
-      //   break;
-      // case FIOpcode::Cgt:
-      //   handlePHOp(2, builtins::FIBool, "greater-than comparison");
-      //   break;
-      // case FIOpcode::Cgtu:
-      //   handlePHOp(2, builtins::FIBool, "unsigned greater-than comparison");
-      //   break;
-      // case FIOpcode::Clt:
-      //   handlePHOp(2, builtins::FIBool, "less-than comparison");
-      //   break;
-      // case FIOpcode::Cltu:
-      //   handlePHOp(2, builtins::FIBool, "unsigned less-than comparison");
-      //   break;
-
-      // case FIOpcode::Con: handleBoolOp(2, "conjunction"); break;
-      // case FIOpcode::Dis: handleBoolOp(2, "disjunction"); break;
-
-      // case FIOpcode::Inv: handleBoolOp(1, "inversion"); break;
-
       case FIOpcode::Br:
         if (ins.br.lbl)
           m_pc = body.labels.at(ins.br.id).pos();
@@ -162,12 +132,14 @@ namespace vc {
         break;
 
       case FIOpcode::Bez:
-      case FIOpcode::Bnz:
+      case FIOpcode::Bnz: {
         handlePopBool("Invalid condition type for branch.");
-        m_q->emplace(fnew<BlockClosure>(
-            fun::wrap(this),
-            ins.br.lbl ? body.labels.at(ins.br.id).pos() : m_pc + ins.br.addr));
+        std::size_t addr =
+            ins.br.lbl ? body.labels.at(ins.br.id).pos() : m_pc + ins.br.addr;
+        if (m_checked->insert(addr).second)
+          m_q->emplace(fnew<BlockClosure>(fun::wrap(this), addr));
         break;
+      }
 
       case FIOpcode::Ldci4:
         m_stack.push(m_assem->structs().value(builtins::FIInt8));
@@ -212,7 +184,7 @@ namespace vc {
         break;
 
       case FIOpcode::Stvar:
-        if (m_vars.count(ins.u4))
+        if (m_vars.find(ins.u4) != m_vars.end())
           std::cerr << "variable reassignment ("
                     << body.vars.value(ins.u4).name() << ")" << std::endl;
 
@@ -236,11 +208,6 @@ namespace vc {
                    builtins::FIVoidT,
                    "message");
         break;
-      // case FIOpcode::Curry:
-      //   handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
-      //              builtins::FIErrorT,
-      //              "curry");
-      //   break;
 
       case FIOpcode::Tpl: handlePHOp(ins.u4, builtins::FIVoidT, "tuple"); break;
       }

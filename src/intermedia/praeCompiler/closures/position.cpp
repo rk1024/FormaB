@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (position.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (position.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "position.hpp"
 
@@ -24,8 +24,8 @@ using namespace frma;
 
 namespace fie {
 namespace pc {
-  PositionTracker::PositionTracker(const FormaAST *curr)
-      : m_rootNode(fnew<PositionNode>(this, curr)) {
+  PositionTracker::PositionTracker(const FormaAST *curr) :
+      m_rootNode(fnew<PositionNode>(this, curr)) {
     m_node = fun::weak(m_rootNode);
   }
 
@@ -34,8 +34,9 @@ namespace pc {
   }
 
   PositionNode::PositionNode(PositionTracker *     parent,
-                             const frma::FormaAST *curr)
-      : m_parent(parent), m_curr(curr) {}
+                             const frma::FormaAST *curr) :
+      m_parent(parent),
+      m_curr(curr) {}
 
   fun::FPtr<PositionNode> PositionNode::push(const frma::FormaAST *node) {
     auto next    = fnew<PositionNode>(m_parent, node);
@@ -58,8 +59,9 @@ namespace pc {
       auto next = m_next.lock();
       assert(next->m_prev.peek() == this);
       next->m_prev = m_prev;
-    } else
+    }
+    else
       m_parent->m_node = m_prev;
   }
-}
-}
+} // namespace pc
+} // namespace fie

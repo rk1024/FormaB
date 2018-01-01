@@ -10,9 +10,9 @@ format: #The keys are full glob expressions
     line: "# %s"
   "*.{c,h,cc,hh,cpp,hpp,lpp,ypp,re}":
     start: "/*%s"
-    end: "%s*/"
+    end: " %s*/"
     border: "*"
-    line: "* %s"
+    line: " * %s"
   "*.fma":
     start: "@[%s"
     end: "%s@]"

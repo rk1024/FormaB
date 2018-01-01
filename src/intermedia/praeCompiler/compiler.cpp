@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (compiler.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (compiler.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "compiler.hpp"
 
@@ -47,8 +47,9 @@ namespace fie {
 
 // Compiler emit header with FuncClosure, specify node type
 #define EMITF_(name, type, ...)                                                \
-  FIPraeCompiler::emit##name(                                                  \
-      fun::FPtr<FuncClosure> closure, const FP##type *node, ##__VA_ARGS__)
+  FIPraeCompiler::emit##name(fun::FPtr<FuncClosure> closure,                   \
+                             const FP##type *       node,                      \
+                             ##__VA_ARGS__)
 
 // Compiler emit header with FuncClosure, matching node type
 #define EMITF(name, ...) EMITF_(name, name, ##__VA_ARGS__)
@@ -344,9 +345,9 @@ void EMITFL(XMsg) {
     default: FAIL;
     }
 
-    closure->emit(
-        FIOpcode::Msg,
-        m_inputs->assem()->msgs().intern(FIMessage(count, oss.str())));
+    closure->emit(FIOpcode::Msg,
+                  m_inputs->assem()->msgs().intern(
+                      FIMessage(count, oss.str())));
 
     break;
   }
@@ -429,8 +430,8 @@ void EMITFL(XUnary) {
   if (inc) {
     closure->emit<std::int32_t>(FIOpcode::Ldci4, 1)
         .emit(FIOpcode::Msg,
-              m_inputs->assem()->msgs().intern(inc == I_Inc ? builtins::FIAdd :
-                                                              builtins::FISub))
+              m_inputs->assem()->msgs().intern(inc == I_Inc ? builtins::FIAdd
+                                                            : builtins::FISub))
         .emit(FIOpcode::Dup);
 
     emitStoreXUnary(closure, node->unary());
@@ -560,13 +561,13 @@ void EMITF(SControl) {
 
   MATCH {
   case OF(If): break;
-  case OF(IfElse): type     = C_Else; break;
-  case OF(Unless): type     = C_Invert; break;
+  case OF(IfElse): type = C_Else; break;
+  case OF(Unless): type = C_Invert; break;
   case OF(UnlessElse): type = C_Invert | C_Else; break;
-  case OF(While): type      = C_Loop; break;
-  case OF(WhileElse): type  = C_Loop | C_Else; break;
-  case OF(Until): type      = C_Loop | C_Invert; break;
-  case OF(UntilElse): type  = C_Loop | C_Invert | C_Else; break;
+  case OF(While): type = C_Loop; break;
+  case OF(WhileElse): type = C_Loop | C_Else; break;
+  case OF(Until): type = C_Loop | C_Invert; break;
+  case OF(UntilElse): type = C_Loop | C_Invert | C_Else; break;
   default: FAIL;
   }
 
@@ -608,8 +609,9 @@ void EMITF(SControl) {
 
     auto elsePhiVars = closure->applyScopeWithIds();
 
-    closure->emit(FIInstruction::brLbl(
-        type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz, lblDo));
+    closure->emit(
+        FIInstruction::brLbl(type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz,
+                             lblDo));
 
     if (type & C_Else) {
       closure->pushScope();
@@ -620,7 +622,8 @@ void EMITF(SControl) {
     }
 
     closure->label(lblBreak);
-  } else {
+  }
+  else {
     std::uint32_t lblElse = closure->beginLabel(), lblDone = -1;
 
     if (type & C_Else) lblDone = closure->beginLabel();
@@ -629,8 +632,9 @@ void EMITF(SControl) {
 
     emitLoadXParen(closure, node->cond(), ParenFlags::NoScope);
 
-    closure->emit(FIInstruction::brLbl(
-        type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
+    closure->emit(
+        FIInstruction::brLbl(type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez,
+                             lblElse));
 
     emitStmt(closure, node->then());
 
@@ -688,8 +692,9 @@ void EMITF(Binding, bool mut) {
   MOVE;
   emitLoadExpr(closure, node->expr());
 
-  closure->emit<std::uint32_t>(
-      FIOpcode::Stvar, closure->scope()->bind(node->id()->value(), mut));
+  closure->emit<std::uint32_t>(FIOpcode::Stvar,
+                               closure->scope()->bind(node->id()->value(),
+                                                      mut));
 }
 
 void EMITF(Decl) {
@@ -780,14 +785,14 @@ std::uint32_t FIPraeCompiler::compileFunc(
     fun::cons_cell<const FPXFunc *> args) {
   FIBytecode body;
   auto       node    = args.get<0>();
-  auto       closure = fnew<FuncClosure>(body, node);
+  auto       closure = fnew<FuncClosure>(body, node, node->expr());
 
   std::stack<const FPFuncParam *> paramStack;
   auto                            params = node->params();
 
   while (params) {
     MATCH_(params) {
-    case OF_(params, List): params  = params->params(); break;
+    case OF_(params, List): params = params->params(); break;
     case OF_(params, Empty): params = nullptr; break;
     case OF_(params, Parameters):
     case OF_(params, Parameter):

@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (ptr.hpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (ptr.hpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #pragma once
 
@@ -46,7 +46,7 @@ class FPtr;
 
 template <typename T>
 class FWeakPtr;
-}
+} // namespace fun
 
 namespace std {
 template <typename T>
@@ -54,11 +54,11 @@ struct hash<fun::FPtr<T>>;
 
 template <typename T>
 struct hash<fun::FWeakPtr<T>>;
-}
+} // namespace std
 
 namespace fun {
 #if defined(FPTR_DIAGNOSTIC)
-extern FAtomStore<std::string> __fptr_t_ids;
+extern FAtomStore<std::string>                                   __fptr_t_ids;
 extern std::unordered_map<std::size_t, FAtomStore<const void *>> __fptr_ids;
 extern std::unordered_map<std::size_t, FAtomStore<const void *>> __fptr_o_ids;
 extern unsigned int __fptr_indent_lvl;
@@ -147,9 +147,9 @@ public:
       _FPTR_DIAG(auto oldRefCount = m_ptr->refCount());
       m_ptr->acquire();
       _FPTR_LOG("\e[38;5;2macquire (" << oldRefCount << " :> "
-                                      << m_ptr->refCount()
-                                      << ")\e[39m");
-    } else
+                                      << m_ptr->refCount() << ")\e[39m");
+    }
+    else
       _FPTR_LOG("\e[38;5;3mnullptr\e[39m");
     _FPTR_OUTDENT;
   }
@@ -164,21 +164,18 @@ public:
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {
     _FPTR_LOG(">>const copy(\e[38;5;6m" << __FPTR_ID_(&other)
                                         << "\e[39m -> \e[38;5;5m"
-                                        << __FPTR_O_ID_D(other)
-                                        << "\e[39m)");
+                                        << __FPTR_O_ID_D(other) << "\e[39m)");
   }
 
   FPtr(FPtr &other) : FPtr(const_cast<const FPtr &>(other)) {
     _FPTR_LOG(">>copy(\e[38;5;6m" << __FPTR_ID_(&other)
                                   << "\e[39m -> \e[38;5;5m"
-                                  << __FPTR_O_ID_D(other)
-                                  << "\e[39m)");
+                                  << __FPTR_O_ID_D(other) << "\e[39m)");
   }
 
   FPtr(FPtr &&other) : m_ptr(other.m_ptr) {
     _FPTR_LOG("move(\e[38;5;6m" << __FPTR_ID_(&other) << "\e[39m -> \e[38;5;5m"
-                                << __FPTR_O_ID_D(other)
-                                << "\e[39m)");
+                                << __FPTR_O_ID_D(other) << "\e[39m)");
     other.m_ptr = nullptr;
   }
 
@@ -187,10 +184,10 @@ public:
     _FPTR_INDENT;
     if (m_ptr) {
       _FPTR_LOG("\e[38;5;1mrelease (" << m_ptr->refCount() << " :> "
-                                      << (m_ptr->refCount() - 1)
-                                      << ")\e[39m");
+                                      << (m_ptr->refCount() - 1) << ")\e[39m");
       m_ptr->release();
-    } else
+    }
+    else
       _FPTR_LOG("\e[38;5;3mnullptr\e[39m");
     m_ptr = nullptr;
     _FPTR_OUTDENT;
@@ -199,8 +196,7 @@ public:
   const FPtr &operator=(const FPtr &rhs) {
     _FPTR_LOG("const copy = \e[38;5;6m" << __FPTR_ID_(&rhs)
                                         << "\e[39m -> \e[38;5;5m"
-                                        << __FPTR_O_ID_D(rhs)
-                                        << "\e[39m");
+                                        << __FPTR_O_ID_D(rhs) << "\e[39m");
     _FPTR_INDENT;
     if (&rhs == this) goto done;
 
@@ -213,16 +209,14 @@ public:
 
   const FPtr &operator=(FPtr &rhs) {
     _FPTR_LOG("copy = \e[38;5;6m" << __FPTR_ID_(&rhs) << "\e[39m -> \e[38;5;5m"
-                                  << __FPTR_O_ID_D(rhs)
-                                  << "\e[39m");
+                                  << __FPTR_O_ID_D(rhs) << "\e[39m");
     _FPTR_INDENT;
     return __fptr_outdent(operator=(const_cast<const FPtr &>(rhs)));
   }
 
   const FPtr &operator=(FPtr &&rhs) {
     _FPTR_LOG("move = \e[38;5;6m" << __FPTR_ID_(&rhs) << "\e[39m -> \e[38;5;5m"
-                                  << __FPTR_O_ID_D(rhs)
-                                  << "\e[39m");
+                                  << __FPTR_O_ID_D(rhs) << "\e[39m");
     _FPTR_INDENT;
     if (&rhs == this) goto done;
 
@@ -429,7 +423,7 @@ public:
   }
 
   bool operator!() const { return !operator bool(); }
-  operator bool() const {
+       operator bool() const {
     if (!m_ptr) return false;
 
     switch (m_ptr->refCount()) {
@@ -473,7 +467,7 @@ public:
     return fun::multiHash(ptr.m_ptr, fun::forward_hash(typeid(T).hash_code()));
   }
 };
-}
+} // namespace std
 
 template <typename T, typename... TArgs>
 fun::FPtr<T> fnew(TArgs &&... args) {

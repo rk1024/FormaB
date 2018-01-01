@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (scheduler.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (scheduler.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "scheduler.hpp"
 
@@ -65,15 +65,16 @@ protected:
   }
 
 public:
-  DepWalker(fun::FPtr<FIScheduler> sched, fun::FPtr<fps::FDepsGraphEdge> edge)
-      : WalkerBase(sched), m_edge(edge) {}
+  DepWalker(fun::FPtr<FIScheduler> sched, fun::FPtr<fps::FDepsGraphEdge> edge) :
+      WalkerBase(sched),
+      m_edge(edge) {}
 };
 
 void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
   auto pipe = fnew<EntryPointPipeline>();
 
-  auto name =
-      "Entry point " + std::to_string(m_entryPointIds.intern(stmts) + 1);
+  auto name = "Entry point " +
+              std::to_string(m_entryPointIds.intern(stmts) + 1);
 
   pipe->input    = m_graph->node("[AST] " + name);
   pipe->compiled = m_graph->node("[Compiled] " + name);
@@ -176,4 +177,4 @@ void FIScheduler::schedule(const frma::FPrims *prims) {
     m_depQ.pop();
   }
 }
-}
+} // namespace fie

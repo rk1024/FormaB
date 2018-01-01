@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (scope.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (scope.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "scope.hpp"
 
@@ -44,7 +44,7 @@ namespace pc {
     return oss.str();
   }
 
-  template <bool          required>
+  template <bool required>
   fun::FPtr<ScopeClosure> ScopeClosure::holderOf(const std::string &name) {
     if (m_vars.find(name) != m_vars.end()) return fun::wrap(this);
     if (m_parent) return m_parent->holderOf<required>(name);
@@ -95,8 +95,11 @@ namespace pc {
 
   ScopeClosure::ScopeClosure(bool                       isArgs,
                              fun::FWeakPtr<FuncClosure> func_,
-                             fun::FPtr<ScopeClosure>    parent)
-      : m_func(func_), m_parent(parent), m_id(ID_NONE), m_isArgs(isArgs) {}
+                             fun::FPtr<ScopeClosure>    parent) :
+      m_func(func_),
+      m_parent(parent),
+      m_id(ID_NONE),
+      m_isArgs(isArgs) {}
 
   std::uint32_t ScopeClosure::bind(const std::string &name, bool mut) {
     return recordVar(fun::weak(this), name, 0, mut ? 0 : COUNT_CONST, mut);
@@ -164,5 +167,5 @@ namespace pc {
 
     return owned;
   }
-}
-}
+} // namespace pc
+} // namespace fie

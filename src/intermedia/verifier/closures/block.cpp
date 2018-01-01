@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (block.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (block.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "block.hpp"
 
@@ -82,21 +82,21 @@ namespace vc {
   BlockClosure::BlockClosure(fun::FPtr<FIAssembly>                assem,
                              fun::FPtr<const FIFunction>          func,
                              std::queue<fun::FPtr<BlockClosure>> *q,
-                             std::unordered_set<std::size_t> *    checked)
-      : m_assem(assem),
-        m_func(func),
-        m_q(q),
-        m_checked(checked),
-        m_vars(func->args()) {}
+                             std::unordered_set<std::size_t> *    checked) :
+      m_assem(assem),
+      m_func(func),
+      m_q(q),
+      m_checked(checked),
+      m_vars(func->args()) {}
 
-  BlockClosure::BlockClosure(fun::FPtr<BlockClosure> block, std::size_t pc)
-      : m_assem(block->m_assem),
-        m_func(block->m_func),
-        m_q(block->m_q),
-        m_checked(block->m_checked),
-        m_pc(pc),
-        m_stack(block->m_stack),
-        m_vars(block->m_vars) {}
+  BlockClosure::BlockClosure(fun::FPtr<BlockClosure> block, std::size_t pc) :
+      m_assem(block->m_assem),
+      m_func(block->m_func),
+      m_q(block->m_q),
+      m_checked(block->m_checked),
+      m_pc(pc),
+      m_stack(block->m_stack),
+      m_vars(block->m_vars) {}
 
   void BlockClosure::iterate() {
     auto body = m_func->body();
@@ -134,8 +134,8 @@ namespace vc {
       case FIOpcode::Bez:
       case FIOpcode::Bnz: {
         handlePopBool("Invalid condition type for branch.");
-        std::size_t addr =
-            ins.br.lbl ? body.labels.at(ins.br.id).pos() : m_pc + ins.br.addr;
+        std::size_t addr = ins.br.lbl ? body.labels.at(ins.br.id).pos()
+                                      : m_pc + ins.br.addr;
         if (m_checked->insert(addr).second)
           m_q->emplace(fnew<BlockClosure>(fun::wrap(this), addr));
         break;
@@ -168,7 +168,8 @@ namespace vc {
           std::cerr << "load-before-store (" << body.vars.value(ins.u4).name()
                     << ")" << std::endl;
           m_stack.push(m_assem->structs().value(builtins::FIErrorT));
-        } else
+        }
+        else
           m_stack.push(it->second);
         break;
       }
@@ -220,5 +221,5 @@ namespace vc {
       }
     }
   }
-}
-}
+} // namespace vc
+} // namespace fie

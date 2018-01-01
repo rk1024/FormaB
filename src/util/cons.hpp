@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (cons.hpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (cons.hpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #pragma once
 
@@ -64,13 +64,14 @@ struct cons_cell<TCar, TCdr...> {
 
   cons_cell() = default;
 
-  cons_cell(const TCar &_car, const cons_cell<TCdr...> &_cdr)
-      : car(_car), cdr(_cdr) {}
+  cons_cell(const TCar &_car, const cons_cell<TCdr...> &_cdr) :
+      car(_car),
+      cdr(_cdr) {}
 
   constexpr std::size_t size() const { return sizeof...(TCdr) + 1; }
 
   template <std::size_t idx>
-  constexpr auto &      get() {
+  constexpr auto &get() {
     return selector<idx>::get(*this);
   }
 
@@ -143,7 +144,7 @@ template <>
 constexpr void _combineConsHashes(std::size_t &, const cons_cell<> &) {}
 
 template <typename TCar, typename... TCdr>
-constexpr void _combineConsHashes(std::size_t &seed,
+constexpr void _combineConsHashes(std::size_t &                   seed,
                                   const cons_cell<TCar, TCdr...> &cell) {
   combineHashes(seed, cell.car);
   _combineConsHashes<TCdr...>(seed, cell.cdr);
@@ -155,7 +156,7 @@ inline std::size_t consHash(const cons_cell<TItems...> &cell) {
   _combineConsHashes<TItems...>(ret, cell);
   return ret;
 }
-}
+} // namespace fun
 
 namespace std {
 template <typename... TItems>
@@ -171,4 +172,4 @@ struct hash<const fun::cons_cell<TItems...>> {
     return fun::consHash(cell);
   }
 };
-}
+} // namespace std

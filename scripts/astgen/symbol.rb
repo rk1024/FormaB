@@ -1,7 +1,7 @@
 ##########################################################################
 #
 # FormaB - the bootstrap Forma compiler (symbol.rb)
-# Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
+# Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
 #
 # FormaB is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -311,7 +311,7 @@ module ASTGen
               @d.p([syms, alt], long: true) if @name === :PraeExpression
               l.peek << " |" if i > 0
 
-              l << "#{syms.none? ? "%empty" : syms.map do |sym|
+            l << "#{syms.none? ? "%empty" : syms.map do |sym|
                 case sym
                   when String; sym.inspect
                   when Symbol; "#{sym == :self ? @name : @node.members[sym]}[#{sym}]"

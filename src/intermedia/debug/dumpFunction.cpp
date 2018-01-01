@@ -1,30 +1,31 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (dumpFunction.cpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (dumpFunction.cpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #include "dumpFunction.hpp"
 
 #include "util/dumpHex.hpp"
 
 namespace fie {
-FIDumpFunction::FIDumpFunction(fun::FPtr<FIInputs> inputs, std::ostream &os)
-    : m_inputs(inputs), m_os(os) {}
+FIDumpFunction::FIDumpFunction(fun::FPtr<FIInputs> inputs, std::ostream &os) :
+    m_inputs(inputs),
+    m_os(os) {}
 
 void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
   auto func = m_inputs->assem()->funcs().value(args.get<0>());
@@ -54,24 +55,22 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
 
     case FIOpcode::Dup: m_os << "dup"; break;
     case FIOpcode::Pop: m_os << "pop"; break;
-    case FIOpcode::Ret:
-      m_os << "ret";
-      break;
+    case FIOpcode::Ret: m_os << "ret"; break;
 
     case FIOpcode::Br:
       m_os << "br\e[0m \e[38;5;7m"
-           << (ins.br.lbl ? body.labels.at(ins.br.id).name() :
-                            std::to_string(ins.br.addr));
+           << (ins.br.lbl ? body.labels.at(ins.br.id).name()
+                          : std::to_string(ins.br.addr));
       break;
     case FIOpcode::Bez:
       m_os << "bez\e[0m \e[38;5;7m"
-           << (ins.br.lbl ? body.labels.at(ins.br.id).name() :
-                            std::to_string(ins.br.addr));
+           << (ins.br.lbl ? body.labels.at(ins.br.id).name()
+                          : std::to_string(ins.br.addr));
       break;
     case FIOpcode::Bnz:
       m_os << "bnz\e[0m \e[38;5;7m"
-           << (ins.br.lbl ? body.labels.at(ins.br.id).name() :
-                            std::to_string(ins.br.addr));
+           << (ins.br.lbl ? body.labels.at(ins.br.id).name()
+                          : std::to_string(ins.br.addr));
       break;
 
     case FIOpcode::Ldci4: m_os << "ldci4\e[0m \e[38;5;5m" << ins.i4; break;
@@ -128,4 +127,4 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<std::uint32_t> args) {
     m_os << "\e[0m" << std::endl;
   }
 }
-}
+} // namespace fie

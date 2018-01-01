@@ -1,22 +1,22 @@
 /*************************************************************************
-*
-* FormaB - the bootstrap Forma compiler (atom.hpp)
-* Copyright (C) 2017-2017 Ryan Schroeder, Colin Unger
-*
-* FormaB is free software: you can redistribute it and/or modify
-* it under the terms of the GNU Affero General Public License as
-* published by the Free Software Foundation, either version 3 of the
-* License, or (at your option) any later version.
-*
-* FormaB is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU Affero General Public License for more details.
-*
-* You should have received a copy of the GNU Affero General Public License
-* along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
-*
-*************************************************************************/
+ *
+ * FormaB - the bootstrap Forma compiler (atom.hpp)
+ * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
+ *
+ * FormaB is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as
+ * published by the Free Software Foundation, either version 3 of the
+ * License, or (at your option) any later version.
+ *
+ * FormaB is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with FormaB.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ ************************************************************************/
 
 #pragma once
 
@@ -36,14 +36,14 @@ class FAtomStoreBuf<T, TKey, false> {
   typename std::enable_if<(sizeof(std::size_t) >= sizeof(TKey) &&
                            std::is_integral<TKey>::value),
                           std::vector<T>>::type m_values;
-  std::unordered_map<T, TKey> m_keys;
+  std::unordered_map<T, TKey>                   m_keys;
 
 public:
   inline TKey next() const { return static_cast<TKey>(m_values.size()); }
 
-  inline TKey key(T value) const { return m_keys.at(value); }
+  inline TKey     key(T value) const { return m_keys.at(value); }
   inline const T &value(TKey key) const { return m_values.at(key); }
-  inline T &value(TKey key) { return m_values.at(key); }
+  inline T &      value(TKey key) { return m_values.at(key); }
 
   inline bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
@@ -65,15 +65,15 @@ class FAtomStoreBuf<T, TKey, true> {
                            std::is_integral<TKey>::value),
                           std::unordered_map<TKey, T>>::type m_values;
 
-  TKey m_nextKey = 0;
+  TKey                        m_nextKey = 0;
   std::unordered_map<T, TKey> m_keys;
 
 public:
   inline TKey next() const { return m_nextKey; }
 
-  inline TKey key(T value) const { return m_keys.at(value); }
+  inline TKey     key(T value) const { return m_keys.at(value); }
   inline const T &value(TKey key) const { return m_values.at(key); }
-  inline T &value(TKey key) { return m_values.at(key); }
+  inline T &      value(TKey key) { return m_values.at(key); }
 
   inline bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
@@ -106,9 +106,9 @@ class FAtomStore {
   }
 
 public:
-  TKey key(const T &value) const { return m_buf.key(value); }
+  TKey     key(const T &value) const { return m_buf.key(value); }
   const T &value(TKey key) const { return m_buf.value(key); }
-  T &value(TKey key) { return m_buf.value(key); }
+  T &      value(TKey key) { return m_buf.value(key); }
 
   TKey size() const { return m_buf.next(); }
 
@@ -133,4 +133,4 @@ public:
     return add(T(std::forward<TArgs>(args)...));
   }
 };
-}
+} // namespace fun

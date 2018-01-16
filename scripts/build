@@ -3,59 +3,80 @@
 require_relative "rninja/rninja"
 
 RNinja.config(file: "build.yaml") do
-  init :afl, :debug, :diagnostic, :sanitize, :optimize
+  init :debug, :diagnostic, :sanitize, :optimize
 
-  defaults dashOFast: false
+  defaults afl: false,
+    build_profile: false,
+    dashOFast: false,
+    diagnostic: false,
+    gen: :ninja
 
   profile :release, {
-    afl: false,
     debug: false,
     diagnostic: false,
     sanitize: false,
-    optimize: true
+    optimize: true,
   }
 
   profile :debug, {
-    afl: false,
     debug: true,
-    diagnostic: false,
     sanitize: true,
-    optimize: false
+    optimize: false,
   }
 
   profile :afl, {
-    afl: true,
     debug: true,
-    diagnostic: false,
-    sanitize: false,
-    optimize: false
+    afl: true,
+  }
+
+  profile :diagnostic, {
+    debug: true,
+    diagnostic: true,
+  }
+
+  profile :make, {
+    gen: :make,
   }
 end
 
-RNinja.run(rn_dir: "build/rninja") do
-  # afl = true # Compile with afl-fuzz instrumentation
-  # debug = true || afl # Compile debuggable binaries
-  # diagnostic = false && debug # Add extra diagnostic warnings
-  # sanitize = true && !afl # Compile with sanitizers enabled
-  # optimize = false # Perform optimizations
-  # dashOFast = false && !afl # Use -Ofast
-
+RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
   san_flags = (["address", "undefined"].map{|s| "-fsanitize=#{s}" } if config(:sanitize))
 
   set bin_d: "bin",
     build_d: "build",
+    include_d: "include",
     script_d: "scripts",
     src_d: "src",
     tool_d: "tools",
     ast_d: "$build_d/ast",
+    cp: "cp",
     ruby: "ruby",
     astgen: "$script_d/ast.rb",
     flex: "flex",
     bison: "$script_d/run-bison bison",
     re2c: "$tool_d/re2c/re2c/re2c",
+    cc: config(:afl) ? "afl-clang" : "clang",
     cxx: config(:afl) ? "afl-clang++" : "clang++",
-    ld: "$cxx",
-    astgen_flags: [
+    ld: "$cxx"
+
+  include_dirs = [
+    "$include_d",
+  ]
+
+  includes = [
+    *(include_dirs.flat_map{|i| ["-I#{i}", "-isystem #{i}"] }),
+  ]
+
+  cc_pch_files = [
+  ].map{|p| [p, "#{p.sub("$include_d", "$build_d/include")}.pch"] }
+
+  cxx_pch_files = [
+  ].map{|p| [p, "#{p.sub("$include_d", "$build_d/include")}.pch"] }
+
+  cc_pchs = cc_pch_files.map{|_, o| "-include-pch #{o}" }
+  cxx_pchs = cxx_pch_files.map{|_, o| "-include-pch #{o}" }
+
+  set astgen_flags: [
       "-f$src_d/scanner.in.lpp:$build_d/scanner.lpp",
       "-b$src_d/parser.in.ypp:$build_d/parser.ypp",
       "-t$src_d/ast/token.in.hpp:$build_d/ast/token.hpp",
@@ -74,10 +95,67 @@ RNinja.run(rn_dir: "build/rninja") do
       "-W",
       "-Werror-undefined-control-flow",
     ],
+    cc_flags: [
+      "-fcolor-diagnostics",
+      "-ferror-limit=0",
+      "-std=c11",
+      *(config(:debug) ? [
+        "-g",
+        *("-O0" unless config(:optimize)),
+        "-DDEBUG",
+        "-D_DEBUG",
+      ] : [
+        "-DNDEBUG",
+        "-D_NDEBUG",
+      ]),
+      *(config(:diagnostic) ? [
+        "-DDEBUG_DIAGNOSTIC",
+        "-D_DEBUG_DIAGNOSTIC",
+      ] : []),
+      *(config(:build_profile) ? [
+        "-v",
+        "-ftime-report",
+      ] : []),
+      *san_flags,
+      *includes,
+      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
+    ],
     cxx_flags: [
       "-fcolor-diagnostics",
       "-ferror-limit=0",
       "-std=c++14",
+      *(config(:diagnostic) ? [
+        "-DDEBUG_DIAGNOSTIC",
+        "-D_DEBUG_DIAGNOSTIC",
+      ] : []),
+      *(config(:debug) ? [
+        "-g3",
+        *("-O0" unless config(:optimize)),
+        "-D_GLIBCXX_DEBUG",
+        "-D_GLIBCXX_DEBUG_PEDANTIC",
+        "-D_LIBCPP_DEBUG",
+        "-DDEBUG",
+        "-D_DEBUG",
+      ] : [
+        "-DNDEBUG",
+        "-D_NDEBUG",
+      ]),
+      *(config(:build_profile) ? [
+        "-v",
+        "-ftime-report",
+      ] : []),
+      *san_flags,
+      *includes,
+      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
+    ],
+    cc_diags: [
+      "-Wall",
+      "-Wextra",
+      "-Wimplicit",
+      "-Wshadow",
+      "-Wunused",
+    ],
+    cxx_diags: [
       "-Wall",
       "-Wconversion",
       "-Wdeprecated",
@@ -110,29 +188,22 @@ RNinja.run(rn_dir: "build/rninja") do
         # Anti-spam measures:
         "-fno-caret-diagnostics",
         "-fno-diagnostics-fixit-info",
-        ] : [
+      ] : [
         # Disabled by diagnostic as anti-spam measure:
         "-fno-elide-type",
         "-ftemplate-backtrace-limit=0",
       ]),
-      *(config(:debug) ? [
-        "-g",
-        *("-O0" unless config(:optimize)),
-        "-D_GLIBCXX_DEBUG",
-        "-D_GLIBCXX_DEBUG_PEDANTIC",
-        "-D_LIBCPP_DEBUG",
-        "-DDEBUG",
-        "-D_DEBUG",
-      ] : [
-        "-DNDEBUG",
-        "-D_NDEBUG",
-      ]),
-      *san_flags,
-      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
     ],
+    cc_pchs: cc_pchs,
+    cxx_pchs: cxx_pchs,
     ld_flags: [
+      "-ldl",
       *san_flags,
     ]
+
+  rule :cp,
+    command: "$cp -R -- $in $out",
+    description: "cp $in $out"
 
   rule :ruby,
     command: "$ruby $ruby_flags $flags $in $args"
@@ -152,10 +223,34 @@ RNinja.run(rn_dir: "build/rninja") do
     from: ".re",
     command: "$re2c $re2c_flags $flags -o $out $in"
 
+  rule :cc,
+    build: ".o",
+    from: ".c",
+    command: "$cc $cc_flags $cc_diags $cc_pchs $flags -MMD -MF $out.d -c -o $out $in",
+    deps: "gcc",
+    depfile: "$out.d",
+    restat: true
+
   rule :cxx,
     build: ".o",
     from: ".cpp",
-    command: "$cxx $cxx_flags $flags -MMD -MF $out.d -c -o $out $in",
+    command: "$cxx $cxx_flags $cxx_diags $cxx_pchs $flags -MMD -MF $out.d -c -o $out $in",
+    deps: "gcc",
+    depfile: "$out.d",
+    restat: true
+
+  rule :cc_pch,
+    build: ".pch",
+    from: ".h",
+    command: "$cc $cc_flags $flags -MMD -MF $out.d -c -o $out -xc++-header $in",
+    deps: "gcc",
+    depfile: "$out.d",
+    restat: true
+
+  rule :cxx_pch,
+    build: ".pch",
+    from: ".hpp",
+    command: "$cxx $cxx_flags $flags -MMD -MF $out.d -c -o $out -xc++-header $in",
     deps: "gcc",
     depfile: "$out.d",
     restat: true
@@ -165,6 +260,18 @@ RNinja.run(rn_dir: "build/rninja") do
     from: ".o",
     info: "link $out",
     command: "$ld $ld_flags $flags -o $out $in"
+
+  cc_pch_files.each do |file, out|
+    build out, from: file, with: :cc_pch
+  end
+
+  cxx_pch_files.each do |file, out|
+    build out, from: file, with: :cxx_pch
+  end
+
+  cc_pch_outs = cc_pch_files.map{|_, o| o }
+
+  cxx_pch_outs = cxx_pch_files.map{|_, o| o }
 
   build "$build_d/scanner.cpp", from: "$build_d/scanner.lpp"
   build "$build_d/parser.cpp",

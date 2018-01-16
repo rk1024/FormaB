@@ -20,6 +20,8 @@
 
 #include "function.hpp"
 
+#include "util/compilerError.hpp"
+
 #include "scope.hpp"
 
 namespace fie {
@@ -139,7 +141,7 @@ namespace pc {
 
     std::cerr << os.str();
 
-    throw std::runtime_error(os.str());
+    throw fun::compiler_error();
   }
 } // namespace pc
 } // namespace fie

@@ -29,6 +29,10 @@
 
 #include "ast/walker.hpp"
 
+#include "util/atom.hpp"
+#include "util/cli.hpp"
+#include "util/compilerError.hpp"
+
 #include "intermedia/debug/dumpFunction.hpp"
 #include "intermedia/optimizer/optimizer.hpp"
 #include "intermedia/praeCompiler/compiler.hpp"
@@ -38,53 +42,123 @@
 using namespace frma;
 using namespace fie;
 
-int main(int argc, char **argv) {
-  FILE *      infile;
-  std::string filename("???");
-  bool        dot = false;
-#if defined(DEBUG)
-  bool verbose = false;
-#endif
+class ArgParser : public fun::FArgParser {
+  fun::FAtomStore<std::string>                 m_flags, m_dot_modes;
+  std::unordered_map<std::string, std::size_t> m_short;
+  std::size_t m_verbose, m_dot, m_dotDeps, m_dotControl;
 
-  std::list<std::string> args;
+  std::list<std::string> m_args;
+  std::size_t            m_dotMode    = -1;
+  int                    m_verboseLvl = 0;
 
-  {
-    bool doFlags = true;
-    for (size_t i = 1; i < argc; ++i) {
-      std::string arg(argv[i]);
-      if (doFlags) {
-#if defined(DEBUG)
-        if (arg == "--verbose" || arg == "-v")
-          verbose = true;
-        else
-#endif
-            if (arg == "--dot" || arg == "-d")
-          dot = true;
-        else if (arg == "--")
-          doFlags = false;
-        else
-          args.push_back(arg);
-      } else
-        args.push_back(arg);
+  std::size_t resolve(bool shortFlag, const std::string &flag) {
+    std::size_t id;
+
+    if (shortFlag) {
+      auto it = m_short.find(flag);
+      if (it == m_short.end()) goto nonexist;
+      id = it->second;
     }
+    else if (!m_flags.find(flag, &id))
+      goto nonexist;
+
+    return id;
+
+  nonexist:
+    std::cerr << "Invalid flag '" << flag << "'." << std::endl;
+    throw fun::bad_argument();
   }
-  switch (args.size()) {
-  case 0:
-    infile   = stdin;
-    filename = "<stdin>";
-    break;
-  case 1:
-    infile   = fopen(argv[1], "r");
-    filename = argv[1];
-    break;
-  default:
-    std::cerr << "Usage: " << argv[0] << "[flags] [--] [input]" << std::endl;
+
+  virtual TakesArg takesArg(bool shortFlag, const std::string &flag) override {
+    std::size_t id = resolve(shortFlag, flag);
+
+    if (id == m_verbose) ++m_verboseLvl;
+
+    if (id == m_dot)
+      return Optional;
+    else
+      return None;
+  }
+
+  virtual TakesArg handleVal(bool               shortFlag,
+                             const std::string &flag,
+                             const std::string &val,
+                             int) override {
+    std::size_t id = resolve(shortFlag, flag);
+
+    if (id == m_dot) {
+      if (!m_dot_modes.find(val, &m_dotMode)) {
+        std::cerr << "Invalid --dot mode '" << val << "'." << std::endl;
+        throw fun::bad_argument();
+      }
+    }
+    else
+      assert(false);
+
+    return None;
+  }
+
+  virtual void handleArg(const std::string &arg) override {
+    m_args.push_back(arg);
+  }
+
+public:
+  inline auto dotDeps() const { return m_dotDeps; }
+  inline auto dotControl() const { return m_dotControl; }
+
+  inline auto  dotMode() const { return m_dotMode; }
+  inline auto  verboseLvl() const { return m_verboseLvl; }
+  inline auto &args() const { return m_args; }
+
+  ArgParser() {
+#define MKFLAG(lname, sname)                                                   \
+  m_short.emplace(#sname, m_##lname = m_flags.intern(#lname));
+
+    MKFLAG(verbose, v)
+    MKFLAG(dot, d)
+
+    m_dotDeps    = m_dot_modes.intern("deps");
+    m_dotControl = m_dot_modes.intern("control");
+#undef MKFLAG
+  }
+
+  void help() {
+    std::cerr << "Usage: formab [flags] [--] [input]" << std::endl;
 
     std::cerr << "Flags:\n  \e[1m--verbose, -v\e[0m: Output extra information."
               << std::endl
               << "  \e[1m--dot, -d\e[0m: Output dependency graph as a dotfile."
               << std::endl;
-    return 1;
+  }
+};
+
+int main(int argc, char **argv) {
+  FILE *      infile;
+  std::string filename("???");
+
+  ArgParser ap;
+
+  try {
+    ap.parse(argc, argv);
+  }
+  catch (fun::bad_argument &) {
+    exit(1);
+  }
+
+  std::vector<std::string> args(ap.args().begin(), ap.args().end());
+
+  switch (args.size()) {
+  case 0:
+  readStdin:
+    infile   = stdin;
+    filename = "<stdin>";
+    break;
+  case 1:
+    if (args.at(0) == "-") goto readStdin;
+    infile   = fopen(args.at(0).c_str(), "r");
+    filename = args.at(0);
+    break;
+  default: ap.help(); return 1;
   }
 
 #if defined(NDEBUG)
@@ -97,7 +171,7 @@ int main(int argc, char **argv) {
     lex.inFile(infile);
 
 #if defined(DEBUG)
-    if (verbose) {
+    if (ap.verboseLvl() > 1) {
       lex.debug(true);
       parse.set_debug_level(1);
     }
@@ -119,10 +193,16 @@ int main(int argc, char **argv) {
 
       sched->schedule(tag.prims);
 
-      if (dot)
+      if (ap.dotMode() == ap.dotDeps())
         graph->dot(std::cout);
-      else
-        graph->run();
+      else {
+        try {
+          graph->run();
+        }
+        catch (fun::compiler_error &) {
+          return 1;
+        }
+      }
     }
 
     std::cerr << tag.errors().size() << " error";

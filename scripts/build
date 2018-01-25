@@ -54,7 +54,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     astgen: "$script_d/ast.rb",
     flex: "flex",
     bison: "$script_d/run-bison bison",
-    re2c: "$tool_d/re2c/re2c/re2c",
+    re2c: "re2c",
     cc: config(:afl) ? "afl-clang" : "clang",
     cxx: config(:afl) ? "afl-clang++" : "clang++",
     ld: "$cxx"

@@ -1,0 +1,10 @@
+#!/usr/bin/env bin/formab
+
+@!prae{
+  let cout = 0; @@ TODO: fix cout
+
+  while (var i = 0; i < 5) {
+    cout[print: i[toString]];
+    ++i;
+  };
+@}

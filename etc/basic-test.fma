@@ -1,0 +1,23 @@
+@!prae{
+  @@ let x = 1 + 2;
+  @@ let y = 3 + 4;
+  @@ () => 1.0 + 2.0;
+
+  let myBool = true;
+  let myInt8 = 1sy;
+  let myInt16 = 1h;
+  let myInt32 = 1;
+  let myInt64 = 1l;
+  let myUint8 = 1y;
+  let myUint16 = 1uh;
+  let myUint32 = 1u;
+  let myUint64 = 1ul;
+  let myFloat = 1f;
+  let myDouble = 1d;
+  let myString = "hi";
+
+  @@ let f = () => "hi";
+  let x = 1 + 2;
+  let y = x + 2;
+  return x * 3 / y;
+@}

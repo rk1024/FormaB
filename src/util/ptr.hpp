@@ -55,6 +55,11 @@ class FPtr {
 public:
   inline T *get() const { return m_ptr; }
 
+  template <typename U>
+  inline U *as() const {
+    return dynamic_cast<U *>(m_ptr);
+  }
+
   explicit FPtr(T *ptr) : m_ptr(ptr) {
     if (m_ptr) m_ptr->acquire();
   }

@@ -64,14 +64,14 @@ class FDataGraphRuleBase : public fun::FObject {
 
 template <typename... TArgs, std::size_t... idcs>
 fun::cons_cell<TArgs...> _consNodeExtract_impl(
-    fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> nodes,
+    const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &nodes,
     fun::idx_range<idcs...>) {
   return fun::cons(nodes.template get<idcs>()->data()...);
 }
 
 template <typename... TArgs>
 inline fun::cons_cell<TArgs...> _consNodeExtract(
-    fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> nodes) {
+    const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &nodes) {
   return _consNodeExtract_impl(nodes, fun::idx_range_for<TArgs...>());
 }
 

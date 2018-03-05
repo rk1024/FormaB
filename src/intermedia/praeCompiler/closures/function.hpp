@@ -24,7 +24,8 @@
 
 #include "util/cons.hpp"
 
-#include "intermedia/bytecode.hpp"
+#include "intermedia/function.hpp"
+#include "intermedia/messaging/message.hpp"
 
 #include "position.hpp"
 
@@ -41,37 +42,55 @@ namespace pc {
   private:
     fun::FPtr<ScopeClosure> m_args, m_scope;
     unsigned int            m_nextScopeId = 0;
-    FIBytecode *            m_body;
+    FIFunctionBody *        m_body;
 
   public:
     inline fun::FPtr<ScopeClosure> args() { return m_args; }
     inline fun::FPtr<ScopeClosure> scope() const { return m_scope; }
-    inline FIBytecode *            body() const { return m_body; }
+    inline FIFunctionBody *        body() const { return m_body; }
 
-    FuncClosure(FIBytecode &, const frma::FormaAST *);
+    FuncClosure(FIFunctionBody &, const frma::FormaAST *);
 
-    FuncClosure &emit(FIInstruction);
+    FuncClosure &emit(const fun::FPtr<FIInstructionBase> &);
+    FuncClosure &emit(fun::FPtr<FIInstructionBase> &&);
 
-    inline FuncClosure &emit(FIOpcode op) { return emit(FIInstruction(op)); }
-
-    template <typename T>
-    inline std::enable_if_t<std::is_integral<T>::value ||
-                                std::is_floating_point<T>::value,
-                            FuncClosure>
-        &emit(FIOpcode op, T arg) {
-      return emit(FIInstruction(op, arg));
+    inline FuncClosure &emitBasic(FIOpcode op) {
+      return emit(fnew<FIBasicInstruction>(op));
     }
 
-    std::uint32_t beginLabel();
+    inline FuncClosure &emitBranch(FIOpcode op, FILabelAtom lbl) {
+      return emit(fnew<FIBranchInstruction>(op, lbl));
+    }
 
-    void label(std::uint32_t);
+    template <typename T>
+    inline FuncClosure &emitLoad(const T &value) {
+      return emit(fnew<FILoadInstruction<T>>(value));
+    }
+
+    template <typename T>
+    inline FuncClosure &emitLoad(T &&value) {
+      return emit(fnew<FILoadInstruction<T>>(value));
+    }
+
+    inline FuncClosure &emitMessage(FIMessageAtom msg) {
+      return emit(fnew<FIMessageInstruction>(msg));
+    }
+
+    inline FuncClosure &emitTuple(std::uint32_t count) {
+      return emit(fnew<FITupleInstruction>(count));
+    }
+
+    inline FuncClosure &emitVar(FIOpcode op, FIVariableAtom var) {
+      return emit(fnew<FIVarInstruction>(op, var));
+    }
+
+    FILabelAtom beginLabel();
+
+    void label(FILabelAtom);
 
     void                    pushScope();
     void                    dropScope();
     fun::FPtr<ScopeClosure> popScope();
-    void                    applyScope();
-    void                    applyScopeWithIds(VarIds &, bool add);
-    VarIds                  applyScopeWithIds();
 
     [[noreturn]] void error(std::string &&desc);
 

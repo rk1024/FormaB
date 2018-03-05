@@ -22,6 +22,9 @@
 
 #include <unordered_map>
 
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Module.h>
+
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
 
@@ -31,15 +34,23 @@
 
 namespace fie {
 class FIInputs : public fun::FObject {
-  fun::FPtr<FIAssembly>                                     m_assem;
-  std::unordered_map<const frma::FormaAST *, std::uint32_t> m_funcs;
-  std::unordered_map<const frma::FormaAST *, std::uint32_t> m_structs;
+  fun::FPtr<FIAssembly>                                      m_assem;
+  std::unordered_map<const frma::FormaAST *, FIFunctionAtom> m_funcs;
+  std::unordered_map<const frma::FormaAST *, std::uint32_t>  m_structs;
+  llvm::LLVMContext                                          m_llCtx;
+  std::unique_ptr<llvm::Module>                              m_llModule;
+  std::unordered_map<FIFunctionAtom, llvm::Function *>       m_llFuncs;
+  std::unordered_map<FIStringAtom, llvm::GlobalVariable *>   m_llStrings;
 
 public:
   inline fun::FPtr<FIAssembly> assem() { return m_assem; }
   inline auto &                funcs() { return m_funcs; }
   inline auto &                structs() { return m_structs; }
+  inline auto &                llCtx() { return m_llCtx; }
+  inline auto &                llModule() { return m_llModule; }
+  inline auto &                llFuncs() { return m_llFuncs; }
+  inline auto &                llStrings() { return m_llStrings; }
 
-  FIInputs(fun::FPtr<FIAssembly>);
+  FIInputs(fun::FPtr<FIAssembly>, const std::string &, const std::string &);
 };
 } // namespace fie

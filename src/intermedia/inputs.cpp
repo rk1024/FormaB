@@ -21,5 +21,11 @@
 #include "inputs.hpp"
 
 namespace fie {
-FIInputs::FIInputs(fun::FPtr<FIAssembly> assem) : m_assem(assem) {}
+FIInputs::FIInputs(fun::FPtr<FIAssembly> assem,
+                   const std::string &   moduleName,
+                   const std::string &   fileName) :
+    m_assem(assem),
+    m_llModule(std::make_unique<llvm::Module>(moduleName, m_llCtx)) {
+  m_llModule->setSourceFileName(fileName);
+}
 } // namespace fie

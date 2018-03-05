@@ -36,6 +36,6 @@ class FIDumpFunction : public fun::FObject {
 public:
   FIDumpFunction(fun::FPtr<FIInputs>, std::ostream &);
 
-  void dumpFunc(fun::cons_cell<std::uint32_t>);
+  void dumpFunc(fun::cons_cell<FIFunctionAtom>);
 };
 } // namespace fie

@@ -26,9 +26,6 @@
 
 #include "object.hpp"
 
-// TEMPORARY
-#include <typeinfo>
-
 #define RC_ACQUIRE(counter)                                                    \
   switch (counter) {                                                           \
   case COUNT_DESTROYING: throw std::runtime_error("use during free");          \

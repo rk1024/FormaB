@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (verifier.hpp)
+ * FormaB - the bootstrap Forma compiler (instructions.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,20 +18,14 @@
  *
  ************************************************************************/
 
-#pragma once
-
-#include "util/cons.hpp"
-#include "util/ptr.hpp"
-
-#include "intermedia/inputs.hpp"
+#include "instructions.hpp"
 
 namespace fie {
-class FIVerifier : public fun::FObject {
-  fun::FPtr<FIInputs> m_inputs;
+FIOpcode FIBasicInstruction::opcode() const { return m_opcode; }
 
-public:
-  FIVerifier(fun::FPtr<FIInputs>);
+FIOpcode FILoadInstructionBase::opcode() const { return FIOpcode::Load; }
 
-  void verifyFunc(fun::cons_cell<FIFunctionAtom>);
-};
+FIOpcode FIMessageInstruction::opcode() const { return FIOpcode::Msg; }
+
+FIOpcode FITupleInstruction::opcode() const { return FIOpcode::Tpl; }
 } // namespace fie

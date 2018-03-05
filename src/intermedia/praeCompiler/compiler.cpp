@@ -100,7 +100,7 @@ std::uint32_t EMITF_(LoadExprsInternal, Exprs) {
 void EMITFL(Exprs, bool tuple) {
   MOVE;
   std::uint32_t count = emitLoadExprsInternal(closure, node);
-  if (tuple && count != 1) closure->emit(FIOpcode::Tpl, count);
+  if (tuple && count != 1) closure->emitTuple(count);
 }
 
 void EMITFL(Expr) {
@@ -116,8 +116,8 @@ void EMITFL(Expr) {
 void EMITFL(LBoolean) {
   MOVE;
   MATCH {
-  case OF(False): closure->emit<std::int32_t>(FIOpcode::Ldci4, 0); break;
-  case OF(True): closure->emit<std::int32_t>(FIOpcode::Ldci4, 1); break;
+  case OF(False): closure->emitLoad<bool>(false); break;
+  case OF(True): closure->emitLoad<bool>(true); break;
   default: FAIL;
   }
 }
@@ -126,8 +126,8 @@ void EMITFL(LNull) {
   MOVE;
 
   MATCH {
-  case OF(Nil): closure->emit(FIOpcode::Ldnil); break;
-  case OF(Void): closure->emit(FIOpcode::Ldvoid); break;
+  case OF(Nil): closure->emitBasic(FIOpcode::Ldnil); break;
+  case OF(Void): closure->emitBasic(FIOpcode::Ldvoid); break;
   }
 }
 
@@ -139,9 +139,9 @@ void EMITFL(XBlock) {
 
     emitStmts(closure, node->stmts());
 
-    closure->applyScope();
+    closure->dropScope();
 
-    closure->emit(FIOpcode::Ldvoid);
+    closure->emitBasic(FIOpcode::Ldvoid);
     break;
   case OF(Error):
   default: FAIL;
@@ -158,20 +158,19 @@ void EMITFL(XControl) {
   default: FAIL;
   }
 
-  auto lblElse = closure->beginLabel(), lblDone = closure->beginLabel();
+  FILabelAtom lblElse = closure->beginLabel(), lblDone = closure->beginLabel();
 
   closure->pushScope();
 
   emitLoadXParen(closure, node->cond(), ParenFlags::NoScope);
 
-  closure->emit(
-      FIInstruction::brLbl(invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse));
+  closure->emitBranch(invert ? FIOpcode::Bnz : FIOpcode::Bez, lblElse);
 
   emitLoadExpr(closure, node->then());
 
-  auto phiVars = closure->applyScopeWithIds();
+  closure->dropScope();
 
-  closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblDone));
+  closure->emitBranch(FIOpcode::Br, lblDone);
 
   closure->label(lblElse);
 
@@ -179,14 +178,14 @@ void EMITFL(XControl) {
 
   emitLoadExpr(closure, node->otherwise());
 
-  closure->applyScopeWithIds(phiVars, false);
+  closure->dropScope();
 
   closure->label(lblDone);
 }
 
 void EMITFL(XFunc) {
   MOVE;
-  closure->emit(FIOpcode::Ldfun, m_inputs->funcs().at(node));
+  closure->emitLoad<FIFunctionAtom>(m_inputs->funcs().at(node));
 }
 
 void EMITFL(XInfix) {
@@ -202,56 +201,46 @@ void EMITFL(XInfix) {
 
   MATCH {
   case OF(Add):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIAdd));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIAdd));
     break;
   case OF(Con):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FICon));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICon));
     break;
   case OF(Dis):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIDis));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIDis));
     break;
   case OF(Div):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIDiv));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIDiv));
     break;
   case OF(Eql):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FICeq));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICeq));
     break;
   case OF(Grt):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FICgt));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICgt));
     break;
   case OF(Geq):
-    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIClt))
-        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIClt))
+        .emitMessage(m_inputs->assem()->msgs().key(builtins::FIInv));
     break;
   case OF(Lss):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIClt));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIClt));
     break;
   case OF(Leq):
-    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FICgt))
-        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICgt))
+        .emitMessage(m_inputs->assem()->msgs().key(builtins::FIInv));
     break;
   case OF(Mod):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIMod));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIMod));
     break;
   case OF(Mul):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIMul));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIMul));
     break;
   case OF(Neq):
-    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FICeq))
-        .emit(FIOpcode::Msg, m_inputs->assem()->msgs().key(builtins::FIInv));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICeq))
+        .emitMessage(m_inputs->assem()->msgs().key(builtins::FIInv));
     break;
   case OF(Sub):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FISub));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FISub));
     break;
   case OF(Unary):
   default: FAIL;
@@ -275,8 +264,7 @@ void EMITFL(XMsg) {
 
   MATCH {
   case OF(Coerce):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FICoerce));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FICoerce));
     break;
   case OF(Curry): {
     auto sel = node->sel();
@@ -284,11 +272,9 @@ void EMITFL(XMsg) {
     MATCH_(sel) {
     case OF_(sel, Unary):
       closure
-          ->emit(FIOpcode::Ldkw,
-                 m_inputs->assem()->keywords().intern(
-                     FIMessageKeyword(false, sel->tok()->toString())))
-          .emit(FIOpcode::Msg,
-                m_inputs->assem()->msgs().key(builtins::FICurry));
+          ->emitLoad<FIMessageKeywordAtom>(m_inputs->assem()->keywords().intern(
+              FIMessageKeyword(false, sel->tok()->toString())))
+          .emitMessage(m_inputs->assem()->msgs().key(builtins::FICurry));
       break;
     case OF_(sel, Keyword): {
       std::stack<const FPMsgKeyword *> kwStack;
@@ -305,11 +291,10 @@ void EMITFL(XMsg) {
 
         emitLoadExpr(closure, kw->expr());
         closure
-            ->emit(FIOpcode::Ldkw,
-                   m_inputs->assem()->keywords().intern(
-                       FIMessageKeyword(true, kw->id()->toString())))
-            .emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FICurry));
+            ->emitLoad<FIMessageKeywordAtom>(
+                m_inputs->assem()->keywords().intern(
+                    FIMessageKeyword(true, kw->id()->toString())))
+            .emitMessage(m_inputs->assem()->msgs().key(builtins::FICurry));
       }
       break;
     }
@@ -345,9 +330,8 @@ void EMITFL(XMsg) {
     default: FAIL;
     }
 
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().intern(
-                      FIMessage(count, oss.str())));
+    closure->emitMessage(
+        m_inputs->assem()->msgs().intern(FIMessage(count, oss.str())));
 
     break;
   }
@@ -383,15 +367,16 @@ void EMITFL(XPrim) {
   case OF(Block): return emitLoadXBlock(closure, node->block());
   case OF(Boolean): return emitLoadLBoolean(closure, node->boolean());
   case OF(Identifier):
-    closure->emit(FIOpcode::Ldvar, closure->scope()->get(node->tok()->value()));
+    closure->emitVar(FIOpcode::Ldvar,
+                     closure->scope()->get(node->tok()->value()));
     break;
   case OF(Message): return emitLoadXMsg(closure, node->message());
   case OF(Null): return emitLoadLNull(closure, node->null());
   case OF(Numeric): return emitLoadLNumeric(closure, node->numeric());
   case OF(Parens): return emitLoadXParen(closure, node->paren());
   case OF(DQLiteral):
-    closure->emit(FIOpcode::Ldstr,
-                  m_inputs->assem()->strings().intern(node->tok()->toString()));
+    closure->emitLoad<FIStringAtom>(
+        m_inputs->assem()->strings().intern(node->tok()->toString()));
     break;
   case OF(SQLiteral): NOTIMPL;
   default: FAIL;
@@ -412,27 +397,23 @@ void EMITFL(XUnary) {
   case OF(Dec): inc = I_Dec; break;
   case OF(Inc): inc = I_Inc; break;
   case OF(Inv):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIInv));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIInv));
     break;
   case OF(Neg):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FINeg));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FINeg));
     break;
   case OF(Pos):
-    closure->emit(FIOpcode::Msg,
-                  m_inputs->assem()->msgs().key(builtins::FIPos));
+    closure->emitMessage(m_inputs->assem()->msgs().key(builtins::FIPos));
     break;
   case OF(Member):
   default: FAIL;
   }
 
   if (inc) {
-    closure->emit<std::int32_t>(FIOpcode::Ldci4, 1)
-        .emit(FIOpcode::Msg,
-              m_inputs->assem()->msgs().intern(inc == I_Inc ? builtins::FIAdd
-                                                            : builtins::FISub))
-        .emit(FIOpcode::Dup);
+    closure->emitLoad<std::int32_t>(1)
+        .emitMessage(m_inputs->assem()->msgs().intern(
+            inc == I_Inc ? builtins::FIAdd : builtins::FISub))
+        .emitBasic(FIOpcode::Dup);
 
     emitStoreXUnary(closure, node->unary());
   }
@@ -454,7 +435,8 @@ void EMITFS(XPrim) {
 
   MATCH {
   case OF(Identifier):
-    closure->emit(FIOpcode::Stvar, closure->scope()->set(node->tok()->value()));
+    closure->emitVar(FIOpcode::Stvar,
+                     closure->scope()->set(node->tok()->value()));
     break;
   case OF(Block):
   case OF(Boolean):
@@ -512,7 +494,7 @@ void EMITF(Stmt) {
 
   return;
 pop:
-  closure->emit(FIOpcode::Pop);
+  closure->emitBasic(FIOpcode::Pop);
 }
 
 void EMITFL(SAssign) {
@@ -536,10 +518,9 @@ void EMITFL(SAssign) {
 
   emitLoadAssignValue(closure, node->value());
 
-  if (op.arity())
-    closure->emit(FIOpcode::Msg, m_inputs->assem()->msgs().intern(op));
+  if (op.arity()) closure->emitMessage(m_inputs->assem()->msgs().intern(op));
 
-  closure->emit(FIOpcode::Dup);
+  closure->emitBasic(FIOpcode::Dup);
 
   emitStoreXMember(closure, node->memb());
 }
@@ -572,59 +553,39 @@ void EMITF(SControl) {
   }
 
   if (type & C_Loop) {
-    std::uint32_t lblDo    = closure->beginLabel(),
-                  lblTest  = closure->beginLabel(),
-                  lblBreak = closure->beginLabel();
+    FILabelAtom lblDo = closure->beginLabel(), lblTest = closure->beginLabel(),
+                lblBreak = closure->beginLabel();
 
     closure->pushScope();
 
-    // TODO: Add proper phi-handling (i.e. id-recording) here
-    //       NOTE: Currently uses standard mutable variables, but reassigns them
     emitLoadXParen(closure, node->cond(), ParenFlags::Bind);
 
-    FuncClosure::VarIds loopPhiVars;
-
-    for (auto var : closure->scope()->getOwned()) {
-      loopPhiVars[fun::cons(fun::weak(closure->scope()), var.get<0>())] =
-          closure->scope()->get(var.get<0>());
-    }
-
-    closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblTest));
+    closure->emitBranch(FIOpcode::Br, lblTest);
 
     closure->label(lblDo);
-
     closure->pushScope();
-
     emitStmt(closure, node->then());
-
-    closure->applyScopeWithIds(loopPhiVars, false);
+    closure->dropScope();
 
     closure->label(lblTest);
-
     closure->pushScope();
-
     emitLoadXParen(closure, node->cond(), ParenFlags::NoBind);
+    closure->dropScope();
 
-    closure->applyScopeWithIds(loopPhiVars, false);
+    closure->dropScope();
 
-    auto elsePhiVars = closure->applyScopeWithIds();
-
-    closure->emit(
-        FIInstruction::brLbl(type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz,
-                             lblDo));
+    closure->emitBranch(type & C_Invert ? FIOpcode::Bez : FIOpcode::Bnz, lblDo);
 
     if (type & C_Else) {
       closure->pushScope();
-
       emitStmt(closure, node->otherwise());
-
-      closure->applyScopeWithIds(elsePhiVars, false);
+      closure->dropScope();
     }
 
     closure->label(lblBreak);
   }
   else {
-    std::uint32_t lblElse = closure->beginLabel(), lblDone = -1;
+    FILabelAtom lblElse = closure->beginLabel(), lblDone(-1);
 
     if (type & C_Else) lblDone = closure->beginLabel();
 
@@ -632,25 +593,22 @@ void EMITF(SControl) {
 
     emitLoadXParen(closure, node->cond(), ParenFlags::NoScope);
 
-    closure->emit(
-        FIInstruction::brLbl(type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez,
-                             lblElse));
+    closure->emitBranch(type & C_Invert ? FIOpcode::Bnz : FIOpcode::Bez,
+                        lblElse);
 
     emitStmt(closure, node->then());
 
-    auto phiVars = closure->applyScopeWithIds();
+    closure->dropScope();
 
-    if (type & C_Else)
-      closure->emit(FIInstruction::brLbl(FIOpcode::Br, lblDone));
+    if (type & C_Else) closure->emitBranch(FIOpcode::Br, lblDone);
 
     closure->label(lblElse);
 
     if (type & C_Else) {
       closure->pushScope();
-
       emitStmt(closure, node->otherwise());
+      closure->dropScope();
 
-      closure->applyScopeWithIds(phiVars, false);
       closure->label(lblDone);
     }
   }
@@ -665,7 +623,7 @@ void EMITF(SKeyword) {
   }
 
   MATCH {
-  case OF(Return): closure->emit(FIOpcode::Ret); break;
+  case OF(Return): closure->emitBasic(FIOpcode::Ret); break;
   default: FAIL;
   }
 }
@@ -692,9 +650,8 @@ void EMITF(Binding, bool mut) {
   MOVE;
   emitLoadExpr(closure, node->expr());
 
-  closure->emit<std::uint32_t>(FIOpcode::Stvar,
-                               closure->scope()->bind(node->id()->value(),
-                                                      mut));
+  closure->emitVar(FIOpcode::Stvar,
+                   closure->scope()->bind(node->id()->value(), mut));
 }
 
 void EMITF(Decl) {
@@ -739,6 +696,7 @@ void EMITF(DMsg) {
       oss << kw->key()->toString();
       ++count;
       // TODO
+      // TODO: Not sure why the previous line just says "TODO"
     }
     break;
   }
@@ -761,19 +719,18 @@ void EMITF(DType) {
 
 FIPraeCompiler::FIPraeCompiler(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
 
-std::uint32_t FIPraeCompiler::compileEntryPoint(
+FIFunctionAtom FIPraeCompiler::compileEntryPoint(
     fun::cons_cell<const FPStmts *> args) {
-  FIBytecode body;
-  auto       closure = fnew<FuncClosure>(body, args.get<0>());
+  FIFunctionBody body;
+  auto           closure = fnew<FuncClosure>(body, args.get<0>());
 
   emitStmts(closure, args.get<0>());
 
-  closure->emit(FIOpcode::Ldvoid).emit(FIOpcode::Ret);
-
-  std::unordered_map<std::uint32_t, std::uint32_t> funcArgs;
+  std::unordered_map<FIVariableAtom, FIStructAtom> funcArgs;
 
   for (auto info : closure->args()->getOwned())
-    funcArgs[closure->args()->get(info.get<0>())] = builtins::FIErrorT;
+    funcArgs[closure->args()->get(
+        info.get<0>())] = m_inputs->assem()->structs().key(builtins::FIErrorT);
 
   auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
   m_inputs->funcs()[args.get<0>()] = id;
@@ -781,11 +738,11 @@ std::uint32_t FIPraeCompiler::compileEntryPoint(
   return id;
 }
 
-std::uint32_t FIPraeCompiler::compileFunc(
+FIFunctionAtom FIPraeCompiler::compileFunc(
     fun::cons_cell<const FPXFunc *> args) {
-  FIBytecode body;
-  auto       node    = args.get<0>();
-  auto       closure = fnew<FuncClosure>(body, node, node->expr());
+  FIFunctionBody body;
+  auto           node    = args.get<0>();
+  auto           closure = fnew<FuncClosure>(body, node);
 
   std::stack<const FPFuncParam *> paramStack;
   auto                            params = node->params();
@@ -820,12 +777,13 @@ std::uint32_t FIPraeCompiler::compileFunc(
 
   emitLoadExpr(closure, node->expr());
 
-  closure->emit(FIOpcode::Ret);
+  closure->emitBasic(FIOpcode::Ret);
 
-  std::unordered_map<std::uint32_t, std::uint32_t> funcArgs;
+  std::unordered_map<FIVariableAtom, FIStructAtom> funcArgs;
 
   for (auto info : closure->args()->getOwned())
-    funcArgs[closure->args()->get(info.get<0>())] = builtins::FIErrorT;
+    funcArgs[closure->args()->get(
+        info.get<0>())] = m_inputs->assem()->structs().key(builtins::FIErrorT);
 
   auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
   m_inputs->funcs()[node] = id;

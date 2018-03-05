@@ -25,6 +25,7 @@
 #include "ast/walker.hpp"
 
 #include "debug/dumpFunction.hpp"
+#include "llvmEmitter/llvmEmitter.hpp"
 #include "optimizer/optimizer.hpp"
 #include "praeCompiler/compiler.hpp"
 #include "verifier/verifier.hpp"
@@ -74,29 +75,34 @@ void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
   auto pipe = fnew<EntryPointPipeline>();
 
   auto name = "Entry point " +
-              std::to_string(m_entryPointIds.intern(stmts) + 1);
+              std::to_string(m_entryPointIds.intern(stmts).value() + 1);
 
   pipe->input    = m_graph->node("[AST] " + name);
   pipe->compiled = m_graph->node("[Compiled] " + name);
   pipe->verified = m_graph->node("[Verified] " + name);
   pipe->output   = m_graph->node("[Done] " + name);
 
-  auto compiledData = pipe->compiled->data<std::uint32_t>(-1);
+  auto compiledData = pipe->compiled->data<FIFunctionAtom>(FIFunctionAtom(-1));
 
   auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileEntryPoint);
   auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
   auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
+  auto emitRule    = fps::rule(m_emitter, &FILLVMEmitter::emitEntryPoint);
 
   pipe->input->data(stmts) >> compileRule >> compiledData;
   compiledData >> verifyRule;
   compiledData >> dumpRule;
+  compiledData >> emitRule;
 
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
   pipe->dump    = m_graph->edge("dump", dumpRule);
+  pipe->emit    = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
       pipe->verified >> pipe->dump >> pipe->output;
+
+  pipe->verified >> pipe->emit >> pipe->output;
 
   m_entryPoints[stmts] = pipe;
 
@@ -111,29 +117,34 @@ void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
 void FIScheduler::scheduleFunc(const FPXFunc *func) {
   auto pipe = fnew<FuncPipeline>();
 
-  auto name = "Function " + std::to_string(m_funcIds.intern(func) + 1);
+  auto name = "Function " + std::to_string(m_funcIds.intern(func).value() + 1);
 
   pipe->input    = m_graph->node("[AST] " + name);
   pipe->compiled = m_graph->node("[Compiled] " + name);
   pipe->verified = m_graph->node("[Verified] " + name);
   pipe->output   = m_graph->node("[Func] " + name);
 
-  auto compiledData = pipe->compiled->data<std::uint32_t>(-1);
+  auto compiledData = pipe->compiled->data<FIFunctionAtom>(FIFunctionAtom(-1));
 
   auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileFunc);
   auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
   auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
+  auto emitRule    = fps::rule(m_emitter, &FILLVMEmitter::emitFunc);
 
   pipe->input->data(func) >> compileRule >> compiledData;
   compiledData >> verifyRule;
   compiledData >> dumpRule;
+  compiledData >> emitRule;
 
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
   pipe->dump    = m_graph->edge("dump", dumpRule);
+  pipe->emit    = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
       pipe->verified >> pipe->dump >> pipe->output;
+
+  pipe->verified >> pipe->emit >> pipe->output;
 
   m_funcs[func] = pipe;
 
@@ -148,7 +159,7 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
 void FIScheduler::scheduleType(const FPDType *type) {
   auto pipe = fnew<TypePipeline>();
 
-  auto name = "Type " + std::to_string(m_typeIds.intern(type) + 1);
+  auto name = "Type " + std::to_string(m_typeIds.intern(type).value() + 1);
 
   pipe->input  = m_graph->node("[AST] " + name);
   pipe->output = m_graph->node("[Type] " + name);
@@ -159,12 +170,13 @@ void FIScheduler::scheduleType(const FPDType *type) {
 }
 
 FIScheduler::FIScheduler(fun::FPtr<fps::FDepsGraph> graph,
-                         fun::FPtr<FIInputs>        inputs)
-    : m_graph(graph),
-      m_inputs(inputs),
-      m_compiler(fnew<FIPraeCompiler>(inputs)),
-      m_verifier(fnew<FIVerifier>(inputs)),
-      m_dumpFunc(fnew<FIDumpFunction>(inputs, std::cerr)) {}
+                         fun::FPtr<FIInputs>        inputs) :
+    m_graph(graph),
+    m_inputs(inputs),
+    m_compiler(fnew<FIPraeCompiler>(inputs)),
+    m_verifier(fnew<FIVerifier>(inputs)),
+    m_dumpFunc(fnew<FIDumpFunction>(inputs, std::cerr)),
+    m_emitter(fnew<FILLVMEmitter>(inputs)) {}
 
 void FIScheduler::schedule(const frma::FPrims *prims) {
   Walker walker(fun::wrap(this));

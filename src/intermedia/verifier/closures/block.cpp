@@ -109,9 +109,9 @@ namespace vc {
 
       action = Move;
 
-      auto ins = body.instructions.at(m_pc);
+      auto &ins = body.instructions.at(m_pc);
 
-      switch (ins.op) {
+      switch (ins->opcode()) {
       case FIOpcode::Nop: break;
 
       case FIOpcode::Dup: m_stack.push(m_stack.top()); break;
@@ -124,93 +124,70 @@ namespace vc {
         break;
 
       case FIOpcode::Br:
-        if (ins.br.lbl)
-          m_pc = body.labels.at(ins.br.id).pos();
-        else
-          m_pc += ins.br.addr;
+        m_pc = body.labels.value(ins.as<FIBranchInstruction>()->label()).pos();
         action = Stay;
         break;
 
       case FIOpcode::Bez:
       case FIOpcode::Bnz: {
         handlePopBool("Invalid condition type for branch.");
-        std::size_t addr = ins.br.lbl ? body.labels.at(ins.br.id).pos()
-                                      : m_pc + ins.br.addr;
+        std::size_t addr = body.labels
+                               .value(ins.as<FIBranchInstruction>()->label())
+                               .pos();
         if (m_checked->insert(addr).second)
           m_q->emplace(fnew<BlockClosure>(fun::wrap(this), addr));
         break;
       }
 
-      case FIOpcode::Ldci4:
-        m_stack.push(m_assem->structs().value(builtins::FIInt8));
-        break;
-      case FIOpcode::Ldci8:
-        m_stack.push(m_assem->structs().value(builtins::FIInt8));
-        break;
-      case FIOpcode::Ldcr4:
-        m_stack.push(m_assem->structs().value(builtins::FIInt8));
-        break;
-      case FIOpcode::Ldcr8:
-        m_stack.push(m_assem->structs().value(builtins::FIInt8));
+      case FIOpcode::Load:
+        m_stack.push(
+            m_assem->structs().key(ins.as<FILoadInstructionBase>()->type()));
         break;
 
       case FIOpcode::Ldnil:
-        m_stack.push(m_assem->structs().value(builtins::FINilT));
+        m_stack.push(m_assem->structs().key(builtins::FINilT));
         break;
       case FIOpcode::Ldvoid:
-        m_stack.push(m_assem->structs().value(builtins::FIVoidT));
+        m_stack.push(m_assem->structs().key(builtins::FIVoidT));
         break;
 
       case FIOpcode::Ldvar: {
-        auto it = m_vars.find(ins.u4);
+        auto it = m_vars.find(ins.as<FIVarInstruction>()->var());
 
         if (it == m_vars.end()) {
-          std::cerr << "load-before-store (" << body.vars.value(ins.u4).name()
+          std::cerr << "load-before-store ("
+                    << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
                     << ")" << std::endl;
-          m_stack.push(m_assem->structs().value(builtins::FIErrorT));
+          m_stack.push(m_assem->structs().key(builtins::FIErrorT));
         }
         else
           m_stack.push(it->second);
         break;
       }
 
-      case FIOpcode::Ldstr:
-        m_stack.push(m_assem->structs().key(builtins::FIString));
-        break;
-      case FIOpcode::Ldfun:
-        m_stack.push(m_assem->structs().key(builtins::FIErrorT));
-        break;
-      case FIOpcode::Ldkw:
-        m_stack.push(m_assem->structs().key(builtins::FIErrorT));
-        break;
-
       case FIOpcode::Stvar:
-        if (m_vars.find(ins.u4) != m_vars.end())
+        if (m_vars.find(ins.as<FIVarInstruction>()->var()) != m_vars.end())
           std::cerr << "variable reassignment ("
-                    << body.vars.value(ins.u4).name() << ")" << std::endl;
+                    << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
+                    << ")" << std::endl;
 
-        m_vars[ins.u4] = m_stack.top();
+        m_vars[ins.as<FIVarInstruction>()->var()] = m_stack.top();
         m_stack.pop();
         break;
 
-      case FIOpcode::Cvi1: handlePHOp(1, builtins::FIInt8, "cast"); break;
-      case FIOpcode::Cvi2: handlePHOp(1, builtins::FIInt16, "cast"); break;
-      case FIOpcode::Cvi4: handlePHOp(1, builtins::FIInt32, "cast"); break;
-      case FIOpcode::Cvi8: handlePHOp(1, builtins::FIInt64, "cast"); break;
-      case FIOpcode::Cvu1: handlePHOp(1, builtins::FIUint8, "cast"); break;
-      case FIOpcode::Cvu2: handlePHOp(1, builtins::FIUint16, "cast"); break;
-      case FIOpcode::Cvu4: handlePHOp(1, builtins::FIUint32, "cast"); break;
-      case FIOpcode::Cvu8: handlePHOp(1, builtins::FIUint64, "cast"); break;
-      case FIOpcode::Cvr4: handlePHOp(1, builtins::FIFloat, "cast"); break;
-      case FIOpcode::Cvr8: handlePHOp(1, builtins::FIDouble, "cast"); break;
-
       case FIOpcode::Msg:
-        handlePHOp(m_assem->msgs().value(ins.u4).get<0>(),
+        handlePHOp(m_assem->msgs()
+                       .value(ins.as<FIMessageInstruction>()->msg())
+                       .get<0>(),
                    builtins::FIVoidT,
                    "message");
         break;
 
-      case FIOpcode::Tpl: handlePHOp(ins.u4, builtins::FIVoidT, "tuple"); break;
+      case FIOpcode::Tpl:
+        handlePHOp(ins.as<FITupleInstruction>()->count(),
+                   builtins::FIVoidT,
+                   "tuple");
+        break;
       }
 
       switch (action) {

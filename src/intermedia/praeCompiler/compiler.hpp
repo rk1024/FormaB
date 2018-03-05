@@ -27,7 +27,6 @@
 
 #include "util/atom.hpp"
 
-#include "intermedia/bytecode.hpp"
 #include "intermedia/function.hpp"
 #include "intermedia/inputs.hpp"
 #include "intermedia/messaging/message.hpp"
@@ -94,9 +93,9 @@ class FIPraeCompiler : public fun::FObject {
 public:
   FIPraeCompiler(fun::FPtr<FIInputs>);
 
-  std::uint32_t compileEntryPoint(fun::cons_cell<const frma::FPStmts *>);
+  FIFunctionAtom compileEntryPoint(fun::cons_cell<const frma::FPStmts *>);
 
-  std::uint32_t compileFunc(fun::cons_cell<const frma::FPXFunc *>);
+  FIFunctionAtom compileFunc(fun::cons_cell<const frma::FPXFunc *>);
 
   std::uint32_t compileType(fun::cons_cell<const frma::FPDType *>);
 };

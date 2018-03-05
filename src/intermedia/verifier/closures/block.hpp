@@ -39,8 +39,8 @@ namespace vc {
     std::queue<fun::FPtr<BlockClosure>> *            m_q;
     std::unordered_set<std::size_t> *                m_checked;
     std::size_t                                      m_pc = 0;
-    std::stack<std::uint32_t>                        m_stack;
-    std::unordered_map<std::uint32_t, std::uint32_t> m_vars;
+    std::stack<FIStructAtom>                         m_stack;
+    std::unordered_map<FIVariableAtom, FIStructAtom> m_vars;
 
     bool assertArity(std::uint32_t, const char *);
 

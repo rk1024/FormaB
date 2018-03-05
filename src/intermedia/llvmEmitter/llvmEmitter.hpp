@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (verifier.hpp)
+ * FormaB - the bootstrap Forma compiler (llvmEmitter.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,18 +20,27 @@
 
 #pragma once
 
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+
 #include "util/cons.hpp"
-#include "util/ptr.hpp"
+#include "util/object/object.hpp"
 
 #include "intermedia/inputs.hpp"
 
+
 namespace fie {
-class FIVerifier : public fun::FObject {
+class FILLVMEmitter : public fun::FObject {
   fun::FPtr<FIInputs> m_inputs;
+  llvm::IRBuilder<>   m_llBuilder;
+
+  void emitFunc(const std::string &, FIFunctionAtom);
 
 public:
-  FIVerifier(fun::FPtr<FIInputs>);
+  FILLVMEmitter(fun::FPtr<FIInputs>);
 
-  void verifyFunc(fun::cons_cell<FIFunctionAtom>);
+  void emitFunc(fun::cons_cell<FIFunctionAtom>);
+
+  void emitEntryPoint(fun::cons_cell<FIFunctionAtom>);
 };
 } // namespace fie

@@ -76,6 +76,29 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
   cc_pchs = cc_pch_files.map{|_, o| "-include-pch #{o}" }
   cxx_pchs = cxx_pch_files.map{|_, o| "-include-pch #{o}" }
 
+  pkcflags = Set[]
+  pkcxxflags = Set[]
+  pkldflags = Set[]
+
+  # Packages registered with pkg-config
+  %w[].each do |pkg|
+    cflags = Command.read("pkg-config --cflags '#{pkg}'").split(/\s+/)
+    pkcflags.merge(cflags)
+    pkcxxflags.merge(cflags)
+    pkldflags.merge(Command.read("pkg-config --libs '#{pkg}'").split(/\s+/))
+  end
+
+  # General LLVM flags
+  llvm_cppflags = Command.read("llvm-config --cppflags").split(/\s+/)
+  pkcflags.merge(llvm_cppflags)
+  pkcxxflags.merge(llvm_cppflags)
+  pkldflags.merge(Command.read("llvm-config --ldflags").split(/\s+/))
+
+  # LLVM components
+  %w[all].each do |cmp|
+    pkldflags.merge(Command.read("llvm-config --libs '#{cmp}'").split(/\s+/))
+  end
+
   set astgen_flags: [
       "-f$src_d/scanner.in.lpp:$build_d/scanner.lpp",
       "-b$src_d/parser.in.ypp:$build_d/parser.ypp",
@@ -116,6 +139,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-v",
         "-ftime-report",
       ] : []),
+      *pkcflags,
       *san_flags,
       *includes,
       *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
@@ -123,7 +147,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     cxx_flags: [
       "-fcolor-diagnostics",
       "-ferror-limit=0",
-      "-std=c++14",
+      "-std=c++17",
       *(config(:diagnostic) ? [
         "-DDEBUG_DIAGNOSTIC",
         "-D_DEBUG_DIAGNOSTIC",
@@ -144,6 +168,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-v",
         "-ftime-report",
       ] : []),
+      *pkcxxflags,
       *san_flags,
       *includes,
       *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
@@ -198,6 +223,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     cxx_pchs: cxx_pchs,
     ld_flags: [
       "-ldl",
+      *pkldflags,
       *san_flags,
     ]
 

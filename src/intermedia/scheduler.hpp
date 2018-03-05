@@ -29,7 +29,7 @@
 
 #include "pipeline/depsGraph.hpp"
 
-#include "ast/ast.hpp"
+#include "ast.hpp"
 
 #include "inputs.hpp"
 
@@ -37,6 +37,7 @@ namespace fie {
 class FIPraeCompiler;
 class FIVerifier;
 class FIDumpFunction;
+class FILLVMEmitter;
 
 class FIScheduler : public fun::FObject {
   class WalkerBase;
@@ -54,7 +55,7 @@ class FIScheduler : public fun::FObject {
 
   struct FuncPipeline : CompilePipeline {
     fun::FPtr<fps::FDepsGraphNode> compiled, verified;
-    fun::FPtr<fps::FDepsGraphEdge> verify, dump;
+    fun::FPtr<fps::FDepsGraphEdge> verify, dump, emit;
   };
 
   struct EntryPointPipeline : FuncPipeline {};
@@ -66,6 +67,7 @@ class FIScheduler : public fun::FObject {
   fun::FPtr<FIPraeCompiler>  m_compiler;
   fun::FPtr<FIVerifier>      m_verifier;
   fun::FPtr<FIDumpFunction>  m_dumpFunc;
+  fun::FPtr<FILLVMEmitter>   m_emitter;
 
   fun::FAtomStore<const frma::FPXFunc *> m_funcIds;
   fun::FAtomStore<const frma::FPDType *> m_typeIds;

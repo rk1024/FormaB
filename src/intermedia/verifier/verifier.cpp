@@ -34,7 +34,7 @@ using namespace fie::vc;
 namespace fie {
 FIVerifier::FIVerifier(fun::FPtr<FIInputs> inputs) : m_inputs(inputs) {}
 
-void FIVerifier::verifyFunc(fun::cons_cell<std::uint32_t> args) {
+void FIVerifier::verifyFunc(fun::cons_cell<FIFunctionAtom> args) {
   auto func = m_inputs->assem()->funcs().value(args.get<0>());
   std::queue<fun::FPtr<BlockClosure>> q;
   std::unordered_set<std::size_t>     checked;

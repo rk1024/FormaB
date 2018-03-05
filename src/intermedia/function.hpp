@@ -26,18 +26,27 @@
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
 
-#include "bytecode.hpp"
+#include "instructions.hpp"
+#include "intermedia/types/struct.hpp"
+#include "label.hpp"
+#include "variable.hpp"
 
 namespace fie {
+struct FIFunctionBody {
+  std::vector<fun::FPtr<FIInstructionBase>>  instructions;
+  fun::FAtomStore<FILabel, std::uint32_t>    labels;
+  fun::FAtomStore<FIVariable, std::uint32_t> vars;
+};
+
 class FIFunction : public fun::FObject {
-  std::unordered_map<std::uint32_t, std::uint32_t> m_args;
-  FIBytecode                                       m_body;
+  std::unordered_map<FIVariableAtom, FIStructAtom> m_args;
+  FIFunctionBody                                   m_body;
 
 public:
   const auto &args() const { return m_args; }
   const auto &body() const { return m_body; }
 
-  FIFunction(std::unordered_map<std::uint32_t, std::uint32_t>,
-             const FIBytecode &);
+  FIFunction(std::unordered_map<FIVariableAtom, FIStructAtom>,
+             const FIFunctionBody &);
 };
 } // namespace fie

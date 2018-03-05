@@ -18,8 +18,8 @@
  *
  ************************************************************************/
 
-#include "compiler.hpp"
 #include "closures/function.hpp"
+#include "compiler.hpp"
 
 #include <cassert>
 #include <functional>
@@ -247,63 +247,51 @@ emit:
   }
 
   std::int16_t expon = e0 ? readIntBasic<std::int16_t>(
-                                closure, 10u, 0, 0x3ff, 0x3fe, es, e0, e1) :
-                            0;
+                                closure, 10u, 0, 0x3ff, 0x3fe, es, e0, e1)
+                          : 0;
 
   switch (fmt) {
   case NumFormat::I1:
-    closure->emit(
-        FIOpcode::Ldci4,
-        readInt<std::int32_t>(closure, radix, expon, unsign, 0xff, sg, d0, d1));
-    goto convI4;
+    if (unsign)
+      closure->emitLoad<std::uint8_t>(
+          readInt<std::int8_t>(closure, radix, expon, true, 0xff, sg, d0, d1));
+    else
+      closure->emitLoad<std::int8_t>(
+          readInt<std::int8_t>(closure, radix, expon, false, 0xff, sg, d0, d1));
+    return;
   case NumFormat::I2:
-    closure->emit(FIOpcode::Ldci4,
-                  readInt<std::int32_t>(
-                      closure, radix, expon, unsign, 0xffff, sg, d0, d1));
-    goto convI4;
+    if (unsign)
+      closure->emitLoad<std::uint16_t>(readInt<std::int16_t>(
+          closure, radix, expon, true, 0xffff, sg, d0, d1));
+    else
+      closure->emitLoad<std::int16_t>(readInt<std::int16_t>(
+          closure, radix, expon, false, 0xff, sg, d0, d1));
+    return;
   case NumFormat::I4:
-    closure->emit(FIOpcode::Ldci4,
-                  readInt<std::int32_t>(
-                      closure, radix, expon, unsign, 0xffffffff, sg, d0, d1));
-    goto convI4;
+    if (unsign)
+      closure->emitLoad<std::uint32_t>(readInt<std::int32_t>(
+          closure, radix, expon, true, 0xffffffff, sg, d0, d1));
+    else
+      closure->emitLoad<std::int32_t>(readInt<std::int32_t>(
+          closure, radix, expon, false, 0xff, sg, d0, d1));
+    return;
   case NumFormat::I8:
-    closure->emit(
-        FIOpcode::Ldci4,
-        readInt<std::int64_t>(
-            closure, radix, expon, unsign, 0xffffffffffffffffl, sg, d0, d1));
-    goto convI8;
+    if (unsign)
+      closure->emitLoad<std::uint64_t>(readInt<std::int64_t>(
+          closure, radix, expon, true, 0xffffffffffffffffl, sg, d0, d1));
+    else
+      closure->emitLoad<std::int64_t>(readInt<std::int64_t>(
+          closure, radix, expon, false, 0xff, sg, d0, d1));
+    return;
   case NumFormat::R4: goto emitR4;
   case NumFormat::R8: goto emitR8;
   default: assert(false);
   }
-convI4:
-  switch (fmt) {
-  case NumFormat::I1:
-    closure->emit(unsign ? FIOpcode::Cvu1 : FIOpcode::Cvi1);
-    break;
-  case NumFormat::I2:
-    closure->emit(unsign ? FIOpcode::Cvu2 : FIOpcode::Cvi2);
-    break;
-  case NumFormat::I4:
-    if (unsign) closure->emit(FIOpcode::Cvu4);
-    break;
-  default: assert(false);
-  }
-
-  return;
-convI8:
-  switch (fmt) {
-  case NumFormat::I8:
-    if (unsign) closure->emit(FIOpcode::Cvu8);
-    break;
-  default: assert(false);
-  }
-  return;
 emitR4:
-  closure->emit<float>(FIOpcode::Ldcr4, 1337.1337f);
+  closure->emitLoad<float>(1337.1337f);
   return;
 emitR8:
-  closure->emit<double>(FIOpcode::Ldcr8, 1337.1337);
+  closure->emitLoad<double>(1337.1337);
   return;
 }
-}
+} // namespace fie

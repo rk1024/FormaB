@@ -44,6 +44,8 @@ public:
   inline TKey     key(T value) const { return m_keys.at(value); }
   inline const T &value(TKey key) const { return m_values.at(key); }
   inline T &      value(TKey key) { return m_values.at(key); }
+  auto            begin() const { return m_keys.begin(); }
+  auto            end() const { return m_keys.end(); }
 
   inline bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
@@ -74,6 +76,8 @@ public:
   inline TKey     key(T value) const { return m_keys.at(value); }
   inline const T &value(TKey key) const { return m_values.at(key); }
   inline T &      value(TKey key) { return m_values.at(key); }
+  auto            begin() const { return m_keys.begin(); }
+  auto            end() const { return m_keys.end(); }
 
   inline bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
@@ -90,47 +94,107 @@ public:
   }
 };
 
+template <typename T, typename TValue>
+class FAtom {
+  T m_value;
+
+public:
+  inline FAtom() : m_value() {}
+
+  inline explicit FAtom(const T &value) : m_value(value) {}
+
+  inline T &      value() { return m_value; }
+  inline const T &value() const { return m_value; }
+
+  bool operator==(const FAtom &rhs) const { return m_value == rhs.m_value; }
+  bool operator!=(const FAtom &rhs) const { return m_value != rhs.m_value; }
+
+  bool operator==(const T &rhs) const { return m_value == rhs; }
+  bool operator!=(const T &rhs) const { return m_value != rhs; }
+
+  friend bool operator==(const T &lhs, const FAtom &rhs) {
+    return lhs == rhs.m_value;
+  }
+  friend bool operator!=(const T &lhs, const FAtom &rhs) {
+    return lhs != rhs.m_value;
+  }
+
+  friend struct std::hash<FAtom>;
+};
+
 template <typename T, typename TKey = std::size_t>
 class FAtomStore {
+public:
+  using Atom = FAtom<TKey, T>;
+
+private:
   typedef FAtomStoreBuf<T, TKey> TBuf;
 
   TBuf m_buf;
 
-  TKey add(const T &value) {
+  Atom add(const T &value) {
     TKey key = m_buf.next();
     assert(key != static_cast<TKey>(-1));
 
     m_buf.put(key, value);
 
-    return key;
+    return Atom(key);
   }
 
 public:
-  TKey     key(const T &value) const { return m_buf.key(value); }
-  const T &value(TKey key) const { return m_buf.value(key); }
-  T &      value(TKey key) { return m_buf.value(key); }
+  Atom     key(const T &value) const { return Atom(m_buf.key(value)); }
+  const T &value(Atom atom) const { return m_buf.value(atom.value()); }
+  T &      value(Atom atom) { return m_buf.value(atom.value()); }
+  auto     begin() const { return m_buf.begin(); }
+  auto     end() const { return m_buf.end(); }
 
   TKey size() const { return m_buf.next(); }
 
-  bool find(T value, TKey *key) { return m_buf.find(value, key); }
-
-  TKey intern(const T &value) {
+  bool find(T value, Atom *atom) {
     TKey key;
-    if (m_buf.find(value, &key)) return key;
+
+    if (m_buf.find(value, &key)) {
+      *atom = Atom(key);
+      return true;
+    }
+
+    return false;
+  }
+
+  Atom intern(const T &value) {
+    TKey key;
+    if (m_buf.find(value, &key)) return Atom(key);
 
     return add(value);
   }
 
-  bool intern(const T &value, TKey *key) {
-    if (m_buf.find(value, key)) return false;
+  bool intern(const T &value, Atom *atom) {
+    TKey key;
+    if (m_buf.find(value, key)) {
+      *atom = key;
+      return false;
+    }
 
-    *key = add(value);
+    *key  = add(value);
+    *atom = key;
     return true;
   }
 
   template <typename... TArgs>
-  TKey emplace(TArgs &&... args) {
+  Atom emplace(TArgs &&... args) {
     return add(T(std::forward<TArgs>(args)...));
   }
 };
 } // namespace fun
+
+namespace std {
+template <typename T, typename TValue>
+struct hash<fun::FAtom<T, TValue>> {
+  std::hash<T> m_hash;
+
+public:
+  inline auto operator()(const fun::FAtom<T, TValue> &atom) const {
+    return m_hash(atom.m_value);
+  }
+};
+} // namespace std

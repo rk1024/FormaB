@@ -26,7 +26,7 @@
 
 namespace fie {
 namespace pc {
-  FuncClosure::FuncClosure(FIBytecode &body, const frma::FormaAST *curr) :
+  FuncClosure::FuncClosure(FIFunctionBody &body, const frma::FormaAST *curr) :
       PositionTracker(curr),
       m_args(fnew<ScopeClosure>(true, fun::weak(this), nullptr)),
       m_body(&body) {
@@ -34,22 +34,23 @@ namespace pc {
     pushScope();
   }
 
-  FuncClosure &FuncClosure::emit(FIInstruction ins) {
-    m_body->instructions.push_back(ins);
+  FuncClosure &FuncClosure::emit(const fun::FPtr<FIInstructionBase> &ins) {
+    m_body->instructions.emplace_back(ins);
     return *this;
   }
 
-  std::uint32_t FuncClosure::beginLabel() {
-    m_body->labels.emplace_back(static_cast<std::uint32_t>(-1),
-                                "l" + std::to_string(m_body->labels.size()));
-
-    assert(static_cast<std::uint32_t>(m_body->labels.size()) != 0);
-
-    return static_cast<std::uint32_t>(m_body->labels.size() - 1);
+  FuncClosure &FuncClosure::emit(fun::FPtr<FIInstructionBase> &&ins) {
+    m_body->instructions.emplace_back(ins);
+    return *this;
   }
 
-  void FuncClosure::label(std::uint32_t id) {
-    m_body->labels.at(id).pos() = static_cast<std::uint32_t>(
+  FILabelAtom FuncClosure::beginLabel() {
+    return m_body->labels.emplace(static_cast<std::uint32_t>(-1),
+                                  "l" + std::to_string(m_body->labels.size()));
+  }
+
+  void FuncClosure::label(FILabelAtom id) {
+    m_body->labels.value(id).pos() = static_cast<std::uint32_t>(
         m_body->instructions.size());
   }
 
@@ -63,40 +64,6 @@ namespace pc {
     auto ret = std::move(m_scope);
     m_scope  = ret->parent();
     return ret;
-  }
-
-  void FuncClosure::applyScope() {
-    auto scope = popScope();
-
-    for (auto var : scope->getModified()) {
-      emit(FIOpcode::Ldvar, scope->get(var.get<1>()));
-      emit(FIOpcode::Stvar, m_scope->phi(var.get<0>().lock(), var.get<1>()));
-    }
-  }
-
-  void FuncClosure::applyScopeWithIds(VarIds &ids, bool add) {
-    auto scope = popScope();
-
-    for (auto var : scope->getModified()) {
-      auto          cell = fun::cons(var.get<0>(), var.get<1>());
-      auto          it   = ids.find(cell);
-      std::uint32_t phi;
-      if (it == ids.end()) {
-        phi = m_scope->phi(var.get<0>().lock(), var.get<1>());
-        if (add) ids[cell] = phi;
-      }
-      else
-        phi = it->second;
-
-      emit(FIOpcode::Ldvar, scope->get(var.get<1>()));
-      emit(FIOpcode::Stvar, phi);
-    }
-  }
-
-  FuncClosure::VarIds FuncClosure::applyScopeWithIds() {
-    VarIds ids;
-    applyScopeWithIds(ids, true);
-    return ids;
   }
 
   void FuncClosure::error(std::string &&desc) {

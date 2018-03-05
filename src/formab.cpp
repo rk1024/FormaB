@@ -21,6 +21,10 @@
 #include <cstdio>
 #include <list>
 
+#include <signal.h>
+
+#include <llvm/Support/raw_ostream.h>
+
 #include "pipeline/depsGraph.hpp"
 
 #include "lexerDriver.hpp"
@@ -43,16 +47,22 @@ using namespace frma;
 using namespace fie;
 
 class ArgParser : public fun::FArgParser {
-  fun::FAtomStore<std::string>                 m_flags, m_dot_modes;
-  std::unordered_map<std::string, std::size_t> m_short;
-  std::size_t m_verbose, m_dot, m_dotDeps, m_dotControl;
+  fun::FAtomStore<std::string> m_flags, m_dotModes;
+  using Flag    = decltype(m_flags)::Atom;
+  using DotMode = decltype(m_dotModes)::Atom;
+
+  std::unordered_map<std::string, Flag> m_short;
+  Flag    m_dot, m_help, m_module, m_usage, m_verbose;
+  DotMode m_dotDeps;
 
   std::list<std::string> m_args;
-  std::size_t            m_dotMode    = -1;
+  DotMode                m_dotMode = DotMode(-1);
+  std::string            m_moduleName;
+  bool                   m_showHelp = false, m_showUsage = false;
   int                    m_verboseLvl = 0;
 
-  std::size_t resolve(bool shortFlag, const std::string &flag) {
-    std::size_t id;
+  Flag resolve(bool shortFlag, const std::string &flag) {
+    Flag id;
 
     if (shortFlag) {
       auto it = m_short.find(flag);
@@ -70,27 +80,36 @@ class ArgParser : public fun::FArgParser {
   }
 
   virtual TakesArg takesArg(bool shortFlag, const std::string &flag) override {
-    std::size_t id = resolve(shortFlag, flag);
-
-    if (id == m_verbose) ++m_verboseLvl;
+    Flag id = resolve(shortFlag, flag);
 
     if (id == m_dot)
       return Optional;
-    else
-      return None;
+    else if (id == m_help)
+      m_showHelp = true;
+    else if (id == m_module)
+      return Required;
+    else if (id == m_usage)
+      m_showUsage = true;
+    else if (id == m_verbose)
+      ++m_verboseLvl;
+
+    return None;
   }
 
   virtual TakesArg handleVal(bool               shortFlag,
                              const std::string &flag,
                              const std::string &val,
                              int) override {
-    std::size_t id = resolve(shortFlag, flag);
+    Flag id = resolve(shortFlag, flag);
 
     if (id == m_dot) {
-      if (!m_dot_modes.find(val, &m_dotMode)) {
+      if (!m_dotModes.find(val, &m_dotMode)) {
         std::cerr << "Invalid --dot mode '" << val << "'." << std::endl;
         throw fun::bad_argument();
       }
+    }
+    else if (id == m_module) {
+      m_moduleName = val;
     }
     else
       assert(false);
@@ -104,61 +123,170 @@ class ArgParser : public fun::FArgParser {
 
 public:
   inline auto dotDeps() const { return m_dotDeps; }
-  inline auto dotControl() const { return m_dotControl; }
 
-  inline auto  dotMode() const { return m_dotMode; }
-  inline auto  verboseLvl() const { return m_verboseLvl; }
   inline auto &args() const { return m_args; }
+  inline auto  dotMode() const { return m_dotMode; }
+  inline auto  moduleName() const { return m_moduleName; }
+  inline auto  showHelp() const { return m_showHelp; }
+  inline auto  showUsage() const { return m_showUsage; }
+  inline auto  verboseLvl() const { return m_verboseLvl; }
 
   ArgParser() {
-#define MKFLAG(lname, sname)                                                   \
-  m_short.emplace(#sname, m_##lname = m_flags.intern(#lname));
+#define MKFLAG(name, lname, sname)                                             \
+  m_short.emplace(#sname, m_##name = m_flags.intern(#lname));
 
-    MKFLAG(verbose, v)
-    MKFLAG(dot, d)
+    MKFLAG(dot, dot, d)
+    MKFLAG(help, help, h)
+    MKFLAG(module, module, m)
+    MKFLAG(usage, usage, u)
+    MKFLAG(verbose, verbose, v)
 
-    m_dotDeps    = m_dot_modes.intern("deps");
-    m_dotControl = m_dot_modes.intern("control");
+    m_dotDeps = m_dotModes.intern("deps");
 #undef MKFLAG
   }
 
-  void help() {
+  void usage() {
     std::cerr << "Usage: formab [flags] [--] [input]" << std::endl;
+  }
 
-    std::cerr << "Flags:\n  \e[1m--verbose, -v\e[0m: Output extra information."
-              << std::endl
-              << "  \e[1m--dot, -d\e[0m: Output dependency graph as a dotfile."
-              << std::endl;
+  void help() {
+    usage();
+
+    std::cerr
+        << "Flags:\n"
+           "  \e[1m--verbose, -v\e[0m: Output extra information.\n"
+           "  \e[1m--dot [type], -d [type]\e[0m: Output a dotfile.\n"
+           "    \e[1mTODO:\e[0m document [type]\n"
+           "  \e[1m--help, -h\e[0m: Display this message.\n"
+           "  \e[1m--module [name], -m [name]\e[0m: Specify module name.\n"
+           "  \e[1m--usage, -u\e[0m: Display brief usage info.\n";
   }
 };
 
+static bool                                      s_normalExit = false;
+static std::unordered_map<int, std::string>      s_signals;
+static std::unordered_map<int, struct sigaction> s_sigOacts;
+
+void postRun();
+
+void onSignal(int, siginfo_t *, void *);
+
+int run(int, char **);
+
 int main(int argc, char **argv) {
+  if (atexit(postRun)) {
+    std::cerr << "Failed to register atexit handler." << std::endl;
+    return 1;
+  }
+
+  s_signals[SIGINT] = "SIGINT";
+#if !defined(DEBUG)
+  s_signals[SIGILL]  = "SIGILL";
+  s_signals[SIGABRT] = "SIGABRT";
+  s_signals[SIGFPE]  = "SIGFPE";
+  s_signals[SIGSEGV] = "SIGSEGV";
+#endif
+  s_signals[SIGTERM]   = "SIGTERM";
+  s_signals[SIGHUP]    = "SIGHUP";
+  s_signals[SIGQUIT]   = "SIGQUIT";
+  s_signals[SIGTRAP]   = "SIGTRAP";
+  s_signals[SIGBUS]    = "SIGBUS";
+  s_signals[SIGSYS]    = "SIGSYS";
+  s_signals[SIGPIPE]   = "SIGPIPE";
+  s_signals[SIGALRM]   = "SIGALRM";
+  s_signals[SIGURG]    = "SIGURG";
+  s_signals[SIGTSTP]   = "SIGTSTP";
+  s_signals[SIGCONT]   = "SIGCONT";
+  s_signals[SIGCHLD]   = "SIGCHLD";
+  s_signals[SIGXCPU]   = "SIGXCPU";
+  s_signals[SIGXFSZ]   = "SIGXFSZ";
+  s_signals[SIGVTALRM] = "SIGVTALRM";
+  s_signals[SIGPROF]   = "SIGPROF";
+
+  for (auto pair : s_signals) {
+    struct sigaction act, oact;
+    act.sa_flags = SA_SIGINFO | SA_NODEFER;
+    sigemptyset(&act.sa_mask);
+    act.sa_sigaction = onSignal;
+
+    if (sigaction(pair.first, &act, &oact)) {
+      std::cerr << "Failed to register " << pair.second << " handler."
+                << std::endl;
+      return 1;
+    }
+
+    s_sigOacts.emplace(pair.first, oact);
+  }
+
+  int ret      = run(argc, argv);
+  s_normalExit = true;
+  return ret;
+}
+
+void postRun() {
+  if (s_normalExit) {
+#if defined(DEBUG)
+    std::cerr << "Exited normally." << std::endl;
+#endif
+    return;
+  }
+
+  std::cerr << "WARNING: Exited unexpectedly!" << std::endl;
+}
+
+void onSignal(int id, siginfo_t *, void *) {
+  std::cerr << "Received " << s_signals[id] << "." << std::endl;
+
+  struct sigaction oact;
+  sigaction(id, &s_sigOacts[id], &oact);
+  raise(id);
+  sigaction(id, &oact, nullptr);
+}
+
+int run(int argc, char **argv) {
   FILE *      infile;
-  std::string filename("???");
+  std::string filename("???"), moduleName;
 
   ArgParser ap;
 
   try {
     ap.parse(argc, argv);
+
+    if (ap.showHelp()) {
+      ap.help();
+      return 0;
+    }
+
+    if (ap.showUsage()) {
+      ap.usage();
+      return 0;
+    }
+
+    // TODO: This probably needs further validation
+    if (ap.moduleName().empty()) {
+      std::cerr << "Bad module name." << std::endl;
+      throw fun::bad_argument();
+    }
+
+    std::vector<std::string> args(ap.args().begin(), ap.args().end());
+
+    switch (args.size()) {
+    case 0:
+    readStdin:
+      infile   = stdin;
+      filename = "<stdin>";
+      break;
+    case 1:
+      if (args.at(0) == "-") goto readStdin;
+      infile   = fopen(args.at(0).c_str(), "r");
+      filename = args.at(0);
+      break;
+    default: throw fun::bad_argument();
+    }
   }
   catch (fun::bad_argument &) {
-    exit(1);
-  }
-
-  std::vector<std::string> args(ap.args().begin(), ap.args().end());
-
-  switch (args.size()) {
-  case 0:
-  readStdin:
-    infile   = stdin;
-    filename = "<stdin>";
-    break;
-  case 1:
-    if (args.at(0) == "-") goto readStdin;
-    infile   = fopen(args.at(0).c_str(), "r");
-    filename = args.at(0);
-    break;
-  default: ap.help(); return 1;
+    ap.help();
+    return 1;
   }
 
 #if defined(NDEBUG)
@@ -187,7 +315,7 @@ int main(int argc, char **argv) {
       auto graph = fnew<fps::FDepsGraph>();
 
       auto assem  = fnew<fie::FIAssembly>();
-      auto inputs = fnew<fie::FIInputs>(assem);
+      auto inputs = fnew<fie::FIInputs>(assem, moduleName, filename);
 
       auto sched = fnew<fie::FIScheduler>(graph, inputs);
 
@@ -198,9 +326,11 @@ int main(int argc, char **argv) {
       else {
         try {
           graph->run();
+
+          inputs->llModule()->print(llvm::outs(), nullptr);
         }
         catch (fun::compiler_error &) {
-          return 1;
+          assert(tag.errors().size());
         }
       }
     }

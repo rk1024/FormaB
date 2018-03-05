@@ -32,7 +32,7 @@ namespace pc {
   class PositionNode : public fun::FObject {
     PositionTracker *           m_parent;
     const frma::FormaAST *      m_curr;
-    fun::FWeakPtr<PositionNode> m_prev, m_next; // TODO: Maybe stack allocate?
+    fun::FWeakPtr<PositionNode> m_prev, m_next;
 
   public:
     const frma::FormaAST *ast() const { return m_curr; }

@@ -158,18 +158,22 @@ void FDepsGraph::dot(std::ostream &os) {
   fun::FAtomStore<fun::FPtr<FDepsGraphEdge>> edgeIds;
 
   for (auto node : m_nodes)
-    os << "n" << nodeIds.intern(node) << "[label=\"" << node->m_name << "\"];";
+    os << "n" << nodeIds.intern(node).value() << "[label=\"" << node->m_name
+       << "\"];";
   for (auto edge : m_edges)
-    os << "e" << edgeIds.intern(edge) << "[label=\"" << edge->m_name << "\"];";
+    os << "e" << edgeIds.intern(edge).value() << "[label=\"" << edge->m_name
+       << "\"];";
 
   for (auto edge : m_edges) {
     auto id = edgeIds.intern(edge);
 
     for (auto in : edge->m_ins)
-      os << "n" << nodeIds.intern(in.lock()) << "->e" << id << ";";
+      os << "n" << nodeIds.intern(in.lock()).value() << "->e" << id.value()
+         << ";";
 
     for (auto out : edge->m_outs)
-      os << "e" << id << "->n" << nodeIds.intern(out.lock()) << ";";
+      os << "e" << id.value() << "->n" << nodeIds.intern(out.lock()).value()
+         << ";";
   }
 
   os << "}" << std::endl;

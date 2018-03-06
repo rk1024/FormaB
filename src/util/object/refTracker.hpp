@@ -44,9 +44,9 @@ public:
 
   FRefTracker(FObject *target);
 
-  FRefTracker(const FObject &) = delete;
-  FRefTracker(FObject &)       = delete;
-  FRefTracker(FObject &&)      = delete;
+  FRefTracker(const FRefTracker &) = delete;
+  FRefTracker(FRefTracker &)       = delete;
+  FRefTracker(FRefTracker &&)      = delete;
 
   void acquire();
   void release();

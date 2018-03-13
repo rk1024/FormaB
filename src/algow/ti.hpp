@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (ti.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,22 +20,45 @@
 
 #pragma once
 
-#include "util/atom.hpp"
+#include <cstdint>
+#include <stack>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "util/ptr.hpp"
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+#include "_type.hpp"
+#include "expr.hpp"
+#include "scheme.hpp"
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+namespace w {
+
+struct TI {
+  std::int32_t             supply = 0;
+  std::vector<std::string> stack;
+
+  fun::FPtr<const TypeBase> makeVar();
+
+  fun::FPtr<const TypeBase> instantiate(const Scheme &);
+
+  void debugState() const;
+
+  std::string state() const;
+};
+
+class TIPos {
+  TI *m_t;
+
+public:
+  TIPos(TI &t, const std::string &s) : m_t(&t) {
+    t.stack.emplace_back(s);
+    // t.debugState();
+  }
+
+  ~TIPos() { m_t->stack.pop_back(); }
+};
+
+fun::FPtr<const TypeBase> ti(const fun::FPtr<const ExprBase> &,
+                             const TypeEnv & = TypeEnv());
+} // namespace w

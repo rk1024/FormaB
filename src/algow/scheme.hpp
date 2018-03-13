@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (scheme.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,22 +20,30 @@
 
 #pragma once
 
-#include "util/atom.hpp"
+#include "util/consPod.hpp"
 #include "util/ptr.hpp"
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+#include "_type.hpp"
+#include "types.hpp"
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+namespace w {
+FUN_CONSPOD(Scheme, std::vector<std::string>, fun::FPtr<const TypeBase>) {
+  FCP_GET(0, vars);
+  FCP_GET(1, type);
+
+  Scheme() = default;
+
+  inline Scheme(const std::vector<std::string> & _vars,
+                const fun::FPtr<const TypeBase> &_type) :
+      FCP_INIT(_vars, _type) {}
+
+  std::string to_string() const;
+};
+
+template <>
+struct Types<Scheme> {
+  static std::unordered_set<std::string> __ftv(const Scheme &);
+
+  static Scheme __sub(const Subst &, const Scheme &);
+};
+} // namespace w

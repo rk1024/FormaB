@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (struct.cpp)
+ * FormaB - the bootstrap Forma compiler (types.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,8 +18,24 @@
  *
  ************************************************************************/
 
-#include "struct.hpp"
+#pragma once
 
-namespace fie {
-FIStruct::FIStruct(const std::string &name) : m_name(name) {}
-} // namespace fie
+#include <string>
+#include <unordered_set>
+
+#include "subst.hpp"
+
+namespace w {
+template <typename>
+struct Types;
+
+template <typename T>
+inline std::unordered_set<std::string> ftv(const T &x) {
+  return Types<T>::__ftv(x);
+}
+
+template <typename T>
+inline T sub(const Subst &s, const T &x) {
+  return Types<T>::__sub(s, x);
+}
+} // namespace w

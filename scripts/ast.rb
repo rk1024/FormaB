@@ -914,6 +914,8 @@ ASTGen.run do
       let :PraeMessageExpression, :message
     end
 
+    # ti
+
     toks = [
       :Identifier,
       :SQLiteral,
@@ -947,6 +949,8 @@ ASTGen.run do
   node :PraeNumericLiteral do
     let :Token, :tok
 
+    # ti
+
     ctor [:Hex, :Dec, :Oct, :Bin, :Float], :tok, fmt: :tok
 
     symbol do
@@ -961,6 +965,8 @@ ASTGen.run do
   node :PraeBooleanLiteral do
     ctor :True, fmt: "true"
     ctor :False, fmt: "false"
+
+    # ti
 
     symbol do
       rule :True, "true"
@@ -984,6 +990,8 @@ ASTGen.run do
       let :PraeExpression, :expr
       let :PraeExpressions, :exprs
     end
+
+    # ti
 
     let :PraeBindStatement, :bind
 

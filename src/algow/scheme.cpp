@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (scheme.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,24 +18,45 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "scheme.hpp"
 
-#include "util/atom.hpp"
-#include "util/ptr.hpp"
+#include "type.hpp"
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+#include <sstream>
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+namespace w {
+std::string Scheme::to_string() const {
+  std::ostringstream oss;
+
+  if (vars().size()) {
+    oss << "forall ";
+
+    bool first = true;
+    for (auto &var : vars()) {
+      if (first)
+        first = false;
+      else
+        oss << ", ";
+      oss << var;
+    }
+
+    oss << ".";
+  }
+
+  oss << type()->to_string();
+
+  return oss.str();
+}
+
+std::unordered_set<std::string> Types<Scheme>::__ftv(const Scheme &s) {
+  auto ret = ftv(s.type());
+  for (auto &var : s.vars()) ret.erase(var);
+  return ret;
+}
+
+Scheme Types<Scheme>::__sub(const Subst &subst, const Scheme &s) {
+  auto subst2 = subst;
+  for (auto &var : s.vars()) subst2.erase(var);
+  return Scheme(s.vars(), sub(subst2, s.type()));
+}
+} // namespace w

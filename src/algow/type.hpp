@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (type.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,22 +20,16 @@
 
 #pragma once
 
-#include "util/atom.hpp"
-#include "util/ptr.hpp"
+#include "_type.hpp"
+#include "types.hpp"
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+namespace w {
+template <>
+struct Types<fun::FPtr<const TypeBase>> {
+  static std::unordered_set<std::string> __ftv(
+      const fun::FPtr<const TypeBase> &);
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+  static fun::FPtr<const TypeBase> __sub(const Subst &,
+                                         const fun::FPtr<const TypeBase> &);
+};
+} // namespace w

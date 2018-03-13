@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (typeEnv.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,22 +20,22 @@
 
 #pragma once
 
-#include "util/atom.hpp"
-#include "util/ptr.hpp"
+#include <string>
+#include <unordered_map>
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+#include "scheme.hpp"
+#include "types.hpp"
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+namespace w {
+using TypeEnv = std::unordered_map<std::string, Scheme>;
+Scheme generalize(const TypeEnv &, const fun::FPtr<const TypeBase> &);
+
+std::string printEnv(const TypeEnv &);
+
+template <>
+struct Types<TypeEnv> {
+  static std::unordered_set<std::string> __ftv(const TypeEnv &);
+
+  static TypeEnv __sub(const Subst &, const TypeEnv &);
+};
+} // namespace w

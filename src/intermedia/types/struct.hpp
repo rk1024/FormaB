@@ -23,15 +23,17 @@
 #include <string>
 #include <utility>
 
+#include "util/consPod.hpp"
 #include "util/object/object.hpp"
 
 namespace fie {
-class FIStruct : public fun::FObject {
-  std::string m_name;
+FUN_CONSPOD(FIStruct, std::string, std::uint32_t), public fun::FObject {
+  FCP_GET(0, name);
+  FCP_GET(1, arity);
 
-public:
-  inline const std::string name() const { return m_name; }
+  FIStruct(const std::string &_name, std::uint32_t _arity = 0) :
+      FCP_INIT(_name, _arity) {}
 
-  FIStruct(const std::string &);
+  constexpr const std::string &to_string() const { return name(); }
 };
 } // namespace fie

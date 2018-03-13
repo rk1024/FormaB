@@ -69,7 +69,7 @@ public:
   FPtr() : FPtr(static_cast<T *>(nullptr)) {}
 
   template <typename U>
-  FPtr(const FPtr<U> &other) : FPtr(other.m_ptr) {}
+  FPtr(const FPtr<U> &other) : FPtr(dynamic_cast<T *>(other.m_ptr)) {}
 
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {}
 

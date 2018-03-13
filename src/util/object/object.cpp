@@ -28,7 +28,7 @@ FObject::~FObject() {
   assert(tracker()->m_tracked);
   if (tracker()->m_tracked != FRefTracker::COUNT_DESTROYING) {
     std::cerr << "\e[1;38;5;3mwarning: \e[39mFObject not destroyed by its "
-                 "tracker; detaching"
+                 "tracker; detaching\e[0m"
               << std::endl;
 
     tracker()->m_target = nullptr;

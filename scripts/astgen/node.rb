@@ -60,18 +60,24 @@ module ASTGen
     class NodeBuilder < ObjBuilder
       include ASymbol::FormatBuilder
 
-      attr_reader :name, :unions, :ctors, :dtor, :symbols
+      attr_reader :name, :extra_decls, :base_classes, :unions, :ctors, :dtor, :symbols
 
       def initialize(name, d)
         super(d)
         init_fmt
         @name = name
+        @base_classes = nil
+        @extra_decls = []
         @unions = []
         @ctors = LooseHash.new
         @dtor = nil
         @symbols = LooseHash.new
         @last_symbol = nil
       end
+
+      def inherits(*classes) @base_classes = classes end
+
+      def declare(decl) @extra_decls << decl end
 
       def union(&block)
         @d.pos("union") do
@@ -276,6 +282,8 @@ module ASTGen
         n = Node.new(@name, @d)
 
         n.members = members
+        n.base_classes = @base_classes
+        n.extra_decls = @extra_decls
         n.member_order = member_order
         n.member_alts = member_alts
         n.dep_types = dep_types
@@ -292,7 +300,7 @@ module ASTGen
         n
       end
 
-      def inspect; "<#{self.class.name}:0x#{object_id.to_s(16)} #{@name.inspect} members: #{@members.inspect}, unions: #{@unions.inspect}, ctors: #{@ctors.inspect}, fmt: #{@fmt.inspect}, symbols: #{@symbols.inspect}>" end
+      def inspect; "<#{self.class.name}:0x#{object_id.to_s(16)} #{@name.inspect} base_classes: #{@base_classes.inspect}, members: #{@members.inspect}, unions: #{@unions.inspect}, ctors: #{@ctors.inspect}, fmt: #{@fmt.inspect}, symbols: #{@symbols.inspect}>" end
     end
 
     def self.build(name, d, &block)
@@ -303,6 +311,8 @@ module ASTGen
 
     attr_accessor(
       :name,
+      :base_classes,
+      :extra_decls,
       :members,
       :member_order,
       :member_alts,
@@ -322,6 +332,8 @@ module ASTGen
     def initialize(name, d)
       @d = d.fork
       @name = name
+      @base_classes = nil
+      @extra_decls = []
       @members = {}
       @member_order = []
       @member_alts = {}
@@ -338,6 +350,7 @@ module ASTGen
       @unused = false
     end
 
+    @@addl_includes = []
     @@namespace = []
     @@namespace_token = []
     @@class_name_prefix = ""
@@ -363,6 +376,8 @@ module ASTGen
     @@node_name_abbrs = []
 
     def self.split_namespace(value) value.to_s.gsub(/^::/, "").split("::") end
+
+    def self.add_include(value) @@addl_includes << value.to_s end
 
     def self.namespace; @@namespace.join("::") end
     def self.namespace=(value) @@namespace = split_namespace(value) end
@@ -525,6 +540,7 @@ module ASTGen
         l.sep
 
         l << "#include \"#{@@header_base}\""
+        @@addl_includes.each{|i| l << "#include #{i.inspect}" }
 
         l.sep
 
@@ -547,7 +563,7 @@ module ASTGen
 
         l.sep
 
-        l << "class #{class_name} : public #{@@class_base} {"
+        l << "class #{class_name} : #{(@base_classes || [@@class_base]).map{|c| "public #{c}" }.join(", ")} {"
         l.group
 
         vis = Vis.new(l, :private)
@@ -669,6 +685,12 @@ module ASTGen
             vis << :public
             l << "#{@@SymEnumName} #{@@SymMembName}() const;"
 
+            l.sep
+          end
+
+          @extra_decls.each do |decl|
+            vis << :public
+            l << decl << ";"
             l.sep
           end
 

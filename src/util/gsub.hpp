@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (gsub.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,22 +20,22 @@
 
 #pragma once
 
-#include "util/atom.hpp"
-#include "util/ptr.hpp"
+#include <string>
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+namespace fun {
+static std::string gsub(const std::string &src,
+                        const std::string &find,
+                        const std::string &replace) {
+  std::string            dst = src;
+  std::string::size_type p   = 0;
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+  while (true) {
+    p = dst.find(find, p);
+    if (p == std::string::npos) break;
+    dst.replace(p, find.size(), replace);
+    p += replace.size();
+  }
+
+  return dst;
+}
+} // namespace fun

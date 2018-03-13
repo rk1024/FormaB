@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (atoms.hpp)
+ * FormaB - the bootstrap Forma compiler (subst.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,24 +18,29 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "subst.hpp"
 
-#include "util/atom.hpp"
-#include "util/ptr.hpp"
+#include <sstream>
 
-namespace fie {
-class FIFunction;
-struct FILabel;
-struct FIMessage;
-struct FIMessageKeyword;
-struct FIStruct;
-struct FIVariable;
+#include "util/gsub.hpp"
 
-using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
-using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
-using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
-using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
-using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
-} // namespace fie
+#include "type.hpp"
+#include "types.hpp"
+
+namespace w {
+Subst composeSubst(const Subst &s1, const Subst &s2) {
+  Subst ret = s1;
+  for (auto &pair : s2) ret[pair.first] = sub(s1, pair.second);
+  return ret;
+}
+
+std::string printSubst(const Subst &s) {
+  std::ostringstream oss;
+
+  for (auto &pair : s)
+    oss << "\n  where " + pair.first + " ~ " +
+               fun::gsub(pair.second->to_string(), "\n", "\n  ");
+
+  return oss.str();
+}
+} // namespace w

@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (label.hpp)
+ * FormaB - the bootstrap Forma compiler (block.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,18 +18,39 @@
  *
  ************************************************************************/
 
-#pragma once
-
-#include "util/consPod.hpp"
+#include "block.hpp"
 
 namespace fie {
-FUN_CONSPOD(FILabel, std::uint32_t, std::string) {
-  FCP_ACC(0, pos);
-  FCP_ACC(1, name);
+void FIBlock::contStatic(const fun::FPtr<FIBlock> &cont) {
+  m_cont  = Static;
+  m_contA = fun::weak(cont);
+  m_contB = nullptr;
+  m_ret   = FIRegId(-1);
+}
 
-  inline FILabel(std::uint32_t _pos, std::string _name) :
-      FCP_INIT(_pos, _name) {}
-};
+void FIBlock::contBranch(const FIRegId &           cond,
+                         bool                      invert,
+                         const fun::FPtr<FIBlock> &a,
+                         const fun::FPtr<FIBlock> &b) {
+  m_cont  = invert ? BranchFT : BranchTF;
+  m_contA = fun::weak(a);
+  m_contB = fun::weak(b);
+  m_ret   = cond;
+}
+
+void FIBlock::contRet(const FIRegId &ret) {
+  m_cont  = Return;
+  m_contA = nullptr;
+  m_contB = nullptr;
+  m_ret   = ret;
+}
+
+std::vector<FIRegId> FIBlock::deps() const {
+  switch (m_cont) {
+  case BranchFT:
+  case BranchTF:
+  case Return: return {m_ret};
+  default: return {};
+  }
+}
 } // namespace fie
-
-FCP_HASH(fie::FILabel);

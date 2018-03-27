@@ -22,21 +22,32 @@
 
 #include <cassert>
 #include <functional>
+#include <ios>
 #include <unordered_map>
 #include <vector>
 
 namespace fun {
 template <typename T,
-          typename TKey = std::size_t,
-          bool useSet   = sizeof(std::size_t) < sizeof(TKey)>
+          typename TKey,
+          typename TEqual,
+          bool useSet = sizeof(std::size_t) < sizeof(TKey)>
 class FAtomStoreBuf;
 
-template <typename T, typename TKey>
-class FAtomStoreBuf<T, TKey, false> {
-  typename std::enable_if<(sizeof(std::size_t) >= sizeof(TKey) &&
-                           std::is_integral<TKey>::value),
-                          std::vector<T>>::type m_values;
-  std::unordered_map<T, TKey>                   m_keys;
+template <typename T, typename TKey, typename TEqual>
+class FAtomStoreBuf<T, TKey, TEqual, false> {
+public:
+  using ValueMap  = std::vector<T>;
+  using KeyMap    = std::unordered_map<T, TKey, std::hash<T>, TEqual>;
+  using Iter      = typename KeyMap::iterator;
+  using ConstIter = typename KeyMap::const_iterator;
+
+private:
+  std::enable_if_t<(sizeof(std::size_t) >= sizeof(TKey) &&
+                    std::is_integral<TKey>::value),
+                   ValueMap>
+      m_values;
+
+  KeyMap m_keys;
 
 public:
   inline TKey next() const { return static_cast<TKey>(m_values.size()); }
@@ -61,14 +72,23 @@ public:
   }
 };
 
-template <typename T, typename TKey>
-class FAtomStoreBuf<T, TKey, true> {
-  typename std::enable_if<(sizeof(std::size_t) < sizeof(TKey) &&
-                           std::is_integral<TKey>::value),
-                          std::unordered_map<TKey, T>>::type m_values;
+template <typename T, typename TKey, typename TEqual>
+class FAtomStoreBuf<T, TKey, TEqual, true> {
 
-  TKey                        m_nextKey = 0;
-  std::unordered_map<T, TKey> m_keys;
+public:
+  using ValueMap  = std::unordered_map<TKey, T>;
+  using KeyMap    = std::unordered_map<T, TKey, std::hash<T>, TEqual>;
+  using Iter      = typename KeyMap::iterator;
+  using ConstIter = typename KeyMap::const_iterator;
+
+private:
+  std::enable_if_t<(sizeof(std::size_t) < sizeof(TKey) &&
+                    std::is_integral<TKey>::value),
+                   ValueMap>
+      m_values;
+
+  TKey   m_nextKey = 0;
+  KeyMap m_keys;
 
 public:
   inline TKey next() const { return m_nextKey; }
@@ -122,15 +142,63 @@ public:
   friend struct std::hash<FAtom>;
 };
 
-template <typename T, typename TKey = std::size_t>
-class FAtomStore {
+template <typename T, typename TKey, typename TIter>
+class FAtomStoreIterator {
 public:
   using Atom = FAtom<TKey, T>;
 
 private:
-  typedef FAtomStoreBuf<T, TKey> TBuf;
+  TIter m_it;
 
-  TBuf m_buf;
+public:
+  explicit FAtomStoreIterator(const TIter &it) : m_it(it) {}
+
+  FAtomStoreIterator operator+(std::size_t rhs) const {
+    return FAtomStoreIterator(m_it + rhs);
+  }
+
+  FAtomStoreIterator operator-(std::size_t rhs) const {
+    return FAtomStoreIterator(m_it - rhs);
+  }
+
+  FAtomStoreIterator &operator+=(std::size_t rhs) {
+    m_it += rhs;
+    return *this;
+  }
+
+  FAtomStoreIterator &operator-=(std::size_t rhs) {
+    m_it -= rhs;
+    return *this;
+  }
+
+  FAtomStoreIterator &operator++() {
+    ++m_it;
+    return *this;
+  }
+
+  FAtomStoreIterator operator++(int) { return FAtomStoreIterator(m_it++); }
+
+  auto operator*() const { return std::pair(m_it->first, Atom(m_it->second)); }
+
+  bool operator==(const FAtomStoreIterator &rhs) const {
+    return m_it == rhs.m_it;
+  }
+  bool operator!=(const FAtomStoreIterator &rhs) const {
+    return m_it != rhs.m_it;
+  }
+};
+
+template <typename T,
+          typename TKey   = std::size_t,
+          typename TEqual = std::equal_to<T>>
+class FAtomStore {
+public:
+  using Atom = FAtom<TKey, T>;
+  using Buf  = FAtomStoreBuf<T, TKey, TEqual>;
+  using Iter = FAtomStoreIterator<T, TKey, typename Buf::ConstIter>;
+
+private:
+  Buf m_buf;
 
   Atom add(const T &value) {
     TKey key = m_buf.next();
@@ -145,8 +213,8 @@ public:
   Atom     key(const T &value) const { return Atom(m_buf.key(value)); }
   const T &value(Atom atom) const { return m_buf.value(atom.value()); }
   T &      value(Atom atom) { return m_buf.value(atom.value()); }
-  auto     begin() const { return m_buf.begin(); }
-  auto     end() const { return m_buf.end(); }
+  auto     begin() const { return Iter(m_buf.begin()); }
+  auto     end() const { return Iter(m_buf.end()); }
 
   TKey size() const { return m_buf.next(); }
 
@@ -187,6 +255,13 @@ public:
 };
 } // namespace fun
 
+template <typename T, typename U, typename V>
+std::basic_ostream<T> &operator<<(std::basic_ostream<T> & os,
+                                  const fun::FAtom<U, V> &atom) {
+  os << atom.value();
+  return os;
+}
+
 namespace std {
 template <typename T, typename TValue>
 struct hash<fun::FAtom<T, TValue>> {
@@ -197,4 +272,9 @@ public:
     return m_hash(atom.m_value);
   }
 };
+
+template <typename T, typename U>
+string to_string(const fun::FAtom<T, U> &atom) {
+  return to_string(atom.value());
+}
 } // namespace std

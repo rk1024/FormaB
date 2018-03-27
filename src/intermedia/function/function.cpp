@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (builtins.hpp)
+ * FormaB - the bootstrap Forma compiler (function.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,26 +18,12 @@
  *
  ************************************************************************/
 
-#pragma once
-
-#include <vector>
-
-#include "util/ptr.hpp"
-
-#include "struct.hpp"
+#include "function.hpp"
 
 namespace fie {
-namespace builtins {
-  extern fun::FPtr<FIStruct> FIErrorT, FINilT, FIVoidT, FIFuncT, FIMsgKeywordT,
-
-      FIInt8, FIUint8, FIInt16, FIUint16, FIInt32, FIUint32, FIInt64, FIUint64,
-
-      FIFloat, FIDouble,
-
-      FIBool,
-
-      FIString;
-}
-
-const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs();
+FIFunction::FIFunction(
+    const std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> &args,
+    const FIFunctionBody &                                         body) :
+    m_args(args),
+    m_body(body) {}
 } // namespace fie

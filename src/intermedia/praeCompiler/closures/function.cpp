@@ -34,26 +34,6 @@ namespace pc {
     pushScope();
   }
 
-  FuncClosure &FuncClosure::emit(const fun::FPtr<FIInstructionBase> &ins) {
-    m_body->instructions.emplace_back(ins);
-    return *this;
-  }
-
-  FuncClosure &FuncClosure::emit(fun::FPtr<FIInstructionBase> &&ins) {
-    m_body->instructions.emplace_back(ins);
-    return *this;
-  }
-
-  FILabelAtom FuncClosure::beginLabel() {
-    return m_body->labels.emplace(static_cast<std::uint32_t>(-1),
-                                  "l" + std::to_string(m_body->labels.size()));
-  }
-
-  void FuncClosure::label(FILabelAtom id) {
-    m_body->labels.value(id).pos() = static_cast<std::uint32_t>(
-        m_body->instructions.size());
-  }
-
   void FuncClosure::pushScope() {
     m_scope = fnew<ScopeClosure>(false, fun::weak(this), m_scope);
   }
@@ -64,51 +44,6 @@ namespace pc {
     auto ret = std::move(m_scope);
     m_scope  = ret->parent();
     return ret;
-  }
-
-  void FuncClosure::error(std::string &&desc) {
-    auto loc = curr()->loc();
-
-    std::ostringstream os;
-
-    os << "\x1b[1m";
-
-    if (loc.begin.filename)
-      os << *loc.begin.filename;
-    else
-      os << "???";
-
-
-    os << ":" << loc.begin.line << ":" << loc.begin.column;
-
-    if (loc.end != loc.begin) os << "-";
-
-    if (loc.end.filename != loc.begin.filename) {
-      if (loc.end.filename)
-        os << *loc.end.filename;
-      else
-        os << "???";
-
-      os << ":";
-
-      goto diffLine;
-    }
-    else if (loc.end.line != loc.begin.line) {
-    diffLine:
-      os << loc.end.line << ":";
-
-      goto diffCol;
-    }
-    else if (loc.end.column != loc.begin.column) {
-    diffCol:
-      os << loc.end.column;
-    }
-
-    os << ": \x1b[38;5;9merror:\x1b[0m " << desc << std::endl;
-
-    std::cerr << os.str();
-
-    throw fun::compiler_error();
   }
 } // namespace pc
 } // namespace fie

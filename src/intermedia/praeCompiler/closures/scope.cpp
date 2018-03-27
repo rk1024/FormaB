@@ -41,8 +41,8 @@ namespace pc {
   template <bool required>
   fun::FPtr<ScopeClosure> ScopeClosure::holderOf(const std::string &name) {
     if (m_vars.find(name) != m_vars.end()) return fun::wrap(this);
-    if (m_parent) return m_parent->holderOf<required>(name);
-    if (required)
+    if (!m_parent.nil()) return m_parent->holderOf<required>(name);
+    if constexpr (required)
       m_func.lock()->error("variable '" + name + "' not declared");
     else
       return nullptr;
@@ -67,19 +67,6 @@ namespace pc {
     return func->m_body->vars.intern(assembleName(name));
   }
 
-  FIVariableAtom ScopeClosure::recordVar(fun::FWeakPtr<ScopeClosure> scope_,
-                                         const std::string &         name,
-                                         bool                        mut) {
-    auto func  = m_func.lock();
-    auto scope = scope_.lock();
-
-    m_vars[name] = mut;
-
-    if (scope.get() != this) m_borrowed[name] = scope_;
-
-    return recordName(name);
-  }
-
   ScopeClosure::ScopeClosure(bool                       isArgs,
                              fun::FWeakPtr<FuncClosure> func_,
                              fun::FPtr<ScopeClosure>    parent) :
@@ -89,7 +76,17 @@ namespace pc {
       m_isArgs(isArgs) {}
 
   FIVariableAtom ScopeClosure::bind(const std::string &name, bool mut) {
-    return recordVar(fun::weak(this), name, mut);
+    auto holder = holderOf<false>(name);
+
+    if (holder.get() == this)
+      m_func.lock()->error("variable '" + name +
+                           "' already declared in this scope");
+    else if (!holder.nil())
+      // TODO: add proper diagnostic logging
+      std::cerr << "WARNING: variable '" + name + "' shadows outer scope";
+
+    m_vars[name] = mut;
+    return recordName(name);
   }
 
   FIVariableAtom ScopeClosure::get(const std::string &name) {
@@ -104,29 +101,14 @@ namespace pc {
 
     if (!mut) m_func.lock()->error("variable '" + name + "' is immutable");
 
-    return recordVar(fun::weak(holder), name, true);
-  }
-
-  std::vector<ScopeClosure::VarInfo> ScopeClosure::getModified() {
-    std::vector<VarInfo> modified;
-
-    for (auto pair : m_vars) {
-      auto it = m_borrowed.find(pair.first);
-
-      if (it != m_borrowed.end())
-        modified.push_back(fun::cons(it->second, pair.first, pair.second));
-    }
-
-    return modified;
+    return holder->recordName(name);
   }
 
   std::vector<ScopeClosure::OwnVarInfo> ScopeClosure::getOwned() {
     std::vector<OwnVarInfo> owned;
 
-    for (auto pair : m_vars) {
-      if (m_borrowed.find(pair.first) == m_borrowed.end())
-        owned.push_back(fun::cons(pair.first, pair.second));
-    }
+    for (auto pair : m_vars)
+      owned.push_back(fun::cons(pair.first, pair.second));
 
     return owned;
   }

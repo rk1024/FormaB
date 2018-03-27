@@ -191,7 +191,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-Wmissing-prototypes",
       "-Wmissing-variable-declarations",
       "-Wnewline-eof",
-      "-Wshadow",
+      "-Wshadow-all",
       "-Wno-logical-op-parentheses",
       "-Wno-shorten-64-to-32",
       "-Wno-sign-compare",

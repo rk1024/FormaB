@@ -20,22 +20,53 @@
 
 #pragma once
 
+#include <sstream>
 #include <string>
 #include <unordered_map>
+
+#include "util/gsub.hpp"
 
 #include "scheme.hpp"
 #include "types.hpp"
 
 namespace w {
-using TypeEnv = std::unordered_map<std::string, Scheme>;
-Scheme generalize(const TypeEnv &, const fun::FPtr<const TypeBase> &);
+template <typename T>
+using TypeEnv = std::unordered_map<T, Scheme>;
 
-std::string printEnv(const TypeEnv &);
+template <typename T>
+Scheme generalize(const TypeEnv<T> &               env,
+                  const fun::FPtr<const TypeBase> &type) {
+  auto vars = ftv(type);
+  for (auto var : ftv(env)) vars.erase(var);
+  return Scheme(std::vector<std::string>(vars.begin(), vars.end()), type);
+}
 
-template <>
-struct Types<TypeEnv> {
-  static std::unordered_set<std::string> __ftv(const TypeEnv &);
+template <typename T>
+std::string printEnv(const TypeEnv<T> &env) {
+  std::ostringstream oss;
 
-  static TypeEnv __sub(const Subst &, const TypeEnv &);
+  for (auto &pair : env)
+    oss << "\n  where " + pair.first +
+               " :: " + fun::gsub(pair.second.to_string(), "\n", "\n  ");
+
+  return oss.str();
+}
+
+template <typename T>
+struct Types<TypeEnv<T>> {
+  static std::unordered_set<std::string> __ftv(const TypeEnv<T> &env) {
+    std::unordered_set<std::string> ret;
+    for (auto &pair : env) {
+      auto ftv2 = ftv(pair.second);
+      ret.insert(ftv2.begin(), ftv2.end());
+    }
+    return ret;
+  }
+
+  static TypeEnv<T> __sub(const Subst &subst, const TypeEnv<T> &env) {
+    TypeEnv<T> ret;
+    for (auto &pair : env) ret.emplace(pair.first, sub(subst, pair.second));
+    return ret;
+  }
 };
 } // namespace w

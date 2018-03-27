@@ -36,6 +36,7 @@
 namespace fie {
 class FIPraeCompiler;
 class FIVerifier;
+class FITypeSolver;
 class FIDumpFunction;
 class FILLVMEmitter;
 
@@ -54,8 +55,8 @@ class FIScheduler : public fun::FObject {
   };
 
   struct FuncPipeline : CompilePipeline {
-    fun::FPtr<fps::FDepsGraphNode> compiled, verified;
-    fun::FPtr<fps::FDepsGraphEdge> verify, dump, emit;
+    fun::FPtr<fps::FDepsGraphNode> compiled, verified, typed;
+    fun::FPtr<fps::FDepsGraphEdge> verify, type, dump, emit;
   };
 
   struct EntryPointPipeline : FuncPipeline {};
@@ -66,6 +67,7 @@ class FIScheduler : public fun::FObject {
   fun::FPtr<FIInputs>        m_inputs;
   fun::FPtr<FIPraeCompiler>  m_compiler;
   fun::FPtr<FIVerifier>      m_verifier;
+  fun::FPtr<FITypeSolver>    m_typeSolver;
   fun::FPtr<FIDumpFunction>  m_dumpFunc;
   fun::FPtr<FILLVMEmitter>   m_emitter;
 

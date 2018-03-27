@@ -43,13 +43,20 @@ class FIInputs : public fun::FObject {
   std::unordered_map<FIStringAtom, llvm::GlobalVariable *>   m_llStrings;
 
 public:
-  inline fun::FPtr<FIAssembly> assem() { return m_assem; }
-  inline auto &                funcs() { return m_funcs; }
-  inline auto &                structs() { return m_structs; }
-  inline auto &                llCtx() { return m_llCtx; }
-  inline auto &                llModule() { return m_llModule; }
-  inline auto &                llFuncs() { return m_llFuncs; }
-  inline auto &                llStrings() { return m_llStrings; }
+  constexpr auto &assem() { return m_assem; }
+  constexpr auto &assem() const { return m_assem; }
+  constexpr auto &funcs() { return m_funcs; }
+  constexpr auto &funcs() const { return m_funcs; }
+  constexpr auto &structs() { return m_structs; }
+  constexpr auto &structs() const { return m_structs; }
+  constexpr auto &llCtx() { return m_llCtx; }
+  constexpr auto &llCtx() const { return m_llCtx; }
+  constexpr auto &llModule() { return m_llModule; }
+  constexpr auto &llModule() const { return m_llModule; }
+  constexpr auto &llFuncs() { return m_llFuncs; }
+  constexpr auto &llFuncs() const { return m_llFuncs; }
+  constexpr auto &llStrings() { return m_llStrings; }
+  constexpr auto &llStrings() const { return m_llStrings; }
 
   FIInputs(fun::FPtr<FIAssembly>, const std::string &, const std::string &);
 };

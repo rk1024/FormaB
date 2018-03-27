@@ -152,14 +152,14 @@ public:
   void help() {
     usage();
 
-    std::cerr
-        << "Flags:\n"
-           "  \e[1m--verbose, -v\e[0m: Output extra information.\n"
-           "  \e[1m--dot [type], -d [type]\e[0m: Output a dotfile.\n"
-           "    \e[1mTODO:\e[0m document [type]\n"
-           "  \e[1m--help, -h\e[0m: Display this message.\n"
-           "  \e[1m--module [name], -m [name]\e[0m: Specify module name.\n"
-           "  \e[1m--usage, -u\e[0m: Display brief usage info.\n";
+    std::cerr << "Flags:\n"
+                 "  \e[1m--verbose, -v\e[0m: Output extra information.\n"
+                 "  \e[1m--dot [type], -d [type]\e[0m: Output a dotfile.\n"
+                 "    \e[1mTODO:\e[0m document [type]\n"
+                 "  \e[1m--help, -h\e[0m: Display this message.\n"
+                 "  \e[1m--module [name], -m [name]\e[0m: Specify module "
+                 "name.\n"
+                 "  \e[1m--usage, -u\e[0m: Display brief usage info.\n";
   }
 };
 

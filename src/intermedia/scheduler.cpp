@@ -28,6 +28,7 @@
 #include "llvmEmitter/llvmEmitter.hpp"
 #include "optimizer/optimizer.hpp"
 #include "praeCompiler/compiler.hpp"
+#include "typeSolver/typeSolver.hpp"
 #include "verifier/verifier.hpp"
 
 using namespace frma;
@@ -80,29 +81,33 @@ void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
   pipe->input    = m_graph->node("[AST] " + name);
   pipe->compiled = m_graph->node("[Compiled] " + name);
   pipe->verified = m_graph->node("[Verified] " + name);
+  pipe->typed    = m_graph->node("[Typed] " + name);
   pipe->output   = m_graph->node("[Done] " + name);
 
   auto compiledData = pipe->compiled->data<FIFunctionAtom>(FIFunctionAtom(-1));
 
   auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileEntryPoint);
   auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
+  auto typeRule    = fps::rule(m_typeSolver, &FITypeSolver::typeFunc);
   auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
   auto emitRule    = fps::rule(m_emitter, &FILLVMEmitter::emitEntryPoint);
 
   pipe->input->data(stmts) >> compileRule >> compiledData;
   compiledData >> verifyRule;
+  compiledData >> typeRule;
   compiledData >> dumpRule;
   compiledData >> emitRule;
 
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
+  pipe->type    = m_graph->edge("type", typeRule);
   pipe->dump    = m_graph->edge("dump", dumpRule);
   pipe->emit    = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
-      pipe->verified >> pipe->dump >> pipe->output;
+      pipe->verified >> pipe->type >> pipe->typed >> pipe->dump >> pipe->output;
 
-  pipe->verified >> pipe->emit >> pipe->output;
+  pipe->typed >> pipe->emit >> pipe->output;
 
   m_entryPoints[stmts] = pipe;
 
@@ -122,29 +127,33 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
   pipe->input    = m_graph->node("[AST] " + name);
   pipe->compiled = m_graph->node("[Compiled] " + name);
   pipe->verified = m_graph->node("[Verified] " + name);
+  pipe->typed    = m_graph->node("[Typed] " + name);
   pipe->output   = m_graph->node("[Func] " + name);
 
   auto compiledData = pipe->compiled->data<FIFunctionAtom>(FIFunctionAtom(-1));
 
   auto compileRule = fps::rule(m_compiler, &FIPraeCompiler::compileFunc);
   auto verifyRule  = fps::rule(m_verifier, &FIVerifier::verifyFunc);
+  auto typeRule    = fps::rule(m_typeSolver, &FITypeSolver::typeFunc);
   auto dumpRule    = fps::rule(m_dumpFunc, &FIDumpFunction::dumpFunc);
   auto emitRule    = fps::rule(m_emitter, &FILLVMEmitter::emitFunc);
 
   pipe->input->data(func) >> compileRule >> compiledData;
   compiledData >> verifyRule;
+  compiledData >> typeRule;
   compiledData >> dumpRule;
   compiledData >> emitRule;
 
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
+  pipe->type    = m_graph->edge("type", typeRule);
   pipe->dump    = m_graph->edge("dump", dumpRule);
   pipe->emit    = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
-      pipe->verified >> pipe->dump >> pipe->output;
+      pipe->verified >> pipe->type >> pipe->typed >> pipe->dump >> pipe->output;
 
-  pipe->verified >> pipe->emit >> pipe->output;
+  pipe->typed >> pipe->emit >> pipe->output;
 
   m_funcs[func] = pipe;
 
@@ -175,6 +184,7 @@ FIScheduler::FIScheduler(fun::FPtr<fps::FDepsGraph> graph,
     m_inputs(inputs),
     m_compiler(fnew<FIPraeCompiler>(inputs)),
     m_verifier(fnew<FIVerifier>(inputs)),
+    m_typeSolver(fnew<FITypeSolver>(inputs)),
     m_dumpFunc(fnew<FIDumpFunction>(inputs, std::cerr)),
     m_emitter(fnew<FILLVMEmitter>(inputs)) {}
 

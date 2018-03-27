@@ -46,12 +46,11 @@ namespace pc {
     static const unsigned int ID_NONE = 0xffffffff, ID_MAX = 0xfffffffe;
     static const unsigned int COUNT_CONST = 0xffffffff, COUNT_MAX = 0xfffffffe;
 
-    fun::FWeakPtr<FuncClosure>                                   m_func;
-    fun::FPtr<ScopeClosure>                                      m_parent;
-    unsigned int                                                 m_id;
-    bool                                                         m_isArgs;
-    std::unordered_map<std::string, bool>                        m_vars;
-    std::unordered_map<std::string, fun::FWeakPtr<ScopeClosure>> m_borrowed;
+    fun::FWeakPtr<FuncClosure>            m_func;
+    fun::FPtr<ScopeClosure>               m_parent;
+    unsigned int                          m_id;
+    bool                                  m_isArgs;
+    std::unordered_map<std::string, bool> m_vars;
 
     std::string assembleName(const std::string &);
 
@@ -59,10 +58,6 @@ namespace pc {
     fun::FPtr<ScopeClosure> holderOf(const std::string &);
 
     FIVariableAtom recordName(const std::string &);
-
-    FIVariableAtom recordVar(fun::FWeakPtr<ScopeClosure>,
-                             const std::string &,
-                             bool);
 
   public:
     inline fun::FPtr<ScopeClosure> parent() const { return m_parent; }
@@ -73,7 +68,6 @@ namespace pc {
     FIVariableAtom get(const std::string &);
     FIVariableAtom set(const std::string &);
 
-    std::vector<VarInfo>    getModified();
     std::vector<OwnVarInfo> getOwned();
   };
 } // namespace pc

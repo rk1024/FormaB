@@ -24,7 +24,7 @@
 
 #include "util/cons.hpp"
 
-#include "intermedia/function.hpp"
+#include "intermedia/function/function.hpp"
 #include "intermedia/messaging/message.hpp"
 
 #include "position.hpp"
@@ -32,6 +32,7 @@
 namespace fie {
 namespace pc {
   class ScopeClosure;
+  class BlockClosure;
 
   class FuncClosure : public PositionTracker {
   public:
@@ -41,60 +42,24 @@ namespace pc {
 
   private:
     fun::FPtr<ScopeClosure> m_args, m_scope;
-    unsigned int            m_nextScopeId = 0;
+    std::uint32_t           m_nextScopeId = 0, m_nextRegId = 0;
     FIFunctionBody *        m_body;
 
+    auto regId() { return m_nextRegId++; }
+
   public:
-    inline fun::FPtr<ScopeClosure> args() { return m_args; }
-    inline fun::FPtr<ScopeClosure> scope() const { return m_scope; }
-    inline FIFunctionBody *        body() const { return m_body; }
+    constexpr auto &args() const { return m_args; }
+    constexpr auto &scope() const { return m_scope; }
+    constexpr auto &body() const { return m_body; }
 
     FuncClosure(FIFunctionBody &, const frma::FormaAST *);
-
-    FuncClosure &emit(const fun::FPtr<FIInstructionBase> &);
-    FuncClosure &emit(fun::FPtr<FIInstructionBase> &&);
-
-    inline FuncClosure &emitBasic(FIOpcode op) {
-      return emit(fnew<FIBasicInstruction>(op));
-    }
-
-    inline FuncClosure &emitBranch(FIOpcode op, FILabelAtom lbl) {
-      return emit(fnew<FIBranchInstruction>(op, lbl));
-    }
-
-    template <typename T>
-    inline FuncClosure &emitLoad(const T &value) {
-      return emit(fnew<FILoadInstruction<T>>(value));
-    }
-
-    template <typename T>
-    inline FuncClosure &emitLoad(T &&value) {
-      return emit(fnew<FILoadInstruction<T>>(value));
-    }
-
-    inline FuncClosure &emitMessage(FIMessageAtom msg) {
-      return emit(fnew<FIMessageInstruction>(msg));
-    }
-
-    inline FuncClosure &emitTuple(std::uint32_t count) {
-      return emit(fnew<FITupleInstruction>(count));
-    }
-
-    inline FuncClosure &emitVar(FIOpcode op, FIVariableAtom var) {
-      return emit(fnew<FIVarInstruction>(op, var));
-    }
-
-    FILabelAtom beginLabel();
-
-    void label(FILabelAtom);
 
     void                    pushScope();
     void                    dropScope();
     fun::FPtr<ScopeClosure> popScope();
 
-    [[noreturn]] void error(std::string &&desc);
-
     friend class ScopeClosure;
+    friend class BlockClosure;
   };
 } // namespace pc
 } // namespace fie

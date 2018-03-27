@@ -53,14 +53,14 @@ static bool isSignNegative(const char *sg) {
 
 template <typename T>
 static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
-    fun::FPtr<FuncClosure>  closure,
-    std::uint8_t            radix,
-    std::int16_t            expon,
-    std::make_unsigned_t<T> max,
-    std::make_unsigned_t<T> negMax,
-    const char *            sg,
-    const char *            d0,
-    const char *            d1) {
+    const fun::FLinearPtr<BlockClosure> &closure,
+    std::uint8_t                         radix,
+    std::int16_t                         expon,
+    std::make_unsigned_t<T>              max,
+    std::make_unsigned_t<T>              negMax,
+    const char *                         sg,
+    const char *                         d0,
+    const char *                         d1) {
   bool neg = isSignNegative(sg);
 
   if (neg) max = negMax;
@@ -91,7 +91,11 @@ static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
       assert(expon > 0);
 
       for (; expon > 0; --expon) {
-        if (num > nmax) goto overflow;
+        if (num > nmax) {
+          closure->error("FUCK " + std::to_string(num) + " " +
+                         std::to_string(nmax));
+          goto overflow;
+        }
 
         num *= radix;
       }
@@ -111,21 +115,21 @@ static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
 
 template <typename T>
 std::enable_if_t<std::is_integral<T>::value, T> readInt(
-    fun::FPtr<FuncClosure>  closure,
-    std::uint8_t            radix,
-    std::int16_t            expon,
-    bool                    unsign,
-    std::make_unsigned_t<T> max,
-    const char *            sg,
-    const char *            d0,
-    const char *            d1) {
+    const fun::FLinearPtr<BlockClosure> &closure,
+    std::uint8_t                         radix,
+    std::int16_t                         expon,
+    bool                                 unsign,
+    std::make_unsigned_t<T>              max,
+    const char *                         sg,
+    const char *                         d0,
+    const char *                         d1) {
   if (!unsign) max >>= 1;
 
   return readIntBasic<T>(closure, radix, expon, max, max + 1, sg, d0, d1);
 }
 
-void FIPraeCompiler::emitLoadLNumeric(fun::FPtr<FuncClosure> closure,
-                                      const FPLNumeric *     numeric) {
+RegResult FIPraeCompiler::emitLoadLNumeric(
+    fun::FLinearPtr<BlockClosure> closure, const FPLNumeric *numeric) {
   const char *_str = numeric->tok()->value().c_str(), *str = _str, *YYMARKER,
              *sg, *d0, *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr,
              *e1 = nullptr, *tu = nullptr, *tl
@@ -208,6 +212,7 @@ void FIPraeCompiler::emitLoadLNumeric(fun::FPtr<FuncClosure> closure,
   assert(false); // This is here because clang-format
 
 isInt:
+  // TODO: This seems problematic
   fmt = isSignNegative(es) ? NumFormat::R8 : NumFormat::I4;
   goto emit;
 isFloat:
@@ -253,45 +258,53 @@ emit:
   switch (fmt) {
   case NumFormat::I1:
     if (unsign)
-      closure->emitLoad<std::uint8_t>(
-          readInt<std::int8_t>(closure, radix, expon, true, 0xff, sg, d0, d1));
+      return closure->emitConst<std::uint8_t>(
+          "u1",
+          readInt<std::uint8_t>(closure, radix, expon, true, 0xff, sg, d0, d1));
     else
-      closure->emitLoad<std::int8_t>(
+      return closure->emitConst<std::int8_t>(
+          "i1",
           readInt<std::int8_t>(closure, radix, expon, false, 0xff, sg, d0, d1));
-    return;
   case NumFormat::I2:
     if (unsign)
-      closure->emitLoad<std::uint16_t>(readInt<std::int16_t>(
-          closure, radix, expon, true, 0xffff, sg, d0, d1));
+      return closure->emitConst<std::uint16_t>(
+          "u2",
+          readInt<std::uint16_t>(
+              closure, radix, expon, true, 0xffff, sg, d0, d1));
     else
-      closure->emitLoad<std::int16_t>(readInt<std::int16_t>(
-          closure, radix, expon, false, 0xff, sg, d0, d1));
-    return;
+      return closure->emitConst<std::int16_t>(
+          "i2",
+          readInt<std::int16_t>(
+              closure, radix, expon, false, 0xffff, sg, d0, d1));
   case NumFormat::I4:
     if (unsign)
-      closure->emitLoad<std::uint32_t>(readInt<std::int32_t>(
-          closure, radix, expon, true, 0xffffffff, sg, d0, d1));
+      return closure->emitConst<std::uint32_t>(
+          "u4",
+          readInt<std::uint32_t>(
+              closure, radix, expon, true, 0xffffffff, sg, d0, d1));
     else
-      closure->emitLoad<std::int32_t>(readInt<std::int32_t>(
-          closure, radix, expon, false, 0xff, sg, d0, d1));
-    return;
+      return closure->emitConst<std::int32_t>(
+          "i4",
+          readInt<std::int32_t>(
+              closure, radix, expon, false, 0xffffffff, sg, d0, d1));
   case NumFormat::I8:
     if (unsign)
-      closure->emitLoad<std::uint64_t>(readInt<std::int64_t>(
-          closure, radix, expon, true, 0xffffffffffffffffl, sg, d0, d1));
+      return closure->emitConst<std::uint64_t>(
+          "u8",
+          readInt<std::uint64_t>(
+              closure, radix, expon, true, 0xffffffffffffffffl, sg, d0, d1));
     else
-      closure->emitLoad<std::int64_t>(readInt<std::int64_t>(
-          closure, radix, expon, false, 0xff, sg, d0, d1));
-    return;
+      return closure->emitConst<std::int64_t>(
+          "i8",
+          readInt<std::int64_t>(
+              closure, radix, expon, false, 0xffffffffffffffffl, sg, d0, d1));
   case NumFormat::R4: goto emitR4;
   case NumFormat::R8: goto emitR8;
   default: assert(false);
   }
 emitR4:
-  closure->emitLoad<float>(1337.1337f);
-  return;
+  return closure->emitConst<float>("r4", 1337.1337f);
 emitR8:
-  closure->emitLoad<double>(1337.1337);
-  return;
+  return closure->emitConst<double>("r8", 1337.1337);
 }
 } // namespace fie

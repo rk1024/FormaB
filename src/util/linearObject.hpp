@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (builtins.hpp)
+ * FormaB - the bootstrap Forma compiler (linearObject.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,24 +20,33 @@
 
 #pragma once
 
-#include <vector>
+#include <cassert>
 
-#include "util/ptr.hpp"
+namespace fun {
+template <typename>
+class FLinearPtr;
 
-#include "struct.hpp"
+template <typename T>
+class FLinearObject {
+  FLinearPtr<T> *m_owner = nullptr;
 
-namespace fie {
-namespace builtins {
-  extern fun::FPtr<FIStruct> FIErrorT, FINilT, FIVoidT, FIFuncT, FIMsgKeywordT,
+  void own(FLinearPtr<T> *owner) {
+    if (m_owner) m_owner->m_ptr = nullptr;
+    m_owner = owner;
+  }
 
-      FIInt8, FIUint8, FIInt16, FIUint16, FIInt32, FIUint32, FIInt64, FIUint64,
+  void disown(FLinearPtr<T> *
+#ifndef NDEBUG
+                  owner
+#endif
+  ) {
+    assert(m_owner == owner);
+    m_owner = nullptr;
+  }
 
-      FIFloat, FIDouble,
+public:
+  virtual ~FLinearObject() {}
 
-      FIBool,
-
-      FIString;
-}
-
-const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs();
-} // namespace fie
+  friend class FLinearPtr<T>;
+};
+} // namespace fun

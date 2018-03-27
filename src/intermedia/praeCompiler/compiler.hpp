@@ -27,7 +27,7 @@
 
 #include "util/atom.hpp"
 
-#include "intermedia/function.hpp"
+#include "intermedia/function/function.hpp"
 #include "intermedia/inputs.hpp"
 #include "intermedia/messaging/message.hpp"
 
@@ -36,59 +36,70 @@
 #include "ast.hpp"
 
 namespace fie {
-// Compiler emit header with FuncClosure, specify node type
+// Compiler emit header with BlockClosure, specify node type
 #define EMITF_(name, type, ...)                                                \
-  emit##name(fun::FPtr<pc::FuncClosure>, const frma::FP##type *, ##__VA_ARGS__)
+  emit##name(fun::FLinearPtr<pc::BlockClosure>,                                \
+             const frma::FP##type *,                                           \
+             ##__VA_ARGS__)
 
-// Compiler emit header with FuncClosure, matching node type
+// Compiler emit header with BlockClosure, matching node type
 #define EMITF(name, ...) EMITF_(name, name, ##__VA_ARGS__)
 
-// Compiler emitLoad header with FuncClosure, matching node type
-#define EMITFL(name, ...) EMITF_(Load##name, name, ##__VA_ARGS__)
+// Compiler emitLoad header with BlockClosure, matching node type
+#define EMITFL(name, ...)                                                      \
+  [[nodiscard]] pc::RegResult EMITF_(Load##name, name, ##__VA_ARGS__)
 
-// Compiler emitStore header with FuncClosure, matching node type
-#define EMITFS(name, ...) EMITF_(Store##name, name, ##__VA_ARGS__)
+// Compiler emit header with void return and BlockClosure, specify node type
+#define EMITFV_(name, type, ...)                                               \
+  [[nodiscard]] pc::VoidResult EMITF_(name, type, ##__VA_ARGS__)
+
+// Compiler emit header with void return and BlockClosure, matching node type
+#define EMITFV(name, ...) EMITFV_(name, name, ##__VA_ARGS__)
+
+// Compiler emitStore header with BlockClosure, matching node type
+#define EMITFS(name, ...) EMITFV_(Store##name, name, ##__VA_ARGS__)
+
 
 class FIPraeCompiler : public fun::FObject {
   fun::FPtr<FIInputs> m_inputs;
 
-  std::uint32_t EMITF_(LoadExprsInternal, Exprs);
-  void          EMITFL(Exprs, bool tuple = true);
-  void          EMITFL(Expr);
+  EMITFV_(LoadExprsInternal, Exprs, std::vector<FIRegId> &regs);
+  EMITFL(Exprs, bool tuple = true);
+  EMITFL(Expr);
 
-  void EMITFL(LBoolean);
-  void EMITFL(LNull);
-  void EMITFL(LNumeric);
-  void EMITFL(XBlock);
-  void EMITFL(XControl);
-  void EMITFL(XFunc);
-  void EMITFL(XInfix);
-  void EMITFL(XMember);
-  void EMITFL(XMsg);
-  void EMITFL(XParen, pc::ParenFlags::Flags flags = pc::ParenFlags::Default);
-  void EMITFL(XPrim);
-  void EMITFL(XUnary);
+  EMITFL(LBoolean);
+  EMITFL(LNull);
+  EMITFL(LNumeric);
+  EMITFL(XBlock);
+  EMITFL(XControl);
+  EMITFL(XFunc);
+  EMITFL(XInfix);
+  EMITFL(XMember);
+  EMITFL(XMsg);
+  EMITFL(XParen, bool scope = true);
+  EMITFL(XPrim);
+  EMITFL(XUnary);
 
-  void EMITFS(XMember);
-  void EMITFS(XPrim);
-  void EMITFS(XUnary);
+  EMITFS(XMember, const FIRegId &);
+  EMITFS(XPrim, const FIRegId &);
+  EMITFS(XUnary, const FIRegId &);
 
-  void EMITF(Stmts);
-  void EMITF(Stmt);
+  EMITFV(Stmts);
+  EMITFV(Stmt);
 
-  void EMITFL(SAssign);
-  void EMITF(SBind);
-  void EMITF(SControl);
-  void EMITF(SKeyword);
+  EMITFL(SAssign);
+  EMITFV(SBind);
+  EMITFV(SControl);
+  EMITFV(SKeyword);
 
-  void EMITFL(AssignValue);
-  void EMITF(Bindings, bool mut);
-  void EMITF(Binding, bool mut);
+  EMITFL(AssignValue);
+  EMITFV(Bindings, bool mut);
+  EMITFV(Binding, bool mut);
 
-  void EMITF(Decl);
+  EMITFV(Decl);
 
-  void EMITF(DMsg);
-  void EMITF(DType);
+  EMITFV(DMsg);
+  EMITFV(DType);
 
 public:
   FIPraeCompiler(fun::FPtr<FIInputs>);
@@ -101,7 +112,9 @@ public:
 };
 
 #undef EMITFS
+#undef EMITFV
+#undef EMITFV_
 #undef EMITFL
 #undef EMITF
 #undef EMITF_
-}
+} // namespace fie

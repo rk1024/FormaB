@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (builtins.hpp)
+ * FormaB - the bootstrap Forma compiler (function.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,24 +20,32 @@
 
 #pragma once
 
+#include <cstdint>
 #include <vector>
 
+#include "util/object/object.hpp"
 #include "util/ptr.hpp"
 
-#include "struct.hpp"
+#include "block.hpp"
+#include "intermedia/atoms.hpp"
+#include "intermedia/types/struct.hpp"
+#include "variable.hpp"
 
 namespace fie {
-namespace builtins {
-  extern fun::FPtr<FIStruct> FIErrorT, FINilT, FIVoidT, FIFuncT, FIMsgKeywordT,
+struct FIFunctionBody {
+  std::vector<fun::FPtr<FIBlock>>            blocks;
+  fun::FAtomStore<FIVariable, std::uint32_t> vars;
+};
 
-      FIInt8, FIUint8, FIInt16, FIUint16, FIInt32, FIUint32, FIInt64, FIUint64,
+class FIFunction : public fun::FObject {
+  std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> m_args;
+  FIFunctionBody                                          m_body;
 
-      FIFloat, FIDouble,
+public:
+  const auto &args() const { return m_args; }
+  const auto &body() const { return m_body; }
 
-      FIBool,
-
-      FIString;
-}
-
-const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs();
+  FIFunction(const std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> &,
+             const FIFunctionBody &);
+};
 } // namespace fie

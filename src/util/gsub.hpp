@@ -23,9 +23,9 @@
 #include <string>
 
 namespace fun {
-static std::string gsub(const std::string &src,
-                        const std::string &find,
-                        const std::string &replace) {
+static inline std::string gsub(const std::string &src,
+                               const std::string &find,
+                               const std::string &replace) {
   std::string            dst = src;
   std::string::size_type p   = 0;
 

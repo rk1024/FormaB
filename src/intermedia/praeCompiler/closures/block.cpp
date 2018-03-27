@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (function.cpp)
+ * FormaB - the bootstrap Forma compiler (block.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,11 +18,19 @@
  *
  ************************************************************************/
 
-#include "function.hpp"
+#include "block.hpp"
 
 namespace fie {
-FIFunction::FIFunction(std::unordered_map<FIVariableAtom, FIStructAtom> args,
-                       const FIFunctionBody &                           body) :
-    m_args(args),
-    m_body(body) {}
+namespace pc {
+  RegResult BlockClosure::emit(const FIInstruction &ins) {
+    m_block->body().emplace_back(ins);
+    return RegResult(ins.reg(), fun::wrapLinear(this));
+  }
+
+  RegResult BlockClosure::emit(FIInstruction &&ins) {
+    FIRegId ret(ins.id());
+    m_block->body().emplace_back(std::move(ins));
+    return RegResult(ret, fun::wrapLinear(this));
+  }
+} // namespace pc
 } // namespace fie

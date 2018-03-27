@@ -32,7 +32,7 @@
 #include "subst.hpp"
 
 namespace w {
-struct TI;
+struct TIBase;
 
 class TypeBase : public fun::FObject {
 public:
@@ -41,16 +41,17 @@ public:
 
 protected:
   virtual UnifyResult mguImpl(const fun::FPtr<const TypeBase> &,
-                              TI &) const = 0;
+                              TIBase &) const = 0;
 
-  virtual UnifyResult rmguImpl(const fun::FPtr<const TypeBase> &, TI &) const;
+  virtual UnifyResult rmguImpl(const fun::FPtr<const TypeBase> &,
+                               TIBase &) const;
 
 public:
   virtual TypeVars ftv() const = 0;
 
   virtual fun::FPtr<const TypeBase> sub(const Subst &) const = 0;
 
-  Subst mgu(const fun::FPtr<const TypeBase> &, TI &) const;
+  Subst mgu(const fun::FPtr<const TypeBase> &, TIBase &) const;
 
   virtual std::string to_string() const = 0;
 
@@ -66,7 +67,7 @@ class TypeVar : public TypeBase {
 
 protected:
   virtual UnifyResult mguImpl(const fun::FPtr<const TypeBase> &,
-                              TI &) const override;
+                              TIBase &) const override;
 
 public:
   constexpr auto &var() const { return m_var; }
@@ -93,7 +94,7 @@ private:
 
 protected:
   virtual UnifyResult mguImpl(const fun::FPtr<const TypeBase> &rhs,
-                              TI &t) const override {
+                              TIBase &t) const override {
     auto type = rhs.as<const Type>();
     if (!(type && *m_base == *type->m_base)) return UnifyResult(false, Subst());
 

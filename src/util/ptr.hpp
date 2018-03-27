@@ -55,11 +55,6 @@ class FPtr {
 public:
   inline T *get() const { return m_ptr; }
 
-  template <typename U>
-  inline U *as() const {
-    return dynamic_cast<U *>(m_ptr);
-  }
-
   explicit FPtr(T *ptr) : m_ptr(ptr) {
     if (m_ptr) m_ptr->acquire();
   }
@@ -69,7 +64,7 @@ public:
   FPtr() : FPtr(static_cast<T *>(nullptr)) {}
 
   template <typename U>
-  FPtr(const FPtr<U> &other) : FPtr(dynamic_cast<T *>(other.m_ptr)) {}
+  FPtr(const FPtr<U> &other) : FPtr(static_cast<T *>(other.m_ptr)) {}
 
   FPtr(const FPtr &other) : FPtr(other.m_ptr) {}
 
@@ -81,6 +76,13 @@ public:
     if (m_ptr) m_ptr->release();
 
     m_ptr = nullptr;
+  }
+
+  inline bool nil() const { return !m_ptr; }
+
+  template <typename U>
+  inline U *as() const {
+    return dynamic_cast<U *>(m_ptr);
   }
 
   const FPtr &operator=(const FPtr &rhs) {
@@ -126,15 +128,19 @@ public:
     return FMFPtr<T, U, TArgs...>(*this, memb);
   }
 
-  inline bool operator==(const FPtr &rhs) const { return m_ptr == rhs.m_ptr; }
-  inline bool operator!=(const FPtr &rhs) const { return m_ptr != rhs.m_ptr; }
-  inline bool operator<(const FPtr &rhs) const { return m_ptr < rhs.m_ptr; }
-  inline bool operator>(const FPtr &rhs) const { return m_ptr > rhs.m_ptr; }
-  inline bool operator<=(const FPtr &rhs) const { return m_ptr <= rhs.m_ptr; }
-  inline bool operator>=(const FPtr &rhs) const { return m_ptr >= rhs.m_ptr; }
+#define _DEFER_BINOP(op)                                                       \
+  inline bool operator op(const FPtr &rhs) const {                             \
+    return m_ptr->operator op(*rhs.m_ptr);                                     \
+  }
 
-  inline bool operator!() const { return !m_ptr; }
-  inline      operator bool() const { return !!m_ptr; }
+  _DEFER_BINOP(==)
+  _DEFER_BINOP(!=)
+  _DEFER_BINOP(<)
+  _DEFER_BINOP(>)
+  _DEFER_BINOP(<=)
+  _DEFER_BINOP(>=)
+
+#undef _DEFER_BINOP
 
   template <typename U>
   inline auto operator<<(U &&rhs) {
@@ -149,6 +155,10 @@ public:
   template <typename... TArgs>
   inline auto operator[](TArgs &&... args) {
     return m_ptr->operator[](std::forward<TArgs>(args)...);
+  }
+
+  friend bool same(const FPtr<T> &a, const FPtr<T> &b) {
+    return a.m_ptr == b.m_ptr;
   }
 
   friend struct std::hash<FPtr>;
@@ -197,6 +207,13 @@ FPtr<T> wrap(T *obj) {
 }
 
 template <typename T>
+struct are_same {
+  bool operator()(const fun::FPtr<T> &a, const fun::FPtr<T> &b) const {
+    return same(a, b);
+  }
+};
+
+template <typename T>
 class FWeakPtr {
   FPtr<FRefTracker> m_ptr = nullptr;
 
@@ -221,8 +238,21 @@ public:
 
   T *peek() const { return reinterpret_cast<T *>(m_ptr->target()); }
 
+  bool nil() const { return m_ptr.nil(); }
+
+  bool good() const {
+    if (m_ptr.nil()) return false;
+
+    switch (m_ptr->refCount()) {
+    case FRefTracker::COUNT_DESTROYING:
+    case 0: return false;
+    case FRefTracker::COUNT_UNCLAIMED:
+    default: return true;
+    }
+  }
+
   FPtr<T> lock() const {
-    if (!m_ptr) return FPtr<T>();
+    if (m_ptr.nil()) return FPtr<T>();
 
     switch (m_ptr->trackedCount()) {
     case FRefTracker::COUNT_DESTROYING:
@@ -234,7 +264,7 @@ public:
   }
 
   FPtr<T> lockOrNull() const {
-    if (!m_ptr) goto nil;
+    if (m_ptr.nil()) goto nil;
 
     switch (m_ptr->trackedCount()) {
     case FRefTracker::COUNT_DESTROYING:
@@ -268,18 +298,6 @@ public:
 
   done:
     return *this;
-  }
-
-  bool operator!() const { return !operator bool(); }
-       operator bool() const {
-    if (!m_ptr) return false;
-
-    switch (m_ptr->refCount()) {
-    case FRefTracker::COUNT_DESTROYING:
-    case 0: return false;
-    case FRefTracker::COUNT_UNCLAIMED:
-    default: return true;
-    }
   }
 
   friend struct std::hash<FWeakPtr>;
@@ -318,6 +336,6 @@ public:
 } // namespace std
 
 template <typename T, typename... TArgs>
-fun::FPtr<T> fnew(TArgs &&... args) {
+[[nodiscard]] fun::FPtr<T> fnew(TArgs &&... args) {
   return fun::FPtr<T>(new T(std::forward<TArgs>(args)...));
 }

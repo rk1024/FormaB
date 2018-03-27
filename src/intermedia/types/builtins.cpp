@@ -22,7 +22,11 @@
 
 namespace fie {
 namespace builtins {
-  fun::FPtr<FIStruct> FIErrorT = fnew<FIStruct>("<error-t>"),
+  fun::FPtr<FIStruct> FIErrorT      = fnew<FIStruct>("<error-t>"),
+                      FINilT        = fnew<FIStruct>("<nil-t>"),
+                      FIVoidT       = fnew<FIStruct>("<void-t>"),
+                      FIFuncT       = fnew<FIStruct>("<func-t>"),
+                      FIMsgKeywordT = fnew<FIStruct>("<msgkw-t>"),
 
                       FIInt8   = fnew<FIStruct>("sbyte"),
                       FIUint8  = fnew<FIStruct>("byte"),
@@ -38,9 +42,6 @@ namespace builtins {
 
                       FIBool = fnew<FIStruct>("bool"),
 
-                      FINilT  = fnew<FIStruct>("<nil-t>"),
-                      FIVoidT = fnew<FIStruct>("<void-t>"),
-
                       FIString = fnew<FIStruct>("string");
 }
 
@@ -49,6 +50,10 @@ static std::vector<fun::FPtr<FIStruct>> builtin_vec;
 const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs() {
   if (builtin_vec.empty()) {
     builtin_vec.push_back(builtins::FIErrorT);
+    builtin_vec.push_back(builtins::FINilT);
+    builtin_vec.push_back(builtins::FIVoidT);
+    builtin_vec.push_back(builtins::FIFuncT);
+    builtin_vec.push_back(builtins::FIMsgKeywordT);
 
     builtin_vec.push_back(builtins::FIInt8);
     builtin_vec.push_back(builtins::FIUint8);
@@ -63,9 +68,6 @@ const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs() {
     builtin_vec.push_back(builtins::FIDouble);
 
     builtin_vec.push_back(builtins::FIBool);
-
-    builtin_vec.push_back(builtins::FINilT);
-    builtin_vec.push_back(builtins::FIVoidT);
 
     builtin_vec.push_back(builtins::FIString);
   }

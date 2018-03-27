@@ -41,20 +41,20 @@ namespace pc {
     }                                                                          \
   }
 
-  INITFLAGS(ParenFlags, std::uint16_t);
+  // INITFLAGS(ParenFlags, std::uint16_t);
 
-  namespace ParenFlags {
-    enum Flags : std::uint16_t {
-      Bind  = 1,
-      Eval  = 2,
-      Scope = 4,
+  // namespace ParenFlags {
+  //   enum Flags : std::uint16_t {
+  //     Bind  = 1,
+  //     // Eval  = 2,
+  //     Scope = 4,
 
-      Default = Bind | Eval | Scope,
+  //     Default = Bind /* | Eval */ | Scope,
 
-      NoBind  = Default & ~Bind,
-      NoEval  = Default & ~Eval,
-      NoScope = Default & ~Scope,
-    };
-  }
-}
+  //     NoBind  = Default & ~Bind,
+  //     // NoEval  = Default & ~Eval,
+  //     NoScope = Default & ~Scope,
+  //   };
+  // }
+} // namespace pc
 } // namespace fie

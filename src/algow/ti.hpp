@@ -28,13 +28,13 @@
 
 #include "util/ptr.hpp"
 
+#include "_expr.hpp"
 #include "_type.hpp"
-#include "expr.hpp"
 #include "scheme.hpp"
 
 namespace w {
 
-struct TI {
+struct TIBase {
   std::int32_t             supply = 0;
   std::vector<std::string> stack;
 
@@ -47,18 +47,29 @@ struct TI {
   std::string state() const;
 };
 
-class TIPos {
-  TI *m_t;
+template <typename T>
+struct TI : public TIBase {
+  T context;
 
 public:
-  TIPos(TI &t, const std::string &s) : m_t(&t) {
+  TI(const T &_context) : context(_context) {}
+};
+
+class TIPos {
+  TIBase *m_t;
+
+public:
+  TIPos(TIBase &t, const std::string &s) : m_t(&t) {
     t.stack.emplace_back(s);
-    // t.debugState();
+    t.debugState();
   }
 
   ~TIPos() { m_t->stack.pop_back(); }
 };
 
-fun::FPtr<const TypeBase> ti(const fun::FPtr<const ExprBase> &,
-                             const TypeEnv & = TypeEnv());
+template <typename T>
+fun::FPtr<const TypeBase> ti(const fun::FPtr<const ExprBase<T>> &e, TI<T> &t) {
+  auto pair = e->ti(t);
+  return sub(pair.first, pair.second);
+}
 } // namespace w

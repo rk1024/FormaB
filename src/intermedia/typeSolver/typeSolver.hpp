@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (instructions.cpp)
+ * FormaB - the bootstrap Forma compiler (typeSolver.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,14 +18,31 @@
  *
  ************************************************************************/
 
-#include "instructions.hpp"
+#pragma once
+
+#include "util/object/object.hpp"
+
+#include "intermedia/inputs.hpp"
+
+#include "algow/scheme.hpp"
 
 namespace fie {
-FIOpcode FIBasicInstruction::opcode() const { return m_opcode; }
+class FITypeSolver : public fun::FObject {
+  fun::FPtr<FIInputs> m_inputs;
 
-FIOpcode FILoadInstructionBase::opcode() const { return FIOpcode::Load; }
+  std::unordered_map<fun::FPtr<const FIFunction>,
+                     w::Scheme,
+                     std::hash<fun::FPtr<const FIFunction>>,
+                     fun::are_same<const FIFunction>>
+      m_funcs;
 
-FIOpcode FIMessageInstruction::opcode() const { return FIOpcode::Msg; }
+  std::unordered_map<FIMessageKeyword, w::Scheme> m_msgs;
 
-FIOpcode FITupleInstruction::opcode() const { return FIOpcode::Tpl; }
+public:
+  FITypeSolver(const fun::FPtr<FIInputs> &inputs) : m_inputs(inputs) {}
+
+  void typeFunc(fun::cons_cell<FIFunctionAtom>);
+
+  friend class TIContext;
+};
 } // namespace fie

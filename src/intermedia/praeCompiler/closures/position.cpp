@@ -20,6 +20,8 @@
 
 #include "position.hpp"
 
+#include "util/compilerError.hpp"
+
 using namespace frma;
 
 namespace fie {
@@ -33,6 +35,51 @@ namespace pc {
     return m_node.lock()->push(to);
   }
 
+  void PositionTracker::error(std::string &&desc) const {
+    auto loc = curr()->loc();
+
+    std::ostringstream os;
+
+    os << "\x1b[1m";
+
+    if (loc.begin.filename)
+      os << *loc.begin.filename;
+    else
+      os << "???";
+
+
+    os << ":" << loc.begin.line << ":" << loc.begin.column;
+
+    if (loc.end != loc.begin) os << "-";
+
+    if (loc.end.filename != loc.begin.filename) {
+      if (loc.end.filename)
+        os << *loc.end.filename;
+      else
+        os << "???";
+
+      os << ":";
+
+      goto diffLine;
+    }
+    else if (loc.end.line != loc.begin.line) {
+    diffLine:
+      os << loc.end.line << ":";
+
+      goto diffCol;
+    }
+    else if (loc.end.column != loc.begin.column) {
+    diffCol:
+      os << loc.end.column;
+    }
+
+    os << ": \x1b[38;5;9merror:\x1b[0m " << desc << std::endl;
+
+    std::cerr << os.str();
+
+    throw fun::compiler_error();
+  }
+
   PositionNode::PositionNode(PositionTracker *     parent,
                              const frma::FormaAST *curr) :
       m_parent(parent),
@@ -42,7 +89,7 @@ namespace pc {
     auto next    = fnew<PositionNode>(m_parent, node);
     next->m_prev = fun::weak(this);
 
-    if (!m_next) m_parent->m_node = fun::weak(next);
+    if (!m_next.good()) m_parent->m_node = fun::weak(next);
 
     m_next = fun::weak(next);
 
@@ -50,13 +97,11 @@ namespace pc {
   }
 
   PositionNode::~PositionNode() {
-    if (m_prev) {
-      auto prev = m_prev.lock();
+    if (auto prev = m_prev.lockOrNull(); !prev.nil()) {
       assert(prev->m_next.peek() == this);
       prev->m_next = m_next;
     }
-    if (m_next) {
-      auto next = m_next.lock();
+    if (auto next = m_next.lockOrNull(); !next.nil()) {
       assert(next->m_prev.peek() == this);
       next->m_prev = m_prev;
     }

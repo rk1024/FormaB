@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (builtins.hpp)
+ * FormaB - the bootstrap Forma compiler (instruction.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,24 +20,29 @@
 
 #pragma once
 
-#include <vector>
-
 #include "util/ptr.hpp"
 
-#include "struct.hpp"
+#include "regId.hpp"
+#include "values.hpp"
 
 namespace fie {
-namespace builtins {
-  extern fun::FPtr<FIStruct> FIErrorT, FINilT, FIVoidT, FIFuncT, FIMsgKeywordT,
+class FIInstruction {
+  std::string              m_name;
+  std::uint32_t            m_id;
+  fun::FPtr<const FIValue> m_value;
 
-      FIInt8, FIUint8, FIInt16, FIUint16, FIInt32, FIUint32, FIInt64, FIUint64,
+public:
+  constexpr auto &name() const { return m_name; }
+  constexpr auto &id() const { return m_id; }
+  constexpr auto &value() const { return m_value; }
 
-      FIFloat, FIDouble,
+  FIRegId reg() const { return FIRegId(m_id); }
 
-      FIBool,
-
-      FIString;
-}
-
-const std::vector<fun::FPtr<FIStruct>> &fiBuiltinStructs();
+  FIInstruction(const std::string &             name,
+                std::uint32_t                   id,
+                const fun::FPtr<const FIValue> &value) :
+      m_name(name),
+      m_id(id),
+      m_value(value) {}
+};
 } // namespace fie

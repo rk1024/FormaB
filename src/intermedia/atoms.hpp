@@ -25,17 +25,13 @@
 
 namespace fie {
 class FIFunction;
-struct FILabel;
 struct FIMessage;
 struct FIMessageKeyword;
-struct FIStruct;
 struct FIVariable;
 
 using FIFunctionAtom = fun::FAtom<std::uint32_t, fun::FPtr<const FIFunction>>;
-using FILabelAtom    = fun::FAtom<std::uint32_t, FILabel>;
 using FIMessageAtom  = fun::FAtom<std::uint32_t, FIMessage>;
 using FIMessageKeywordAtom = fun::FAtom<std::uint32_t, FIMessageKeyword>;
 using FIStringAtom         = fun::FAtom<std::uint32_t, std::string>;
-using FIStructAtom         = fun::FAtom<std::uint32_t, fun::FPtr<FIStruct>>;
 using FIVariableAtom       = fun::FAtom<std::uint32_t, FIVariable>;
 } // namespace fie

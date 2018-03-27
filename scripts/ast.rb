@@ -584,11 +584,17 @@ ASTGen.run do
     let :Token, :id
     let :PraeExpression, :expr
 
-    ctor :Binding, :id, :expr, fmt: [:id, " = ", :expr]
+    ctor :BindDefault, :id, fmt: [:id]
+    ctor :BindInit, :id, :expr, fmt: [:id, " = ", :expr]
 
-    do_exprs.() do |parts|
+    do_exprs.() do |parts, open|
       symbol :"Prae#{parts}Binding" do
-        rule :Binding, [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
+        rule :BindInit, [:Identifier, :id], "=", [:"Prae#{parts}Expression", :expr]
+
+        case open
+          when :Closed
+            rule :BindDefault, [:Identifier, :id]
+        end
       end
     end
   end

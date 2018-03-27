@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (function.hpp)
+ * FormaB - the bootstrap Forma compiler (regId.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -21,32 +21,17 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
-#include "util/object/object.hpp"
-#include "util/ptr.hpp"
-
-#include "instructions.hpp"
-#include "intermedia/types/struct.hpp"
-#include "label.hpp"
-#include "variable.hpp"
+#include "util/consPod.hpp"
 
 namespace fie {
-struct FIFunctionBody {
-  std::vector<fun::FPtr<FIInstructionBase>>  instructions;
-  fun::FAtomStore<FILabel, std::uint32_t>    labels;
-  fun::FAtomStore<FIVariable, std::uint32_t> vars;
-};
+FUN_CONSPOD(FIRegId, std::uint32_t) {
+  FCP_GET(0, id);
 
-class FIFunction : public fun::FObject {
-  std::unordered_map<FIVariableAtom, FIStructAtom> m_args;
-  FIFunctionBody                                   m_body;
+  FIRegId() = default;
 
-public:
-  const auto &args() const { return m_args; }
-  const auto &body() const { return m_body; }
-
-  FIFunction(std::unordered_map<FIVariableAtom, FIStructAtom>,
-             const FIFunctionBody &);
+  explicit FIRegId(std::uint32_t _id) : FCP_INIT(_id) {}
 };
 } // namespace fie
+
+FCP_HASH(fie::FIRegId);

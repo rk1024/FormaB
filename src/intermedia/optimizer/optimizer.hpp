@@ -23,7 +23,7 @@
 #include "util/cons.hpp"
 #include "util/object/object.hpp"
 
-#include "intermedia/function.hpp"
+#include "intermedia/function/function.hpp"
 
 namespace fie {
 class FIOptimizer : public fun::FObject {

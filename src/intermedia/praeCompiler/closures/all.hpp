@@ -18,6 +18,7 @@
  *
  ************************************************************************/
 
+#include "block.hpp"
 #include "flags.hpp"
 #include "function.hpp"
 #include "position.hpp"

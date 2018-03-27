@@ -29,18 +29,18 @@
 #include "util/ptr.hpp"
 
 #include "intermedia/assembly.hpp"
-#include "intermedia/function.hpp"
+#include "intermedia/function/function.hpp"
 
 namespace fie {
 namespace vc {
   class BlockClosure : public fun::FObject {
-    fun::FPtr<FIAssembly>                            m_assem;
-    fun::FPtr<const FIFunction>                      m_func;
-    std::queue<fun::FPtr<BlockClosure>> *            m_q;
-    std::unordered_set<std::size_t> *                m_checked;
-    std::size_t                                      m_pc = 0;
-    std::stack<FIStructAtom>                         m_stack;
-    std::unordered_map<FIVariableAtom, FIStructAtom> m_vars;
+    fun::FPtr<FIAssembly>                                   m_assem;
+    fun::FPtr<const FIFunction>                             m_func;
+    std::queue<fun::FPtr<BlockClosure>> *                   m_q;
+    std::unordered_set<std::size_t> *                       m_checked;
+    std::size_t                                             m_pc = 0;
+    std::stack<fun::FPtr<FIStruct>>                         m_stack;
+    std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> m_vars;
 
     bool assertArity(std::uint32_t, const char *);
 

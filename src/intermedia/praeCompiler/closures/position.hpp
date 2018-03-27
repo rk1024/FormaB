@@ -57,6 +57,8 @@ namespace pc {
 
     fun::FPtr<PositionNode> move(const frma::FormaAST *);
 
+    [[noreturn]] void error(std::string &&desc) const;
+
     friend class PositionNode;
   };
 } // namespace pc

@@ -47,28 +47,27 @@ namespace vc {
       for (std::uint32_t i = 0; i < arity; ++i) m_stack.pop();
     }
 
-    m_stack.push(m_assem->structs().key(error ? builtins::FIErrorT : push));
+    m_stack.push(error ? builtins::FIErrorT : push);
   }
 
   void BlockClosure::handleBoolOp(std::uint32_t arity, const char *name) {
     bool error = !assertArity(arity, name);
 
     for (std::uint32_t i = 0; i < arity; ++i) {
-      if (m_stack.top() != m_assem->structs().key(builtins::FIBool)) {
+      if (m_stack.top() != builtins::FIBool) {
         std::cerr << "Invalid operand " << (i + 1) << " type "
-                  << m_assem->structs().value(m_stack.top())->name() << " for "
-                  << name << "." << std::endl;
+                  << m_stack.top()->name() << " for " << name << "."
+                  << std::endl;
       }
 
       m_stack.pop();
     }
 
-    m_stack.push(
-        m_assem->structs().key(error ? builtins::FIErrorT : builtins::FIBool));
+    m_stack.push(error ? builtins::FIErrorT : builtins::FIBool);
   }
 
   bool BlockClosure::handlePopBool(const char *error) {
-    if (m_stack.top() != m_assem->structs().key(builtins::FIBool)) {
+    if (m_stack.top() != builtins::FIBool) {
       std::cerr << error << std::endl;
 
       m_stack.pop();
@@ -104,99 +103,101 @@ namespace vc {
 
     std::unordered_set<std::size_t> covered;
 
-    while (m_pc < body.instructions.size()) {
-      if (!covered.insert(m_pc).second) break;
+    std::cerr << "WARNING: verifier unimplemented\n";
+    // abort();
+    // while (m_pc < body.instructions.size()) {
+    //   if (!covered.insert(m_pc).second) break;
 
-      action = Move;
+    //   action = Move;
 
-      auto &ins = body.instructions.at(m_pc);
+    //   auto &ins = body.instructions.at(m_pc);
 
-      switch (ins->opcode()) {
-      case FIOpcode::Nop: break;
+    //   switch (ins->opcode()) {
+    //   case FIOpcode::Nop: break;
 
-      case FIOpcode::Dup: m_stack.push(m_stack.top()); break;
-      case FIOpcode::Pop: m_stack.pop(); break;
-      case FIOpcode::Ret:
-        if (m_stack.size() != 1)
-          std::cerr << "bad return stack size (" << m_stack.size() << ")"
-                    << std::endl;
-        action = Stop;
-        break;
+    //   case FIOpcode::Dup: m_stack.push(m_stack.top()); break;
+    //   case FIOpcode::Pop: m_stack.pop(); break;
+    //   case FIOpcode::Ret:
+    //     if (m_stack.size() != 1)
+    //       std::cerr << "bad return stack size (" << m_stack.size() << ")"
+    //                 << std::endl;
+    //     action = Stop;
+    //     break;
 
-      case FIOpcode::Br:
-        m_pc = body.labels.value(ins.as<FIBranchInstruction>()->label()).pos();
-        action = Stay;
-        break;
+    //   case FIOpcode::Br:
+    //     m_pc = body.labels.value(ins.as<FIBranchInstruction>()->label()).pos();
+    //     action = Stay;
+    //     break;
 
-      case FIOpcode::Bez:
-      case FIOpcode::Bnz: {
-        handlePopBool("Invalid condition type for branch.");
-        std::size_t addr = body.labels
-                               .value(ins.as<FIBranchInstruction>()->label())
-                               .pos();
-        if (m_checked->insert(addr).second)
-          m_q->emplace(fnew<BlockClosure>(fun::wrap(this), addr));
-        break;
-      }
+    //   case FIOpcode::Bez:
+    //   case FIOpcode::Bnz: {
+    //     handlePopBool("Invalid condition type for branch.");
+    //     std::size_t addr = body.labels
+    //                            .value(ins.as<FIBranchInstruction>()->label())
+    //                            .pos();
+    //     if (m_checked->insert(addr).second)
+    //       m_q->emplace(fnew<BlockClosure>(fun::wrap(this), addr));
+    //     break;
+    //   }
 
-      case FIOpcode::Load:
-        m_stack.push(
-            m_assem->structs().key(ins.as<FILoadInstructionBase>()->type()));
-        break;
+    //   case FIOpcode::Load:
+    //     m_stack.push(
+    //         m_assem->structs().key(ins.as<FILoadInstructionBase>()->type()));
+    //     break;
 
-      case FIOpcode::Ldnil:
-        m_stack.push(m_assem->structs().key(builtins::FINilT));
-        break;
-      case FIOpcode::Ldvoid:
-        m_stack.push(m_assem->structs().key(builtins::FIVoidT));
-        break;
+    //   case FIOpcode::Ldnil:
+    //     m_stack.push(m_assem->structs().key(builtins::FINilT));
+    //     break;
+    //   case FIOpcode::Ldvoid:
+    //     m_stack.push(m_assem->structs().key(builtins::FIVoidT));
+    //     break;
 
-      case FIOpcode::Ldvar: {
-        auto it = m_vars.find(ins.as<FIVarInstruction>()->var());
+    //   case FIOpcode::Ldvar: {
+    //     auto it = m_vars.find(ins.as<FIVarInstruction>()->var());
 
-        if (it == m_vars.end()) {
-          std::cerr << "load-before-store ("
-                    << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
-                    << ")" << std::endl;
-          m_stack.push(m_assem->structs().key(builtins::FIErrorT));
-        }
-        else
-          m_stack.push(it->second);
-        break;
-      }
+    //     if (it == m_vars.end()) {
+    //       std::cerr << "load-before-store ("
+    //                 << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
+    //                 << ")" << std::endl;
+    //       m_stack.push(m_assem->structs().key(builtins::FIErrorT));
+    //     }
+    //     else
+    //       m_stack.push(it->second);
+    //     break;
+    //   }
 
-      case FIOpcode::Stvar:
-        if (m_vars.find(ins.as<FIVarInstruction>()->var()) != m_vars.end())
-          std::cerr << "variable reassignment ("
-                    << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
-                    << ")" << std::endl;
+    //   case FIOpcode::Stvar:
+    //     if (m_vars.find(ins.as<FIVarInstruction>()->var()) != m_vars.end())
+    //       std::cerr << "variable reassignment ("
+    //                 << body.vars.value(ins.as<FIVarInstruction>()->var()).name()
+    //                 << ")" << std::endl;
 
-        m_vars[ins.as<FIVarInstruction>()->var()] = m_stack.top();
-        m_stack.pop();
-        break;
+    //     m_vars[ins.as<FIVarInstruction>()->var()] = m_stack.top();
+    //     m_stack.pop();
+    //     break;
 
-      case FIOpcode::Msg:
-        handlePHOp(m_assem->msgs()
-                       .value(ins.as<FIMessageInstruction>()->msg())
-                       .get<0>(),
-                   builtins::FIVoidT,
-                   "message");
-        break;
+    //   case FIOpcode::Msg:
+    //     handlePHOp(m_assem->msgs()
+    //                    .value(ins.as<FIMessageInstruction>()->msg())
+    //                    .get<0>(),
+    //                builtins::FIVoidT,
+    //                "message");
+    //     break;
 
-      case FIOpcode::Tpl:
-        handlePHOp(ins.as<FITupleInstruction>()->count(),
-                   builtins::FIVoidT,
-                   "tuple");
-        break;
-      }
+    //   case FIOpcode::Tpl:
+    //     handlePHOp(ins.as<FITupleInstruction>()->count(),
+    //                builtins::FIVoidT,
+    //                "tuple");
+    //     break;
+    //   }
 
-      switch (action) {
-      case Move: ++m_pc; break;
-      case Stay: break;
-      case Stop: return;
-      default: assert(false);
-      }
-    }
+    //   switch (action) {
+    //   case Move: ++m_pc; break;
+    //   case Stay: break;
+    //   case Stop: return;
+    //   default: assert(false);
+    //   }
+    // }
   }
 } // namespace vc
 } // namespace fie

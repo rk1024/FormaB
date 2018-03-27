@@ -25,10 +25,10 @@
 #include "ti.hpp"
 
 namespace w {
-Subst TypeBase::mgu(const fun::FPtr<const TypeBase> &rhs, TI &t) const {
+Subst TypeBase::mgu(const fun::FPtr<const TypeBase> &rhs, TIBase &t) const {
   {
     TIPos _(t, "\e[1mlmgu\e[0m " + to_string() + " <-> " + rhs->to_string());
-    auto[success, subst] = mguImpl(rhs, t);
+    auto [success, subst] = mguImpl(rhs, t);
     if (success) {
       TIPos __(t,
                "\e[38;5;2mresult:\e[0m " + to_string() + " ~ " +
@@ -39,7 +39,7 @@ Subst TypeBase::mgu(const fun::FPtr<const TypeBase> &rhs, TI &t) const {
 
   {
     TIPos _(t, "\e[1mrmgu\e[0m " + rhs->to_string() + " <-> " + to_string());
-    auto[success, subst] = rhs->rmguImpl(fun::wrap(this), t);
+    auto [success, subst] = rhs->rmguImpl(fun::wrap(this), t);
     if (success) {
       TIPos __(t,
                "\e[38;5;2mresult:\e[0m " + to_string() + " ~ " +
@@ -53,12 +53,12 @@ Subst TypeBase::mgu(const fun::FPtr<const TypeBase> &rhs, TI &t) const {
 }
 
 TypeBase::UnifyResult TypeBase::rmguImpl(const fun::FPtr<const TypeBase> &rhs,
-                                         TI &t) const {
+                                         TIBase &t) const {
   return mguImpl(rhs, t); // Assuming transitivity unless otherwise stated
 }
 
 TypeBase::UnifyResult TypeVar::mguImpl(const fun::FPtr<const TypeBase> &rhs,
-                                       TI &t) const {
+                                       TIBase &t) const {
   if (*this == *rhs)
     return UnifyResult(true, Subst());
   else {

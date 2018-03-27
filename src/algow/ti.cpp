@@ -29,21 +29,21 @@
 #include "typeEnv.hpp"
 
 namespace w {
-fun::FPtr<const TypeBase> TI::makeVar() {
+fun::FPtr<const TypeBase> TIBase::makeVar() {
   std::string name = "@T" + std::to_string(supply);
   TIPos       _(*this, "\e[1mcreate\e[0m " + name);
   ++supply;
   return fnew<TypeVar>(name);
 }
 
-fun::FPtr<const TypeBase> TI::instantiate(const Scheme &s) {
+fun::FPtr<const TypeBase> TIBase::instantiate(const Scheme &s) {
   TIPos _(*this, "\e[1minstantiate\e[0m " + s.to_string());
   Subst subst;
   for (auto var : s.vars()) subst.emplace(var, makeVar());
   return sub(subst, s.type());
 }
 
-void TI::debugState() const {
+void TIBase::debugState() const {
   std::ostringstream oss;
 
   for (int i = 1; i < stack.size(); ++i) oss << ": ";
@@ -52,7 +52,7 @@ void TI::debugState() const {
             << "\n";
 }
 
-std::string TI::state() const {
+std::string TIBase::state() const {
   std::ostringstream oss;
   bool               first = true;
 
@@ -65,12 +65,5 @@ std::string TI::state() const {
   }
 
   return oss.str();
-}
-
-fun::FPtr<const TypeBase> ti(const fun::FPtr<const ExprBase> &e,
-                             const TypeEnv &                  env) {
-  TI   t;
-  auto pair = e->ti(env, t);
-  return sub(pair.first, pair.second);
 }
 } // namespace w

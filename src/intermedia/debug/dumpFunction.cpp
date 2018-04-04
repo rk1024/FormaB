@@ -37,13 +37,9 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
 
   m_os << "\e[1m  Function " << args.get<0>().value() << "\e[0m\n";
 
-  std::unordered_map<fun::FPtr<FIBlock>,
-                     std::string,
-                     std::hash<fun::FPtr<FIBlock>>,
-                     fun::are_same<FIBlock>>
-                                           blockNames;
-  std::unordered_map<FIRegId, std::string> regNames;
-  std::size_t                              nameWidth = 0;
+  std::unordered_map<fun::FPtr<FIBlock>, std::string> blockNames;
+  std::unordered_map<FIRegId, std::string>            regNames;
+  std::size_t                                         nameWidth = 0;
 
   for (int i = 0; i < body.blocks.size(); ++i) {
     blockNames[body.blocks[i]] = "block" + std::to_string(i) + "(" +
@@ -160,7 +156,7 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
         break;
       }
       case FIOpcode::Tpl: {
-        m_os << "builtins::FIl  \e[38;5;2m";
+        m_os << "tpl  \e[38;5;2m";
         auto tpl = ins.value().as<const FITplValue>();
         for (auto val : tpl->values()) { m_os << " " << regNames.at(val); }
         break;

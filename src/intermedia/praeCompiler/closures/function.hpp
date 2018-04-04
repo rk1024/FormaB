@@ -41,9 +41,13 @@ namespace pc {
         std::uint32_t>;
 
   private:
-    fun::FPtr<ScopeClosure> m_args, m_scope;
-    std::uint32_t           m_nextScopeId = 0, m_nextRegId = 0;
-    FIFunctionBody *        m_body;
+    fun::FPtr<ScopeClosure>     m_args, m_scope;
+    std::uint32_t               m_nextScopeId = 0, m_nextRegId = 0;
+    std::unordered_set<FIRegId> m_implicitVoids;
+    FIFunctionBody *            m_body;
+#if defined(DEBUG)
+    bool m_clean = false;
+#endif
 
     auto regId() { return m_nextRegId++; }
 
@@ -52,11 +56,19 @@ namespace pc {
     constexpr auto &scope() const { return m_scope; }
     constexpr auto &body() const { return m_body; }
 
+    void setImplicitVoid(const FIRegId &reg) { m_implicitVoids.emplace(reg); }
+
     FuncClosure(FIFunctionBody &, const frma::FormaAST *);
+
+#if defined(DEBUG)
+    ~FuncClosure();
+#endif
 
     void                    pushScope();
     void                    dropScope();
     fun::FPtr<ScopeClosure> popScope();
+
+    void cleanup();
 
     friend class ScopeClosure;
     friend class BlockClosure;

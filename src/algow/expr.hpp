@@ -29,9 +29,14 @@ template <typename T>
 typename ExprBase<T>::TIResult ExprBase<T>::ti(TI<T> &t) const {
   TIPos _(t, "\e[1mti\e[0m " + to_string());
   auto  ret = tiImpl(t);
+
+#if defined(DEBUG)
   TIPos __(t,
            "\e[38;5;2mresult:\e[0m " + to_string() +
-               " :: " + ret.second->to_string() + printSubst(ret.first));
+               " :: " + ret.template get<2>()->to_string() +
+               printConstraints(ret.template get<1>()) +
+               printSubst(ret.template get<0>()));
+#endif
 
   return ret;
 }

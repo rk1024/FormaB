@@ -27,6 +27,8 @@
 
 #include "algow/expr.hpp"
 
+#include "ast/astBase.hpp"
+
 #include "intermedia/atoms.hpp"
 #include "intermedia/types/builtins.hpp"
 #include "regId.hpp"
@@ -50,10 +52,18 @@ using WTypeStruct = w::Type<FIStruct>;
 using TI          = w::TI<TIContext>;
 
 class FIValue : public w::ExprBase<TIContext> {
+  const frma::FormaAST *m_pos;
+
 public:
+  constexpr auto &pos() const { return m_pos; }
+
+  FIValue(const frma::FormaAST *pos) : m_pos(pos) {}
+
   virtual FIOpcode opcode() const = 0;
 
   virtual std::vector<FIRegId> deps() const = 0;
+
+  virtual std::string to_string() const override;
 };
 
 class FIOpValue : public FIValue {
@@ -67,9 +77,9 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FIOpValue(FIOpcode opcode) : m_opcode(opcode) {}
+  FIOpValue(FIOpcode opcode, const frma::FormaAST *pos) :
+      FIValue(pos),
+      m_opcode(opcode) {}
 };
 
 template <typename T>
@@ -102,6 +112,8 @@ _CONST_TRAITS(FIStringAtom, builtins::FIString);
 
 class FIConstantBase : public FIValue {
 public:
+  FIConstantBase(const frma::FormaAST *pos) : FIValue(pos) {}
+
   virtual FIOpcode opcode() const override;
 
   virtual std::vector<FIRegId> deps() const override;
@@ -123,16 +135,13 @@ public:
     return *_fi_const_traits<T>::type;
   }
 
-  virtual std::string to_string() const override {
-    std::ostringstream oss;
-    oss << "const " << type()->name() << " " << m_value;
-
-    return oss.str();
-  }
-
-  FIConstant(const T &value) : m_value(value) {}
-  FIConstant(T &&value) : m_value(value) {}
-};
+  FIConstant(const T &value, const frma::FormaAST *pos) :
+      FIConstantBase(pos),
+      m_value(value) {}
+  FIConstant(T &&value, const frma::FormaAST *pos) :
+      FIConstantBase(pos),
+      m_value(value) {}
+}; // namespace fie
 
 class FIMsgValue : public FIValue {
   FIMessageAtom        m_msg;
@@ -149,9 +158,10 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FIMsgValue(FIMessageAtom msg, const std::vector<FIRegId> &args) :
+  FIMsgValue(FIMessageAtom               msg,
+             const std::vector<FIRegId> &args,
+             const frma::FormaAST *      pos) :
+      FIValue(pos),
       m_msg(msg),
       m_args(args) {}
 };
@@ -169,9 +179,9 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FITplValue(const std::vector<FIRegId> &values) : m_values(values) {}
+  FITplValue(const std::vector<FIRegId> &values, const frma::FormaAST *pos) :
+      FIValue(pos),
+      m_values(values) {}
 };
 
 class FIPhiValue : public FIValue {
@@ -187,9 +197,9 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FIPhiValue(const std::vector<FIRegId> &values) : m_values(values) {}
+  FIPhiValue(const std::vector<FIRegId> &values, const frma::FormaAST *pos) :
+      FIValue(pos),
+      m_values(values) {}
 };
 
 class FILdvarValue : public FIValue {
@@ -205,9 +215,9 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FILdvarValue(FIVariableAtom var) : m_var(var) {}
+  FILdvarValue(FIVariableAtom var, const frma::FormaAST *pos) :
+      FIValue(pos),
+      m_var(var) {}
 };
 
 class FIStvarValue : public FIValue {
@@ -225,9 +235,10 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual std::string to_string() const override;
-
-  FIStvarValue(FIVariableAtom var, const FIRegId &val) :
+  FIStvarValue(FIVariableAtom        var,
+               const FIRegId &       val,
+               const frma::FormaAST *pos) :
+      FIValue(pos),
       m_var(var),
       m_val(val) {}
 };

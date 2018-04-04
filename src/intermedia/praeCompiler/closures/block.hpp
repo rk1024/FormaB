@@ -74,46 +74,61 @@ namespace pc {
     [[nodiscard]] RegResult emit(FIInstruction &&ins);
 
     [[nodiscard]] decltype(auto) emitOp(const std::string &name, FIOpcode op) {
-      return emit(FIInstruction(name, regId(), fnew<FIOpValue>(op)));
+      return emit(
+          FIInstruction(name, regId(), fnew<FIOpValue>(op, m_func->curr())));
     }
 
     template <typename T>
-    [[nodiscard]] decltype(auto)
-        emitConst(const std::string &name, const T &value) {
-          return emit(FIInstruction(name, regId(), fnew<FIConstant<T>>(value)));
-        }
+    [[nodiscard]] decltype(auto) emitConst(const std::string &name,
+                                           const T &          value) {
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FIConstant<T>>(value, m_func->curr())));
+    }
 
     template <typename T>
     [[nodiscard]] decltype(auto) emitConst(const std::string &name, T &&value) {
-      return emit(FIInstruction(name, regId(), fnew<FIConstant<T>>(value)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FIConstant<T>>(value, m_func->curr())));
     }
 
         [[nodiscard]] decltype(auto) emitMsg(const std::string &         name,
                                              FIMessageAtom               msg,
                                              const std::vector<FIRegId> &args) {
-      return emit(FIInstruction(name, regId(), fnew<FIMsgValue>(msg, args)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FIMsgValue>(msg, args, m_func->curr())));
     }
 
     [[nodiscard]] decltype(auto) emitPhi(const std::string &         name,
                                          const std::vector<FIRegId> &values) {
-      return emit(FIInstruction(name, regId(), fnew<FIPhiValue>(values)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FIPhiValue>(values, m_func->curr())));
     }
 
         [[nodiscard]] decltype(auto)
             emitTpl(const std::string &         name,
                     const std::vector<FIRegId> &values) {
-      return emit(FIInstruction(name, regId(), fnew<FITplValue>(values)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FITplValue>(values, m_func->curr())));
     }
 
     [[nodiscard]] decltype(auto) emitLdvar(const std::string &name,
                                            FIVariableAtom     var) {
-      return emit(FIInstruction(name, regId(), fnew<FILdvarValue>(var)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FILdvarValue>(var, m_func->curr())));
     }
 
         [[nodiscard]] decltype(auto) emitStvar(const std::string &name,
                                                FIVariableAtom     var,
                                                FIRegId            val) {
-      return emit(FIInstruction(name, regId(), fnew<FIStvarValue>(var, val)));
+      return emit(FIInstruction(name,
+                                regId(),
+                                fnew<FIStvarValue>(var, val, m_func->curr())));
     }
   };
 } // namespace pc

@@ -127,7 +127,7 @@ using System;
   while (var i = 0, j = 10; i + j < 100) ++i;
 
   while (var i = 0; i < 100) {
-    cout[print: i + (if (i % 2 == 0) " is even" else " is odd")];
+    cout[print: i[toString] + (if (i % 2 == 0) " is even" else " is odd")];
     ++i;
   };
 

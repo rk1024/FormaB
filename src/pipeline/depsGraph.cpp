@@ -154,14 +154,8 @@ void FDepsGraph::run() {
 void FDepsGraph::dot(std::ostream &os) {
   os << "strict digraph{";
 
-  fun::FAtomStore<fun::FPtr<FDepsGraphNode>,
-                  std::size_t,
-                  fun::are_same<FDepsGraphNode>>
-      nodeIds;
-  fun::FAtomStore<fun::FPtr<FDepsGraphEdge>,
-                  std::size_t,
-                  fun::are_same<FDepsGraphEdge>>
-      edgeIds;
+  fun::FAtomStore<fun::FPtr<FDepsGraphNode>, std::size_t> nodeIds;
+  fun::FAtomStore<fun::FPtr<FDepsGraphEdge>, std::size_t> edgeIds;
 
   for (auto node : m_nodes)
     os << "n" << nodeIds.intern(node).value() << "[label=\"" << node->m_name

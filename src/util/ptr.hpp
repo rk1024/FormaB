@@ -128,19 +128,8 @@ public:
     return FMFPtr<T, U, TArgs...>(*this, memb);
   }
 
-#define _DEFER_BINOP(op)                                                       \
-  inline bool operator op(const FPtr &rhs) const {                             \
-    return m_ptr->operator op(*rhs.m_ptr);                                     \
-  }
-
-  _DEFER_BINOP(==)
-  _DEFER_BINOP(!=)
-  _DEFER_BINOP(<)
-  _DEFER_BINOP(>)
-  _DEFER_BINOP(<=)
-  _DEFER_BINOP(>=)
-
-#undef _DEFER_BINOP
+  inline bool operator==(const FPtr &rhs) const { return m_ptr == rhs.m_ptr; }
+  inline bool operator!=(const FPtr &rhs) const { return m_ptr != rhs.m_ptr; }
 
   template <typename U>
   inline auto operator<<(U &&rhs) {
@@ -155,10 +144,6 @@ public:
   template <typename... TArgs>
   inline auto operator[](TArgs &&... args) {
     return m_ptr->operator[](std::forward<TArgs>(args)...);
-  }
-
-  friend bool same(const FPtr<T> &a, const FPtr<T> &b) {
-    return a.m_ptr == b.m_ptr;
   }
 
   friend struct std::hash<FPtr>;
@@ -205,13 +190,6 @@ template <typename T>
 FPtr<T> wrap(T *obj) {
   return FPtr<T>(obj);
 }
-
-template <typename T>
-struct are_same {
-  bool operator()(const fun::FPtr<T> &a, const fun::FPtr<T> &b) const {
-    return same(a, b);
-  }
-};
 
 template <typename T>
 class FWeakPtr {
@@ -298,6 +276,13 @@ public:
 
   done:
     return *this;
+  }
+
+  inline bool operator==(const FWeakPtr &rhs) const {
+    return m_ptr == rhs.m_ptr;
+  }
+  inline bool operator!=(const FWeakPtr &rhs) const {
+    return m_ptr != rhs.m_ptr;
   }
 
   friend struct std::hash<FWeakPtr>;

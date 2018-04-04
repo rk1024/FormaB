@@ -30,7 +30,7 @@ template <typename>
 struct Types;
 
 template <typename T>
-inline std::unordered_set<std::string> ftv(const T &x) {
+inline TypeVars ftv(const T &x) {
   return Types<T>::__ftv(x);
 }
 

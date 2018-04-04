@@ -30,7 +30,18 @@
 namespace w {
 Subst composeSubst(const Subst &s1, const Subst &s2) {
   Subst ret = s1;
-  for (auto &pair : s2) ret[pair.first] = sub(s1, pair.second);
+  for (auto &pair : s2) {
+#if defined(DEBUG)
+    if (auto it = ret.find(pair.first); it != ret.end()) {
+      std::cerr << "WARNING in composeSubst: " << pair.first
+                << " occurs in both substitutions (" << pair.first << " ~ "
+                << it->second->to_string() << " vs. " << pair.first << " ~ "
+                << pair.second->to_string() << ")" << std::endl;
+    }
+#endif
+
+    ret[pair.first] = sub(s1, pair.second);
+  }
   return ret;
 }
 

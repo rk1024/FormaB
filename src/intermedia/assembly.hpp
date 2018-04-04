@@ -34,14 +34,11 @@
 
 namespace fie {
 class FIAssembly : public fun::FObject {
-  fun::FAtomStore<fun::FPtr<const FIFunction>,
-                  std::uint32_t,
-                  fun::are_same<const FIFunction>>
-                                                         m_funcs;
-  fun::FAtomStore<std::string, std::uint32_t>            m_strings;
-  fun::FAtomStore<fun::FPtr<FIInterface>, std::uint32_t> m_interfaces;
-  fun::FAtomStore<FIMessage, std::uint32_t>              m_msgs;
-  fun::FAtomStore<FIMessageKeyword, std::uint32_t>       m_keywords;
+  fun::FAtomStore<fun::FPtr<const FIFunction>, std::uint32_t> m_funcs;
+  fun::FAtomStore<std::string, std::uint32_t>                 m_strings;
+  fun::FAtomStore<fun::FPtr<FIInterface>, std::uint32_t>      m_interfaces;
+  fun::FAtomStore<FIMessage, std::uint32_t>                   m_msgs;
+  fun::FAtomStore<FIMessageKeyword, std::uint32_t>            m_keywords;
 
 public:
   auto &      funcs() { return m_funcs; }

@@ -74,7 +74,7 @@ TypeBase::UnifyResult TypeVar::mguImpl(const fun::FPtr<const TypeBase> &rhs,
   }
 }
 
-TypeBase::TypeVars TypeVar::ftv() const {
+TypeVars TypeVar::ftv() const {
   TypeVars ret;
   ret.emplace(m_var);
   return ret;
@@ -90,19 +90,33 @@ fun::FPtr<const TypeBase> TypeVar::sub(const Subst &s) const {
 
 std::string TypeVar::to_string() const { return m_var; }
 
+void TypeVar::hashImpl(std::size_t &seed) const {
+  fun::combineHashes(seed, m_var);
+}
+
 bool TypeVar::operator==(const TypeBase &rhs) const {
   auto var = dynamic_cast<const TypeVar *>(&rhs);
   if (!var) return false;
   return m_var == var->m_var;
 }
 
-std::unordered_set<std::string> Types<fun::FPtr<const TypeBase>>::__ftv(
+TypeVars Types<fun::FPtr<const TypeBase>>::__ftv(
     const fun::FPtr<const TypeBase> &t) {
   return t->ftv();
 }
 
 fun::FPtr<const TypeBase> Types<fun::FPtr<const TypeBase>>::__sub(
     const Subst &s, const fun::FPtr<const TypeBase> &t) {
+  return t->sub(s);
+}
+
+TypeVars Types<fun::FRef<const TypeBase>>::__ftv(
+    const fun::FRef<const TypeBase> &t) {
+  return t->ftv();
+}
+
+fun::FRef<const TypeBase> Types<fun::FRef<const TypeBase>>::__sub(
+    const Subst &s, const fun::FRef<const TypeBase> &t) {
   return t->sub(s);
 }
 } // namespace w

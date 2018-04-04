@@ -1,0 +1,5 @@
+@!prae{
+  let f = (a: a, b: b) => (a, b);
+
+  let g = f[a: 1 b: 2];
+@}

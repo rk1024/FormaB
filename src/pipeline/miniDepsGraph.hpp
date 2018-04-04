@@ -115,7 +115,7 @@ public:
   void dot(std::ostream &os) {
     os << "strict digraph{";
 
-    fun::FAtomStore<fun::FPtr<Node>, std::size_t, fun::are_same<Node>> nodeIds;
+    fun::FAtomStore<fun::FPtr<Node>, std::size_t> nodeIds;
 
     for (auto &node : m_nodes) {
       auto id = nodeIds.intern(node);

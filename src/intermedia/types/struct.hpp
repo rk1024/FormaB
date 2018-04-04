@@ -37,3 +37,5 @@ FUN_CONSPOD(FIStruct, std::string, std::uint32_t), public fun::FObject {
   constexpr const std::string &to_string() const { return name(); }
 };
 } // namespace fie
+
+FCP_HASH(fie::FIStruct);

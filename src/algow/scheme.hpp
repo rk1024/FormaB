@@ -24,25 +24,31 @@
 #include "util/ptr.hpp"
 
 #include "_type.hpp"
+#include "constraints.hpp"
 #include "types.hpp"
 
 namespace w {
-FUN_CONSPOD(Scheme, std::vector<std::string>, fun::FPtr<const TypeBase>) {
+FUN_CONSPOD(Scheme,
+            std::vector<std::string>,
+            fun::FPtr<const TypeBase>,
+            Constraints) {
   FCP_GET(0, vars);
   FCP_GET(1, type);
+  FCP_GET(2, constraints);
 
   Scheme() = default;
 
   inline Scheme(const std::vector<std::string> & _vars,
-                const fun::FPtr<const TypeBase> &_type) :
-      FCP_INIT(_vars, _type) {}
+                const fun::FPtr<const TypeBase> &_type,
+                const Constraints &              _constraints) :
+      FCP_INIT(_vars, _type, _constraints) {}
 
   std::string to_string() const;
 };
 
 template <>
 struct Types<Scheme> {
-  static std::unordered_set<std::string> __ftv(const Scheme &);
+  static TypeVars __ftv(const Scheme &);
 
   static Scheme __sub(const Subst &, const Scheme &);
 };

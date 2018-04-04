@@ -28,6 +28,7 @@
 
 #include "block.hpp"
 #include "intermedia/atoms.hpp"
+#include "intermedia/messaging/message.hpp"
 #include "intermedia/types/struct.hpp"
 #include "variable.hpp"
 
@@ -38,14 +39,21 @@ struct FIFunctionBody {
 };
 
 class FIFunction : public fun::FObject {
+  FIMessage                                               m_msg;
   std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> m_args;
   FIFunctionBody                                          m_body;
 
 public:
-  const auto &args() const { return m_args; }
-  const auto &body() const { return m_body; }
+  constexpr const auto &msg() const { return m_msg; }
+  constexpr const auto &args() const { return m_args; }
+  constexpr const auto &body() const { return m_body; }
 
-  FIFunction(const std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> &,
-             const FIFunctionBody &);
+  FIFunction(
+      const FIMessage &                                              msg,
+      const std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> &args,
+      const FIFunctionBody &                                         body) :
+      m_msg(msg),
+      m_args(args),
+      m_body(body) {}
 };
 } // namespace fie

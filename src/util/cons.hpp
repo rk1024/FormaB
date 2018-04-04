@@ -38,7 +38,7 @@ struct cons_cell<> {
 
   static cons_cell cons() { return cons_cell(); }
 
-  constexpr std::size_t size() const { return 0; }
+  static constexpr std::size_t size = 0;
 
   constexpr bool operator==(const cons_cell &) const { return true; }
   constexpr bool operator!=(const cons_cell &) const { return false; }
@@ -56,6 +56,8 @@ struct cons_cell<TCar, TCdr...> {
     return cons_cell(car, cons_cell<TCdr...>::cons(cdr...));
   }
 
+  static constexpr std::size_t size = sizeof...(TCdr) + 1;
+
   template <std::size_t index>
   using selector = cons_get<index, TCar, TCdr...>;
 
@@ -68,7 +70,7 @@ struct cons_cell<TCar, TCdr...> {
       car(_car),
       cdr(_cdr) {}
 
-  constexpr std::size_t size() const { return sizeof...(TCdr) + 1; }
+  cons_cell(const TCar &_car, const TCdr &... _cdr) : car(_car), cdr(_cdr...) {}
 
   template <std::size_t idx>
   constexpr auto &get() {
@@ -172,4 +174,17 @@ struct hash<const fun::cons_cell<TItems...>> {
     return fun::consHash(cell);
   }
 };
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmismatched-tags"
+template <typename... TItems>
+struct tuple_size<fun::cons_cell<TItems...>> {
+  static constexpr size_t value = fun::cons_cell<TItems...>::size;
+};
+
+template <size_t i, typename... TItems>
+struct tuple_element<i, fun::cons_cell<TItems...>> {
+  using type = typename fun::cons_get<i, TItems...>::item_t;
+};
+#pragma clang diagnostic pop
 } // namespace std

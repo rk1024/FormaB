@@ -38,6 +38,49 @@ static std::string opcodeName(FIOpcode op) {
   }
 }
 
+std::string FIValue::to_string() const {
+  std::ostringstream oss;
+
+  oss << "[" << opcodeName(opcode()) << "] " << m_pos->toString();
+
+  auto &loc = m_pos->loc();
+
+  oss << " at ";
+
+  if (loc.begin.filename)
+    oss << *loc.begin.filename;
+  else
+    oss << "???";
+
+
+  oss << ":" << loc.begin.line << ":" << loc.begin.column;
+
+  if (loc.end != loc.begin) oss << "-";
+
+  if (loc.end.filename != loc.begin.filename) {
+    if (loc.end.filename)
+      oss << *loc.end.filename;
+    else
+      oss << "???";
+
+    oss << ":";
+
+    goto diffLine;
+  }
+  else if (loc.end.line != loc.begin.line) {
+  diffLine:
+    oss << loc.end.line << ":";
+
+    goto diffCol;
+  }
+  else if (loc.end.column != loc.begin.column) {
+  diffCol:
+    oss << loc.end.column;
+  }
+
+  return oss.str();
+}
+
 #define TIFUNC(type) type::TIResult type::tiImpl([[maybe_unused]] TI &t) const
 
 FIOpcode FIOpValue::opcode() const { return m_opcode; }
@@ -48,17 +91,17 @@ TIFUNC(FIOpValue) {
   switch (m_opcode) {
   case FIOpcode::Nil:
     return TIResult(w::Subst(),
+                    w::Constraints(),
                     fnew<WTypeStruct>(builtins::FIErrorT,
                                       WTypeStruct::Params()));
   case FIOpcode::Void:
     return TIResult(w::Subst(),
+                    w::Constraints(),
                     fnew<WTypeStruct>(builtins::FIVoidT,
                                       WTypeStruct::Params()));
   default: abort();
   }
 }
-
-std::string FIOpValue::to_string() const { return opcodeName(m_opcode); }
 
 FIOpcode FIConstantBase::opcode() const { return FIOpcode::Const; }
 
@@ -68,6 +111,7 @@ std::vector<FIRegId> FIConstantBase::deps() const { return {}; }
   template <>                                                                  \
   TIFUNC(FIConstant<_tp>) {                                                    \
     return TIResult(w::Subst(),                                                \
+                    w::Constraints(),                                          \
                     fnew<WTypeStruct>(*_fi_const_traits<_tp>::type,            \
                                       WTypeStruct::Params()));                 \
   }
@@ -87,8 +131,9 @@ CONST_TIFUNC(std::uint64_t)
 
 template <>
 TIFUNC(FIConstant<FIFunctionAtom>) {
-  auto &func = t.context.inputs->assem()->funcs().value(m_value);
-  return TIResult(w::Subst(), t.instantiate(t.context.solverFuncs().at(func)));
+  auto &func    = t.context.inputs->assem()->funcs().value(m_value);
+  auto [tp, cs] = t.instantiate(t.context.getFunc(func));
+  return TIResult(w::Subst(), cs, tp);
 }
 
 CONST_TIFUNC(FIMessageKeywordAtom)
@@ -99,29 +144,52 @@ FIOpcode FIMsgValue::opcode() const { return FIOpcode::Msg; }
 std::vector<FIRegId> FIMsgValue::deps() const { return m_args; }
 
 TIFUNC(FIMsgValue) {
-  return TIResult(w::Subst(),
-                  fnew<WTypeStruct>(builtins::FIVoidT,
-                                    WTypeStruct::Params())); // TODO
-}
+  auto a = t.makeVar();
 
-std::string FIMsgValue::to_string() const {
-  std::ostringstream oss;
-  oss << "msg m" << m_msg;
-  for (auto &value : m_args) oss << " " << value.id();
-  return oss.str();
+  WTypeStruct::Params params{a};
+
+  for (auto &arg : m_args) params.push_back(t.context.getType(arg));
+
+  auto &msg = t.context.inputs->assem()->msgs().value(m_msg);
+  auto  it  = t.context.solverMsgs().find(msg);
+
+  if (it == t.context.solverMsgs().end()) {
+    // TODO: Implement diagnostic logging
+    // throw std::runtime_error("undeclared message " + msg.name() + "\n" +
+    //                          t.state());
+
+    auto tp = fnew<WAcceptsMessageType>(fnew<WAcceptsMessage>(msg),
+                                        WAcceptsMessageType::Params{});
+
+    return TIResult(a->mgu(tp, t),
+                    {fref<WAcceptsMessageConstraint>(
+                        a, WAcceptsMessageSet(msg, t.context.solverAccepts()))},
+                    a);
+  }
+  else {
+    auto [tp, cs] = t.instantiate(w::sub(t.context.subst, it->second));
+
+    auto su = tp->mgu(fnew<WTypeStruct>(fnew<FIStruct>("fun", params.size()),
+                                        params),
+                      t);
+
+    return TIResult(su, {}, w::sub(su, a));
+  }
 }
 
 FIOpcode FITplValue::opcode() const { return FIOpcode::Tpl; }
 
 std::vector<FIRegId> FITplValue::deps() const { return m_values; }
 
-TIFUNC(FITplValue) { return TIResult(w::Subst(), nullptr); }
+TIFUNC(FITplValue) {
+  WTypeStruct::Params params;
 
-std::string FITplValue::to_string() const {
-  std::ostringstream oss;
-  oss << "tpl";
-  for (auto &value : m_values) oss << " " << value.id();
-  return oss.str();
+  for (auto &value : m_values) params.push_back(t.context.getType(value));
+
+  return TIResult(w::Subst(),
+                  w::Constraints(),
+                  fnew<WTypeStruct>(fnew<FIStruct>("tpl", params.size()),
+                                    params));
 }
 
 FIOpcode FIPhiValue::opcode() const { return FIOpcode::Phi; }
@@ -131,6 +199,7 @@ std::vector<FIRegId> FIPhiValue::deps() const { return m_values; }
 TIFUNC(FIPhiValue) {
   fun::FPtr<const w::TypeBase> type = nullptr;
   w::Subst                     subst;
+  w::Constraints               constraints;
 
   for (auto &reg : m_values) {
     auto tp = t.context.getType(reg);
@@ -143,14 +212,7 @@ TIFUNC(FIPhiValue) {
       type = w::sub(subst, tp);
   }
 
-  return TIResult(subst, type);
-}
-
-std::string FIPhiValue::to_string() const {
-  std::ostringstream oss;
-  oss << "phi";
-  for (auto &value : m_values) oss << " " << value.id();
-  return oss.str();
+  return TIResult(subst, constraints, type);
 }
 
 FIOpcode FILdvarValue::opcode() const { return FIOpcode::Ldvar; }
@@ -164,12 +226,10 @@ TIFUNC(FILdvarValue) {
     // TODO: Implement diagnostic logging
     throw std::runtime_error("unbound variable v" + std::to_string(m_var) +
                              "\n" + t.state());
-  else
-    return TIResult(w::Subst(), t.instantiate(it->second));
-}
-
-std::string FILdvarValue::to_string() const {
-  return "ldvar v" + std::to_string(m_var);
+  else {
+    auto [tp, cs] = t.instantiate(w::sub(t.context.subst, it->second));
+    return TIResult(w::Subst(), cs, tp);
+  }
 }
 
 FIOpcode FIStvarValue::opcode() const { return FIOpcode::Stvar; }
@@ -181,20 +241,19 @@ TIFUNC(FIStvarValue) {
 
   if (it == t.context.env.end()) {
     t.context.env[m_var] = w::generalize(w::sub(t.context.subst, t.context.env),
+                                         t.context.constraints,
                                          t.context.getType(m_val));
     return TIResult(w::Subst(),
+                    w::Constraints(),
                     fnew<WTypeStruct>(builtins::FIVoidT,
                                       WTypeStruct::Params()));
   }
   else {
-    return TIResult(t.instantiate(it->second)->mgu(t.context.getType(m_val), t),
+    auto [tp, cs] = t.instantiate(w::sub(t.context.subst, it->second));
+    return TIResult(tp->mgu(t.context.getType(m_val), t),
+                    cs,
                     fnew<WTypeStruct>(builtins::FIVoidT,
                                       WTypeStruct::Params()));
   }
-}
-
-std::string FIStvarValue::to_string() const {
-  return "stvar v" + std::to_string(m_var) + " <- " +
-         std::to_string(m_val.id());
 }
 } // namespace fie

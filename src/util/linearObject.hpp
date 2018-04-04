@@ -36,7 +36,7 @@ class FLinearObject {
   }
 
   void disown(FLinearPtr<T> *
-#ifndef NDEBUG
+#if !defined(NDEBUG)
                   owner
 #endif
   ) {

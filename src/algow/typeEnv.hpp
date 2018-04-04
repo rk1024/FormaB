@@ -35,10 +35,18 @@ using TypeEnv = std::unordered_map<T, Scheme>;
 
 template <typename T>
 Scheme generalize(const TypeEnv<T> &               env,
+                  const Constraints &              constraints,
                   const fun::FPtr<const TypeBase> &type) {
-  auto vars = ftv(type);
+  auto        vars = ftv(type);
+  Constraints where;
   for (auto var : ftv(env)) vars.erase(var);
-  return Scheme(std::vector<std::string>(vars.begin(), vars.end()), type);
+  for (auto constraint : constraints) {
+    if (constraint->includes(vars)) where.emplace(constraint);
+  }
+
+  return Scheme(std::vector<std::string>(vars.begin(), vars.end()),
+                type,
+                where);
 }
 
 template <typename T>
@@ -54,8 +62,8 @@ std::string printEnv(const TypeEnv<T> &env) {
 
 template <typename T>
 struct Types<TypeEnv<T>> {
-  static std::unordered_set<std::string> __ftv(const TypeEnv<T> &env) {
-    std::unordered_set<std::string> ret;
+  static TypeVars __ftv(const TypeEnv<T> &env) {
+    TypeVars ret;
     for (auto &pair : env) {
       auto ftv2 = ftv(pair.second);
       ret.insert(ftv2.begin(), ftv2.end());

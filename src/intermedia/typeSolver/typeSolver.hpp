@@ -30,16 +30,17 @@ namespace fie {
 class FITypeSolver : public fun::FObject {
   fun::FPtr<FIInputs> m_inputs;
 
-  std::unordered_map<fun::FPtr<const FIFunction>,
-                     w::Scheme,
-                     std::hash<fun::FPtr<const FIFunction>>,
-                     fun::are_same<const FIFunction>>
-      m_funcs;
+  std::unordered_map<fun::FPtr<const FIFunction>, w::Scheme> m_funcs;
+  std::unordered_map<FIMessage, w::Scheme>                   m_msgs;
+  std::unordered_map<FIMessage, std::unordered_set<fun::FRef<w::TypeBase>>>
+      m_accepts;
 
-  std::unordered_map<FIMessageKeyword, w::Scheme> m_msgs;
+  void setupMsgs();
 
 public:
-  FITypeSolver(const fun::FPtr<FIInputs> &inputs) : m_inputs(inputs) {}
+  FITypeSolver(const fun::FPtr<FIInputs> &inputs) : m_inputs(inputs) {
+    setupMsgs();
+  }
 
   void typeFunc(fun::cons_cell<FIFunctionAtom>);
 

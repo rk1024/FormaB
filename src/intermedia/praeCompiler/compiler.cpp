@@ -106,7 +106,7 @@ EMITFL(Exprs, bool tuple) {
   MOVE;
   std::vector<FIRegId> regs;
   auto closure2 = emitLoadExprsInternal(closure.move(), node, regs);
-  if (tuple && regs.size() != 1) return closure->emitTpl("tpl", regs);
+  if (tuple && regs.size() != 1) return closure2->emitTpl("tpl", regs);
   assert(regs.size() == 1);
   return RegResult(regs.front(), closure2.move());
 }
@@ -150,7 +150,11 @@ EMITFL(XBlock) {
 
     closure2->func()->dropScope();
 
-    return closure2->emitOp("block", FIOpcode::Void);
+    auto [reg, closure3] = closure2->emitOp("block", FIOpcode::Void);
+
+    closure3->func()->setImplicitVoid(reg);
+
+    return std::pair(reg, closure3.move());
   }
   case OF(Error): abort();
   default: FAIL;
@@ -835,12 +839,15 @@ FIFunctionAtom FIPraeCompiler::compileEntryPoint(
 
   bclosure3->block()->contRet(ret);
 
+  fclosure->cleanup();
+
   std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> funcArgs;
 
   for (auto info : fclosure->args()->getOwned())
     funcArgs[fclosure->args()->get(info.get<0>())] = builtins::FIErrorT;
 
-  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
+  auto id = m_inputs->assem()->funcs().intern(
+      fnew<FIFunction>(FIMessage(0, ""), funcArgs, body));
   m_inputs->funcs()[args.get<0>()] = id;
 
   return id;
@@ -869,32 +876,41 @@ FIFunctionAtom FIPraeCompiler::compileFunc(
     }
   }
 
+  std::ostringstream keyword;
+  std::uint32_t      arity = paramStack.size();
+
   while (paramStack.size()) {
     auto param = paramStack.top();
     auto pat   = param->pat();
     paramStack.pop();
 
     MATCH_(pat) {
+      // TODO: Deal with patterns.
     case OF_(pat, AnonAny):
     case OF_(pat, AnonPattern): break;
     case OF_(pat, NamedAny):
     case OF_(pat, NamedPattern):
       fclosure->args()->bind(pat->id()->value(), false);
+      keyword << param->id()->value();
       break;
     }
   }
 
-  // TODO: Do something with this register
   auto [reg, bclosure2] = emitLoadExpr(bclosure.move(), node->expr());
 
   bclosure2->block()->contRet(reg);
+
+  fclosure->cleanup();
 
   std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> funcArgs;
 
   for (auto info : fclosure->args()->getOwned())
     funcArgs[fclosure->args()->get(info.get<0>())] = builtins::FIErrorT;
 
-  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(funcArgs, body));
+  auto id = m_inputs->assem()->funcs().intern(
+      fnew<FIFunction>(FIMessage(arity, arity ? keyword.str() : "call"),
+                       funcArgs,
+                       body)); // TODO
   m_inputs->funcs()[node] = id;
 
   return id;

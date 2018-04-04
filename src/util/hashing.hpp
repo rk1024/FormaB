@@ -33,8 +33,7 @@ struct forward_hash {
 template <typename T>
 struct _get_hash {
   inline constexpr std::size_t operator()(T &&val) {
-    return std::hash<std::remove_cv_t<std::remove_reference_t<T>>>{}(
-        std::forward<T>(val));
+    return std::hash<std::decay_t<T>>{}(std::forward<T>(val));
   }
 };
 

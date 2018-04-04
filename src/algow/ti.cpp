@@ -36,13 +36,15 @@ fun::FPtr<const TypeBase> TIBase::makeVar() {
   return fnew<TypeVar>(name);
 }
 
-fun::FPtr<const TypeBase> TIBase::instantiate(const Scheme &s) {
+std::pair<fun::FPtr<const TypeBase>, Constraints> TIBase::instantiate(
+    const Scheme &s) {
   TIPos _(*this, "\e[1minstantiate\e[0m " + s.to_string());
   Subst subst;
   for (auto var : s.vars()) subst.emplace(var, makeVar());
-  return sub(subst, s.type());
+  return std::pair(sub(subst, s.type()), sub(subst, s.constraints()));
 }
 
+#if defined(DEBUG)
 void TIBase::debugState() const {
   std::ostringstream oss;
 
@@ -51,6 +53,7 @@ void TIBase::debugState() const {
   std::cerr << oss.str() << fun::gsub(stack.back(), "\n", "\n" + oss.str())
             << "\n";
 }
+#endif
 
 std::string TIBase::state() const {
   std::ostringstream oss;

@@ -24,9 +24,113 @@
 
 #include "pipeline/miniDepsGraph.hpp"
 
+#include "intermedia/messaging/builtins.hpp"
 #include "ti.hpp"
 
 namespace fie {
+void FITypeSolver::setupMsgs() {
+  // TODO: Make this less sketchy
+
+  m_msgs.emplace(
+      builtins::FIAdd,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FISub,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FIMul,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FIDiv,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FIMod,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0"),
+                                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FICeq,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{
+                                      fnew<WTypeStruct>(builtins::FIBool,
+                                                        WTypeStruct::Params()),
+                                      fnew<w::TypeVar>("T0"),
+                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FIClt,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{
+                                      fnew<WTypeStruct>(builtins::FIBool,
+                                                        WTypeStruct::Params()),
+                                      fnew<w::TypeVar>("T0"),
+                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      builtins::FICgt,
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{
+                                      fnew<WTypeStruct>(builtins::FIBool,
+                                                        WTypeStruct::Params()),
+                                      fnew<w::TypeVar>("T0"),
+                                      fnew<w::TypeVar>("T0")}),
+                {}));
+
+  m_msgs.emplace(
+      FIMessage(2, "print:"),
+      w::Scheme({"T0", "T1"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 3),
+                                  WTypeStruct::Params{
+                                      fnew<WTypeStruct>(builtins::FIVoidT,
+                                                        WTypeStruct::Params()),
+                                      fnew<w::TypeVar>("T0"),
+                                      fnew<w::TypeVar>("T1")}),
+                {}));
+
+  m_msgs.emplace(
+      FIMessage(1, "toString"),
+      w::Scheme({"T0"},
+                fnew<WTypeStruct>(fnew<FIStruct>("fun", 2),
+                                  WTypeStruct::Params{
+                                      fnew<WTypeStruct>(builtins::FIString,
+                                                        WTypeStruct::Params()),
+                                      fnew<w::TypeVar>("T0")}),
+                {}));
+}
+
 void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
   auto &func = m_inputs->assem()->funcs().value(args.get<0>());
   auto  body = func->body();
@@ -60,13 +164,9 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
 
   auto graph = fnew<Graph>();
 
-  std::unordered_map<FIRegId, fun::FPtr<const FIValue>> values;
-  std::unordered_map<FIRegId, fun::FPtr<Graph::Node>>   nodes;
-  std::unordered_map<fun::FPtr<FIBlock>,
-                     fun::FPtr<Graph::Node>,
-                     std::hash<fun::FPtr<FIBlock>>,
-                     fun::are_same<FIBlock>>
-      blkNodes;
+  std::unordered_map<FIRegId, fun::FPtr<const FIValue>>          values;
+  std::unordered_map<FIRegId, fun::FPtr<Graph::Node>>            nodes;
+  std::unordered_map<fun::FPtr<FIBlock>, fun::FPtr<Graph::Node>> blkNodes;
 
   for (auto it = body.blocks.rbegin(); it != body.blocks.rend(); ++it) {
     auto &block = *it;
@@ -106,7 +206,7 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
   w::Scheme retType;
 
   for (auto var : body.vars) {
-    t.context.env.emplace(var.second, w::Scheme({}, t.makeVar()));
+    t.context.env.emplace(var.second, w::Scheme({}, t.makeVar(), {}));
   }
 
   // for (auto &pair : func->args()) {
@@ -124,9 +224,10 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
   auto runJob = [&](const Job &job) {
     switch (job.type) {
     case Job::Value: {
-      auto [sb, tp] = t.context.values->at(job.reg)->ti(t);
+      auto [sb, cs, tp]     = t.context.values->at(job.reg)->ti(t);
+      t.context.subst       = w::composeSubst(sb, t.context.subst);
+      t.context.constraints = w::mergeConstraints(cs, t.context.constraints);
       t.context.putType(job.reg, tp);
-      t.context.subst = w::composeSubst(sb, t.context.subst);
       break;
     }
     case Job::Block: {
@@ -149,14 +250,22 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
                          t.context.values->at(job.block->ret())->to_string() +
                          "')");
 
-          retType = w::generalize(t.context.env, tp);
+          retType = w::generalize(t.context.env, t.context.constraints, tp);
         }
         else {
           w::TIPos _(t, "\e[1munify return\e[0m");
 
-          auto sb = tp->mgu(t.instantiate(retType), t);
+          auto [tr, cs] = t.instantiate(retType);
 
-          retType = w::generalize(t.context.env, w::sub(sb, tp));
+          auto sb = tp->mgu(tr, t);
+
+          t.context.subst       = w::composeSubst(sb, t.context.subst);
+          t.context.constraints = w::mergeConstraints(cs,
+                                                      t.context.constraints);
+
+          retType = w::generalize(t.context.env,
+                                  t.context.constraints,
+                                  w::sub(sb, tp));
         }
         break;
       }
@@ -166,47 +275,24 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
     }
   };
 
-  // graph->dot(std::cout);
-
   graph->run(runJob);
 
-  // // Now re-unify all the ldvars with their respective variables
-  // for (auto &block : body.blocks) {
-  //   for (auto &ins : block->body()) {
-  //     if (t.context.types.find(ins.value().get()) == t.context.types.end()) {
-  //       std::cerr << "WARNING: Missing type info for register " << ins.id()
-  //                 << " - '" << ins.value()->to_string() << "'" << std::endl;
-  //     }
+  for (auto &constraint : t.context.constraints) {
+    w::sub(t.context.subst, constraint);
+  }
 
-  //     switch (ins.value()->opcode()) {
-  //     case FIOpcode::Ldvar: {
-  //       auto     val = ins.value().get();
-  //       w::TIPos _(t, "\e[1mreunify\e[0m " + val->to_string());
-
-  //       auto  var   = ins.value().as<const FILdvarValue>()->var();
-  //       auto &ldTp  = t.context.types.at(val);
-  //       auto  varTp = t.instantiate(t.context.env.at(var));
-  //       auto  su    = varTp->mgu(ldTp, t);
-
-  //       t.context.env[var] = w::generalize(t.context.env, w::sub(su, varTp));
-
-  //       t.context.types[val] = w::sub(su, ldTp);
-
-  //       break;
-  //     }
-  //     default: break;
-  //     }
-  //   }
-  // }
-
-  WTypeStruct::Params typeParams{t.instantiate(retType)};
+  // TODO: Probably shouldn't discard the constraints
+  WTypeStruct::Params typeParams{
+      t.instantiate(w::sub(t.context.subst, retType)).first};
 
   for (auto &pair : func->args()) {
-    typeParams.push_back(t.instantiate(t.context.getEnv(pair.first)));
+    // TODO: Also maybe don't discard them here?
+    typeParams.push_back(t.instantiate(t.context.getEnv(pair.first)).first);
   }
 
   m_funcs[func] = w::generalize(
-      t.context.env,
+      decltype(t.context.env)(), // TODO: This should probably be something else
+      t.context.constraints,
       fnew<WTypeStruct>(fnew<FIStruct>("fun", func->args().size() + 1),
                         typeParams));
 
@@ -221,6 +307,11 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
               << func->body().vars.value(pair.first).name()
               << ") :: " << t.context.getEnv(pair.first).to_string()
               << std::endl;
+  }
+
+  for (auto &pair : t.context.subst) {
+    std::cerr << "\e[1mSUBST:\e[0m " << pair.first << " ~ "
+              << pair.second->to_string() << std::endl;
   }
 
   std::cerr << "\e[1mRETURN:\e[0m " << retType.to_string() << std::endl;

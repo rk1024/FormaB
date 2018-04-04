@@ -40,9 +40,11 @@ struct TIBase {
 
   fun::FPtr<const TypeBase> makeVar();
 
-  fun::FPtr<const TypeBase> instantiate(const Scheme &);
+  std::pair<fun::FPtr<const TypeBase>, Constraints> instantiate(const Scheme &);
 
+#if defined(DEBUG)
   void debugState() const;
+#endif
 
   std::string state() const;
 };
@@ -61,7 +63,9 @@ class TIPos {
 public:
   TIPos(TIBase &t, const std::string &s) : m_t(&t) {
     t.stack.emplace_back(s);
+#if defined(DEBUG)
     t.debugState();
+#endif
   }
 
   ~TIPos() { m_t->stack.pop_back(); }

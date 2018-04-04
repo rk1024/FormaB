@@ -34,7 +34,8 @@ class TypeBase;
 template <typename T>
 class ExprBase : public fun::FObject {
 public:
-  using TIResult = std::pair<Subst, fun::FPtr<const TypeBase>>;
+  using TIResult =
+      fun::cons_cell<Subst, Constraints, fun::FPtr<const TypeBase>>;
 
 protected:
   virtual TIResult tiImpl(TI<T> &) const = 0;

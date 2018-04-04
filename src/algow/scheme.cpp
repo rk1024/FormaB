@@ -45,10 +45,23 @@ std::string Scheme::to_string() const {
 
   oss << type()->to_string();
 
+  if (constraints().size()) {
+    oss << " where ";
+
+    bool first = true;
+    for (auto &constraint : constraints()) {
+      if (first)
+        first = false;
+      else
+        oss << ", ";
+      oss << constraint->to_string();
+    }
+  }
+
   return oss.str();
 }
 
-std::unordered_set<std::string> Types<Scheme>::__ftv(const Scheme &s) {
+TypeVars Types<Scheme>::__ftv(const Scheme &s) {
   auto ret = ftv(s.type());
   for (auto &var : s.vars()) ret.erase(var);
   return ret;
@@ -57,6 +70,6 @@ std::unordered_set<std::string> Types<Scheme>::__ftv(const Scheme &s) {
 Scheme Types<Scheme>::__sub(const Subst &subst, const Scheme &s) {
   auto subst2 = subst;
   for (auto &var : s.vars()) subst2.erase(var);
-  return Scheme(s.vars(), sub(subst2, s.type()));
+  return Scheme(s.vars(), sub(subst2, s.type()), sub(subst2, s.constraints()));
 }
 } // namespace w

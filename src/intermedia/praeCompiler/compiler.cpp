@@ -198,8 +198,11 @@ EMITFL(XControl) {
 
   closure2->func()->dropScope();
 
-  return blkDone->emitPhi("xi-phi", {then, otherwise});
-}
+  return blkDone->emitPhi("xi-phi",
+                          {std::pair(then, fun::weak(blkThen2->block())),
+                           std::pair(otherwise,
+                                     fun::weak(blkOtherwise2->block()))});
+} // namespace fie
 
 EMITFL(XFunc) {
   MOVE;
@@ -644,6 +647,7 @@ EMITFV(SControl) {
 
     closure->block()->contStatic(blkTest->block());
 
+    // TODO: Needs fixing for (let x = ...; ...) loops
     auto [cond, blkTest2] = emitLoadXParen(blkTest.move(), node->cond(), false);
 
     blkTest2->block()->contBranch(cond,

@@ -71,8 +71,7 @@ namespace pc {
         marked.emplace(blk);
 
         switch (blk->cont()) {
-        case FIBlock::BranchFT:
-        case FIBlock::BranchTF:
+        case FIBlock::Branch:
           q.push(blk->contA().lock());
           q.push(blk->contB().lock());
           break;

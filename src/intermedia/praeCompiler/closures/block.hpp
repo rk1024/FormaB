@@ -60,7 +60,7 @@ namespace pc {
       m_func->body()->blocks.push_back(m_block);
     }
 
-#ifndef NDEBUG
+#if !defined(NDEBUG)
     virtual ~BlockClosure() override {
       if (m_block->cont() == FIBlock::ERR) {
         std::cerr << "ERROR: Block " << m_block->name() << " has cont() == ERR!"
@@ -101,8 +101,9 @@ namespace pc {
                                 fnew<FIMsgValue>(msg, args, m_func->curr())));
     }
 
-    [[nodiscard]] decltype(auto) emitPhi(const std::string &         name,
-                                         const std::vector<FIRegId> &values) {
+    [[nodiscard]] decltype(auto) emitPhi(
+        const std::string &                                            name,
+        const std::vector<std::pair<FIRegId, fun::FWeakPtr<FIBlock>>> &values) {
       return emit(FIInstruction(name,
                                 regId(),
                                 fnew<FIPhiValue>(values, m_func->curr())));

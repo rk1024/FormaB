@@ -101,13 +101,17 @@ void FIScheduler::scheduleEntryPoint(const FPStmts *stmts) {
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
   pipe->type    = m_graph->edge("type", typeRule);
-  pipe->dump    = m_graph->edge("dump", dumpRule);
-  pipe->emit    = m_graph->edge("emit", emitRule);
+#if defined(DEBUG)
+  pipe->dump = m_graph->edge("dump", dumpRule);
+#endif
+  pipe->emit = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
-      pipe->verified >> pipe->type >> pipe->typed >> pipe->dump >> pipe->output;
+      pipe->verified >> pipe->type >> pipe->typed >> pipe->emit >> pipe->output;
 
-  pipe->typed >> pipe->emit >> pipe->output;
+#if defined(DEBUG)
+  pipe->typed >> pipe->dump >> pipe->output;
+#endif
 
   m_entryPoints[stmts] = pipe;
 
@@ -147,13 +151,17 @@ void FIScheduler::scheduleFunc(const FPXFunc *func) {
   pipe->compile = m_graph->edge("compile", compileRule);
   pipe->verify  = m_graph->edge("verify", verifyRule);
   pipe->type    = m_graph->edge("type", typeRule);
-  pipe->dump    = m_graph->edge("dump", dumpRule);
-  pipe->emit    = m_graph->edge("emit", emitRule);
+#if defined(DEBUG)
+  pipe->dump = m_graph->edge("dump", dumpRule);
+#endif
+  pipe->emit = m_graph->edge("emit", emitRule);
 
   pipe->input >> pipe->compile >> pipe->compiled >> pipe->verify >>
-      pipe->verified >> pipe->type >> pipe->typed >> pipe->dump >> pipe->output;
+      pipe->verified >> pipe->type >> pipe->typed >> pipe->emit >> pipe->output;
 
-  pipe->typed >> pipe->emit >> pipe->output;
+#if defined(DEBUG)
+  pipe->typed >> pipe->dump >> pipe->output;
+#endif
 
   m_funcs[func] = pipe;
 

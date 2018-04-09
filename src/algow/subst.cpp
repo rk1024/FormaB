@@ -40,7 +40,9 @@ Subst composeSubst(const Subst &s1, const Subst &s2) {
     }
 #endif
 
-    ret[pair.first] = sub(s1, pair.second);
+    // Do this to make sure s1 dominates
+    if (ret.find(pair.first) == ret.end())
+      ret[pair.first] = sub(s1, pair.second);
   }
   return ret;
 }

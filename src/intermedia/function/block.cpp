@@ -32,9 +32,9 @@ void FIBlock::contBranch(const FIRegId &           cond,
                          bool                      invert,
                          const fun::FPtr<FIBlock> &a,
                          const fun::FPtr<FIBlock> &b) {
-  m_cont  = invert ? BranchFT : BranchTF;
-  m_contA = fun::weak(a);
-  m_contB = fun::weak(b);
+  m_cont  = Branch;
+  m_contA = fun::weak(invert ? b : a);
+  m_contB = fun::weak(invert ? a : b);
   m_ret   = cond;
 }
 
@@ -47,8 +47,7 @@ void FIBlock::contRet(const FIRegId &ret) {
 
 std::vector<FIRegId> FIBlock::deps() const {
   switch (m_cont) {
-  case BranchFT:
-  case BranchTF:
+  case Branch:
   case Return: return {m_ret};
   default: return {};
   }

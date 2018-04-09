@@ -28,6 +28,10 @@
 #include "intermedia/typeSolver/typeSolver.hpp"
 
 namespace fie {
+using FIMessageStruct    = FIParamStruct<FIMessage>;
+using WTypeStruct        = w::Type<FIStruct>;
+using WTypeMessageStruct = w::Type<FIMessageStruct>;
+
 class TIContext {
   std::unordered_map<const FIValue *, fun::FPtr<const w::TypeBase>> types;
 
@@ -110,10 +114,14 @@ public:
   using UnifyResult = CustomType::UnifyResult;
 
 private:
-  FIMessage m_msg;
+  fun::FPtr<const w::TypeBase> m_receiver;
+  FIMessage                    m_msg;
 
 public:
-  WAcceptsMessage(const FIMessage &msg) : m_msg(msg) {}
+  WAcceptsMessage(const fun::FPtr<const w::TypeBase> &receiver,
+                  const FIMessage &                   msg) :
+      m_receiver(receiver),
+      m_msg(msg) {}
 
   UnifyResult mgu(const CustomType &,
                   const fun::FPtr<const w::TypeBase> &,
@@ -133,36 +141,6 @@ public:
 };
 
 using WAcceptsMessageType = w::CustomType<WAcceptsMessage>;
-
-// template <typename T>
-// class WAcceptsMessage : public w::TypeBase {
-
-
-// protected:
-//   virtual UnifyResult mguImpl(const fun::FPtr<const TypeBase> &rhs,
-//                               w::TIBase &t) const override {
-//     abort();
-//   }
-
-// public:
-//   virtual w::TypeVars ftv() const override { abort(); }
-
-//   virtual fun::FPtr<const TypeBase> sub(const w::Subst &s) const override {
-//     abort();
-//   }
-
-//   virtual std::string to_string() const override {
-//     std::ostringstream oss;
-
-//     abort();
-
-//     return oss.str();
-//   }
-
-//   virtual void hashImpl(std::size_t &seed) const override { abort(); }
-
-//   virtual bool operator==(const TypeBase &rhs) const override { abort(); }
-// };
 } // namespace fie
 
 namespace std {

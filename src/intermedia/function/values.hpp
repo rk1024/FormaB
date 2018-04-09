@@ -34,28 +34,57 @@
 #include "regId.hpp"
 
 namespace fie {
+class FIBlock;
 class FIInstruction;
 class TIContext;
 
-enum class FIOpcode : std::int8_t {
+enum class FIOpcode {
   Const,
   Nil,
   Void,
+
   Ldvar,
   Stvar,
+
   Msg,
+
   Tpl,
   Phi,
+};
+
+enum class FIConstType {
+  Bool,
+
+  Float,
+  Double,
+
+  Int8,
+  Int16,
+  Int32,
+  Int64,
+
+  Uint8,
+  Uint16,
+  Uint32,
+  Uint64,
+
+  Func,
+  MsgKw,
+  String,
 };
 
 using WTypeStruct = w::Type<FIStruct>;
 using TI          = w::TI<TIContext>;
 
 class FIValue : public w::ExprBase<TIContext> {
-  const frma::FormaAST *m_pos;
+  const frma::FormaAST *       m_pos;
+  fun::FRef<const w::TypeBase> m_type;
 
 public:
   constexpr auto &pos() const { return m_pos; }
+
+  constexpr auto &type() { return m_type; }
+  constexpr auto &type() const { return m_type; }
 
   FIValue(const frma::FormaAST *pos) : m_pos(pos) {}
 
@@ -85,28 +114,28 @@ public:
 template <typename T>
 struct _fi_const_traits;
 
-#define _CONST_TRAITS(_tp, _struct)                                            \
+#define _CONST_TRAITS(_tp, _type)                                              \
   template <>                                                                  \
   struct _fi_const_traits<_tp> {                                               \
-    static constexpr fun::FPtr<FIStruct> *type = &_struct;                     \
+    static constexpr FIConstType type = FIConstType::_type;                    \
   };
 
-_CONST_TRAITS(bool, builtins::FIBool);
-_CONST_TRAITS(float, builtins::FIFloat);
-_CONST_TRAITS(double, builtins::FIDouble);
+_CONST_TRAITS(bool, Bool);
+_CONST_TRAITS(float, Float);
+_CONST_TRAITS(double, Double);
 
-_CONST_TRAITS(std::int8_t, builtins::FIInt8);
-_CONST_TRAITS(std::int16_t, builtins::FIInt16);
-_CONST_TRAITS(std::int32_t, builtins::FIInt32);
-_CONST_TRAITS(std::int64_t, builtins::FIInt64);
-_CONST_TRAITS(std::uint8_t, builtins::FIUint8);
-_CONST_TRAITS(std::uint16_t, builtins::FIUint16);
-_CONST_TRAITS(std::uint32_t, builtins::FIUint32);
-_CONST_TRAITS(std::uint64_t, builtins::FIUint64);
+_CONST_TRAITS(std::int8_t, Int8);
+_CONST_TRAITS(std::int16_t, Int16);
+_CONST_TRAITS(std::int32_t, Int32);
+_CONST_TRAITS(std::int64_t, Int64);
+_CONST_TRAITS(std::uint8_t, Uint8);
+_CONST_TRAITS(std::uint16_t, Uint16);
+_CONST_TRAITS(std::uint32_t, Uint32);
+_CONST_TRAITS(std::uint64_t, Uint64);
 
-_CONST_TRAITS(FIFunctionAtom, builtins::FIFuncT);
-_CONST_TRAITS(FIMessageKeywordAtom, builtins::FIMsgKeywordT);
-_CONST_TRAITS(FIStringAtom, builtins::FIString);
+_CONST_TRAITS(FIFunctionAtom, Func);
+_CONST_TRAITS(FIMessageKeywordAtom, MsgKw);
+_CONST_TRAITS(FIStringAtom, String);
 
 #undef _CONST_TRAITS
 
@@ -118,7 +147,7 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  virtual fun::FPtr<FIStruct> &type() const = 0;
+  virtual FIConstType constType() const = 0;
 };
 
 template <typename T>
@@ -131,8 +160,8 @@ protected:
 public:
   constexpr auto &value() const { return m_value; }
 
-  virtual fun::FPtr<FIStruct> &type() const override {
-    return *_fi_const_traits<T>::type;
+  virtual FIConstType constType() const override {
+    return _fi_const_traits<T>::type;
   }
 
   FIConstant(const T &value, const frma::FormaAST *pos) :
@@ -185,7 +214,7 @@ public:
 };
 
 class FIPhiValue : public FIValue {
-  std::vector<FIRegId> m_values;
+  std::vector<std::pair<FIRegId, fun::FWeakPtr<FIBlock>>> m_values;
 
 protected:
   virtual TIResult tiImpl(TI &) const override;
@@ -197,7 +226,9 @@ public:
 
   virtual std::vector<FIRegId> deps() const override;
 
-  FIPhiValue(const std::vector<FIRegId> &values, const frma::FormaAST *pos) :
+  FIPhiValue(
+      const std::vector<std::pair<FIRegId, fun::FWeakPtr<FIBlock>>> &values,
+      const frma::FormaAST *                                         pos) :
       FIValue(pos),
       m_values(values) {}
 };

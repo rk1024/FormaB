@@ -33,7 +33,7 @@ public:
 
   void init();
 
-#ifdef _DEBUG
+#if defined(_DEBUG)
   bool debug() const;
 
   void debug(bool value);

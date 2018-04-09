@@ -1,34 +1,29 @@
 @!prae{
-  @@ let x = 1 + 2;
-  @@ let y = 3 + 4;
-  @@ () => 1.0 + 2.0;
+  {
+    let x = 1 + 2;
+    let y = 3 + 4;
+    () => 1.0 + 2.0;
+  };
 
-  @@ let myBool = true;
-  @@ let myInt8 = 1sy;
-  @@ let myInt16 = 1h;
-  @@ let myInt32 = 1;
-  @@ let myInt64 = 1l;
-  @@ let myUint8 = 1y;
-  @@ let myUint16 = 1uh;
-  @@ let myUint32 = 1u;
-  @@ let myUint64 = 1ul;
-  @@ let myFloat = 1f;
-  @@ let myDouble = 1d;
-  @@ let myString = "hi";
-
-  @@ var myString2 = "hey";
-
-  @@ if (true) myString2 = "hi";
-  @@ else myString2 = 0;
-
-  @@ var myString2 = if (true) "hi" else 0;
+  let myBool = true;
+  let myInt8 = 1sy;
+  let myInt16 = 1h;
+  let myInt32 = 1;
+  let myInt64 = 1l;
+  let myUint8 = 1y;
+  let myUint16 = 1uh;
+  let myUint32 = 1u;
+  let myUint64 = 1ul;
+  let myFloat = 1f;
+  let myDouble = 1d;
+  let myString = "hi";
 
   var myString2;
 
   if (let x = true; x)
     myString2 = "hi";
   else
-    myString2 = @[ 0 @] "there";
+    myString2 = "there";
 
   let f = () => "hi";
   let g = (a: a) => if (a) "hi" else "bye";
@@ -37,10 +32,10 @@
 
   let i = () => { return 0; };
 
-  @@ let f = () => "hi";
+  let fn = () => "hi";
   let x = 1 + 2;
   let y = x + 2;
-  @@ return y; @@ x * 3 / y; @@ TODO: Return statements should be invalid here
+  return void; @@ TODO: Return statements should be invalid here
 @}
 
 @!prae{
@@ -53,6 +48,10 @@
   let compare = (min: Bool min) =>
     if (min) (a: a, b: b) => (if (a < b) a else b)
     else (a: a, b: b) => (if (a > b) a else b);
+
+  let x = compare[min: true][a: 1 b: 2];
+
+  let y = compare[min: false][a: 3 b: 4];
 
   let functional = () => 5;
 

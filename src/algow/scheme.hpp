@@ -41,7 +41,7 @@ FUN_CONSPOD(Scheme,
   inline Scheme(const std::vector<std::string> & _vars,
                 const fun::FPtr<const TypeBase> &_type,
                 const Constraints &              _constraints) :
-      FCP_INIT(_vars, _type, _constraints) {}
+      FCP_INIT(Scheme, _vars, _type, _constraints) {}
 
   std::string to_string() const;
 };

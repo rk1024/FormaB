@@ -83,7 +83,8 @@ namespace pc {
                            "' already declared in this scope");
     else if (!holder.nil())
       // TODO: add proper diagnostic logging
-      std::cerr << "WARNING: variable '" + name + "' shadows outer scope";
+      std::cerr << "WARNING: variable '" << name << "' shadows outer scope"
+                << std::endl;
 
     m_vars[name] = mut;
     return recordName(name);

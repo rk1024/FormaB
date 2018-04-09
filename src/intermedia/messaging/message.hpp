@@ -30,7 +30,9 @@ FUN_CONSPOD(FIMessage, std::uint32_t, std::string) {
   FCP_GET(1, name);
 
   inline FIMessage(std::uint32_t _arity, std::string _name) :
-      FCP_INIT(_arity, _name) {}
+      FCP_INIT(FIMessage, _arity, _name) {}
+
+  constexpr const auto &to_string() const { return name(); }
 };
 
 FUN_CONSPOD(FIMessageKeyword, bool, std::string) {
@@ -38,7 +40,9 @@ FUN_CONSPOD(FIMessageKeyword, bool, std::string) {
   FCP_GET(1, name);
 
   inline FIMessageKeyword(bool _arg, std::string _name) :
-      FCP_INIT(_arg, _name) {}
+      FCP_INIT(FIMessageKeyword, _arg, _name) {}
+
+  constexpr const auto &to_string() const { return name(); }
 };
 } // namespace fie
 

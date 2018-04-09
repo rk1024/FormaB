@@ -22,6 +22,7 @@
 
 #include <sstream>
 
+#include "intermedia/messaging/builtins.hpp"
 #include "intermedia/typeSolver/ti.hpp"
 
 namespace fie {
@@ -41,11 +42,12 @@ static std::string opcodeName(FIOpcode op) {
 std::string FIValue::to_string() const {
   std::ostringstream oss;
 
-  oss << "[" << opcodeName(opcode()) << "] " << m_pos->toString();
+  oss << "\e[38;5;6m[" << opcodeName(opcode()) << "] \e[0m"
+      << m_pos->toString();
 
   auto &loc = m_pos->loc();
 
-  oss << " at ";
+  oss << "\e[38;5;8m at ";
 
   if (loc.begin.filename)
     oss << *loc.begin.filename;
@@ -78,6 +80,8 @@ std::string FIValue::to_string() const {
     oss << loc.end.column;
   }
 
+  oss << "\e[0m";
+
   return oss.str();
 }
 
@@ -107,27 +111,27 @@ FIOpcode FIConstantBase::opcode() const { return FIOpcode::Const; }
 
 std::vector<FIRegId> FIConstantBase::deps() const { return {}; }
 
-#define CONST_TIFUNC(_tp)                                                      \
+#define CONST_TIFUNC(_tp, _struct)                                             \
   template <>                                                                  \
   TIFUNC(FIConstant<_tp>) {                                                    \
     return TIResult(w::Subst(),                                                \
                     w::Constraints(),                                          \
-                    fnew<WTypeStruct>(*_fi_const_traits<_tp>::type,            \
-                                      WTypeStruct::Params()));                 \
+                    fnew<WTypeStruct>(_struct, WTypeStruct::Params()));        \
   }
 
-CONST_TIFUNC(bool)
-CONST_TIFUNC(float)
-CONST_TIFUNC(double)
+CONST_TIFUNC(bool, builtins::FIBool)
 
-CONST_TIFUNC(std::int8_t)
-CONST_TIFUNC(std::int16_t)
-CONST_TIFUNC(std::int32_t)
-CONST_TIFUNC(std::int64_t)
-CONST_TIFUNC(std::uint8_t)
-CONST_TIFUNC(std::uint16_t)
-CONST_TIFUNC(std::uint32_t)
-CONST_TIFUNC(std::uint64_t)
+CONST_TIFUNC(float, builtins::FIFloat)
+CONST_TIFUNC(double, builtins::FIDouble)
+
+CONST_TIFUNC(std::int8_t, builtins::FIInt8)
+CONST_TIFUNC(std::int16_t, builtins::FIInt16)
+CONST_TIFUNC(std::int32_t, builtins::FIInt32)
+CONST_TIFUNC(std::int64_t, builtins::FIInt64)
+CONST_TIFUNC(std::uint8_t, builtins::FIUint8)
+CONST_TIFUNC(std::uint16_t, builtins::FIUint16)
+CONST_TIFUNC(std::uint32_t, builtins::FIUint32)
+CONST_TIFUNC(std::uint64_t, builtins::FIUint64)
 
 template <>
 TIFUNC(FIConstant<FIFunctionAtom>) {
@@ -136,44 +140,57 @@ TIFUNC(FIConstant<FIFunctionAtom>) {
   return TIResult(w::Subst(), cs, tp);
 }
 
-CONST_TIFUNC(FIMessageKeywordAtom)
-CONST_TIFUNC(FIStringAtom)
+CONST_TIFUNC(FIMessageKeywordAtom, builtins::FIMsgKwT)
+CONST_TIFUNC(FIStringAtom, builtins::FIString)
 
 FIOpcode FIMsgValue::opcode() const { return FIOpcode::Msg; }
 
 std::vector<FIRegId> FIMsgValue::deps() const { return m_args; }
 
 TIFUNC(FIMsgValue) {
-  auto a = t.makeVar();
-
-  WTypeStruct::Params params{a};
-
-  for (auto &arg : m_args) params.push_back(t.context.getType(arg));
-
   auto &msg = t.context.inputs->assem()->msgs().value(m_msg);
-  auto  it  = t.context.solverMsgs().find(msg);
 
-  if (it == t.context.solverMsgs().end()) {
-    // TODO: Implement diagnostic logging
-    // throw std::runtime_error("undeclared message " + msg.name() + "\n" +
-    //                          t.state());
-
-    auto tp = fnew<WAcceptsMessageType>(fnew<WAcceptsMessage>(msg),
-                                        WAcceptsMessageType::Params{});
-
-    return TIResult(a->mgu(tp, t),
-                    {fref<WAcceptsMessageConstraint>(
-                        a, WAcceptsMessageSet(msg, t.context.solverAccepts()))},
-                    a);
-  }
+  if (msg == builtins::FICurry)
+    abort();
+  else if (msg == builtins::FICoerce)
+    abort();
   else {
-    auto [tp, cs] = t.instantiate(w::sub(t.context.subst, it->second));
+    auto a = t.makeVar();
 
-    auto su = tp->mgu(fnew<WTypeStruct>(fnew<FIStruct>("fun", params.size()),
-                                        params),
-                      t);
+    WTypeStruct::Params params{a};
 
-    return TIResult(su, {}, w::sub(su, a));
+    for (auto &arg : m_args) params.push_back(t.context.getType(arg));
+
+    auto it = t.context.solverMsgs().find(msg);
+
+    // TODO: This is wrong.  Functions should always take priority over pre-defined messages
+    if (it == t.context.solverMsgs().end()) {
+      // TODO: Implement diagnostic logging
+      // throw std::runtime_error("undeclared message " + msg.name() + "\n" +
+      //                          t.state());
+
+      auto params2  = params;
+      auto receiver = params2[1];
+      params2.erase(params2.begin() + 1); // Remove the receiver
+
+      auto tp = fnew<WAcceptsMessageType>(fnew<WAcceptsMessage>(receiver, msg),
+                                          params2);
+
+      return TIResult(params[1]->mgu(tp, t),
+                      {fref<WAcceptsMessageConstraint>(
+                          a,
+                          WAcceptsMessageSet(msg, t.context.solverAccepts()))},
+                      a);
+    }
+    else {
+      auto [tp, cs] = t.instantiate(w::sub(t.context.subst, it->second));
+
+      auto su = tp->mgu(fnew<WTypeStruct>(fnew<FIStruct>("fun", params.size()),
+                                          params),
+                        t);
+
+      return TIResult(su, {}, w::sub(su, a));
+    }
   }
 }
 
@@ -194,15 +211,19 @@ TIFUNC(FITplValue) {
 
 FIOpcode FIPhiValue::opcode() const { return FIOpcode::Phi; }
 
-std::vector<FIRegId> FIPhiValue::deps() const { return m_values; }
+std::vector<FIRegId> FIPhiValue::deps() const {
+  std::vector<FIRegId> ret;
+  for (auto &val : m_values) ret.emplace_back(val.first);
+  return ret;
+}
 
 TIFUNC(FIPhiValue) {
   fun::FPtr<const w::TypeBase> type = nullptr;
   w::Subst                     subst;
   w::Constraints               constraints;
 
-  for (auto &reg : m_values) {
-    auto tp = t.context.getType(reg);
+  for (auto &pair : m_values) {
+    auto tp = t.context.getType(pair.first);
 
     if (!type.nil()) {
       auto su = w::sub(subst, type)->mgu(w::sub(subst, tp), t);

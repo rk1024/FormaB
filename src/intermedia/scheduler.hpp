@@ -56,7 +56,11 @@ class FIScheduler : public fun::FObject {
 
   struct FuncPipeline : CompilePipeline {
     fun::FPtr<fps::FDepsGraphNode> compiled, verified, typed;
-    fun::FPtr<fps::FDepsGraphEdge> verify, type, dump, emit;
+    fun::FPtr<fps::FDepsGraphEdge> verify, type,
+#if defined(DEBUG)
+        dump,
+#endif
+        emit;
   };
 
   struct EntryPointPipeline : FuncPipeline {};

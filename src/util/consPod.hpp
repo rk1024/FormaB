@@ -31,10 +31,10 @@
 
 // Immutable getter
 #define FCP_GET(id, name)                                                      \
-  inline constexpr const auto &name() const { return get<id>(); }
+  inline constexpr const auto &name() const { return this->template get<id>(); }
 
 // For use in constructor initializer list
-#define FCP_INIT(...) cell_t(fun::cons(__VA_ARGS__))
+#define FCP_INIT(type, ...) type::cell_t(fun::cons(__VA_ARGS__))
 
 #define FCP_HASH(name)                                                         \
   namespace std {                                                              \

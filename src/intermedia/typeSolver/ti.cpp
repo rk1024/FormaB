@@ -40,11 +40,44 @@ WAcceptsMessage::UnifyResult WAcceptsMessage::mgu(
     const CustomType &                  self,
     const fun::FPtr<const w::TypeBase> &rhs,
     w::TIBase &                         t) const {
-  abort();
+  // TODO: Checking structs by name is super sketch
+  if (auto strukt = rhs.as<const WTypeMessageStruct>();
+      strukt && strukt->base()->name() == "fun" &&
+      strukt->base()->params() == fun::cons(m_msg) &&
+      strukt->params().size() == self.m_params.size()) {
+
+    auto s = m_receiver->mgu(rhs, t);
+
+    for (int i = 0; i < self.m_params.size(); ++i) {
+      auto s2 = w::sub(s, self.m_params[i])
+                    ->mgu(w::sub(s, strukt->params()[i]), t);
+      s = w::composeSubst(s2, s);
+    }
+
+    return UnifyResult(true, s);
+  }
+  else if (auto accepts = rhs.as<const WAcceptsMessageType>();
+           accepts && m_msg == accepts->m_base->m_msg) {
+    auto s = m_receiver->mgu(accepts->m_base->m_receiver, t);
+
+    for (int i = 0; i < self.m_params.size(); ++i) {
+      auto s2 = w::sub(s, self.m_params[i])
+                    ->mgu(w::sub(s, accepts->m_params[i]), t);
+      s = w::composeSubst(s2, s);
+    }
+
+    return UnifyResult(true, s);
+  }
+  else
+    return UnifyResult(false, {});
 }
 
 std::string WAcceptsMessage::to_string() const {
-  return "Accepts(" + m_msg.name() + ")";
+  return "Accepts(" +
+#if defined(DEBUG)
+         m_receiver->to_string() + ", " +
+#endif
+         m_msg.name() + ")";
 }
 
 bool WAcceptsMessage::operator==(const WAcceptsMessage &rhs) const {

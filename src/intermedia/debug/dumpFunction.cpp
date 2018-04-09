@@ -74,58 +74,70 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
       case FIOpcode::Const: {
         m_os << "const \e[0m";
 
-        auto tp = value.as<const FIConstantBase>()->type();
+        auto tp = value.as<const FIConstantBase>()->constType();
 
-        m_os << "\e[38;5;3m" << tp->name() << " ";
+        m_os << "\e[38;5;3m"; // << tp->name() << " ";
 
-        if (tp == builtins::FIFuncT) {
+        switch (value.as<const FIConstantBase>()->constType()) {
+          break;
+        case FIConstType::Func: {
           auto fn = value.as<const FIConstant<FIFunctionAtom>>()->value();
           m_os << "\e[38;5;5m" << fn.value();
-        }
-        else if (tp == builtins::FIMsgKeywordT) {
+        } break;
+        case FIConstType::MsgKw: {
           auto kw = value.as<const FIConstant<FIMessageKeywordAtom>>()->value();
           m_os << "\e[38;5;5m" << kw.value() << " \e[38;5;2m"
                << m_inputs->assem()->keywords().value(kw).name();
-        }
-        else if (tp == builtins::FIInt8)
+        } break;
+        case FIConstType::Int8:
           m_os << "\e[38;5;5m"
                << std::int32_t(
                       value.as<const FIConstant<std::int8_t>>()->value());
-        else if (tp == builtins::FIInt16)
+          break;
+        case FIConstType::Int16:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::int16_t>>()->value();
-        else if (tp == builtins::FIInt32)
+          break;
+        case FIConstType::Int32:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::int32_t>>()->value();
-        else if (tp == builtins::FIInt64)
+          break;
+        case FIConstType::Int64:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::int64_t>>()->value();
-        else if (tp == builtins::FIUint8)
+          break;
+        case FIConstType::Uint8:
           m_os << "\e[38;5;5m"
                << std::int32_t(
                       value.as<const FIConstant<std::uint8_t>>()->value());
-        else if (tp == builtins::FIUint16)
+          break;
+        case FIConstType::Uint16:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::uint16_t>>()->value();
-        else if (tp == builtins::FIUint32)
+          break;
+        case FIConstType::Uint32:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::uint32_t>>()->value();
-        else if (tp == builtins::FIUint64)
+          break;
+        case FIConstType::Uint64:
           m_os << "\e[38;5;5m"
                << value.as<const FIConstant<std::uint64_t>>()->value();
-        else if (tp == builtins::FIFloat)
+          break;
+        case FIConstType::Float:
           m_os << "\e[38;5;5m" << value.as<const FIConstant<float>>()->value();
-        else if (tp == builtins::FIDouble)
+          break;
+        case FIConstType::Double:
           m_os << "\e[38;5;5m" << value.as<const FIConstant<double>>()->value();
-        else if (tp == builtins::FIBool)
+          break;
+        case FIConstType::Bool:
           m_os << "\e[38;5;5m" << value.as<const FIConstant<bool>>()->value();
-        else if (tp == builtins::FIString) {
+          break;
+        case FIConstType::String: {
           auto val = value.as<const FIConstant<FIStringAtom>>()->value();
-          m_os << "\e[38;5;5m" << val.value() << " \e[38;5;2m\""
-               << m_inputs->assem()->strings().value(val) << "\"";
+          m_os << "\e[38;5;5m" << val.value() << " \e[38;5;2m"
+               << m_inputs->assem()->strings().value(val);
         }
-        else
-          m_os << "\e[38;5;1m???";
+        }
         break;
       }
       case FIOpcode::Ldvar:
@@ -146,7 +158,10 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
       case FIOpcode::Phi: {
         m_os << "phi  \e[38;5;2m";
         auto phi = ins.value().as<const FIPhiValue>();
-        for (auto val : phi->values()) { m_os << " " << regNames.at(val); }
+        for (auto &[reg, blk] : phi->values()) {
+          m_os << " (" << blockNames.at(blk.lock()) << " -> "
+               << regNames.at(reg) << ")";
+        }
         break;
       }
       case FIOpcode::Stvar: {
@@ -170,12 +185,7 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
     m_os << "  \e[38;5;6m";
 
     switch (block->cont()) {
-    case FIBlock::BranchFT:
-      m_os << "bft \e[38;5;2m" << regNames.at(block->ret()) << "\e[0m "
-           << blockNames.at(block->contA().lock()) << " "
-           << blockNames.at(block->contB().lock());
-      break;
-    case FIBlock::BranchTF:
+    case FIBlock::Branch:
       m_os << "btf \e[38;5;2m" << regNames.at(block->ret()) << "\e[0m "
            << blockNames.at(block->contA().lock()) << " "
            << blockNames.at(block->contB().lock());

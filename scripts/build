@@ -3,16 +3,22 @@
 require_relative "rninja/rninja"
 
 RNinja.config(file: "build.yaml") do
-  init :debug, :diagnostic, :sanitize, :optimize
+  init :debug,
+    :debug_symbols,
+    :diagnostic,
+    :optimize,
+    :sanitize
 
   defaults afl: false,
     build_profile: false,
     dashOFast: false,
     diagnostic: false,
-    gen: :ninja
+    gen: :ninja,
+    no_lto: true
 
   profile :release, {
     debug: false,
+    debug_symbols: false,
     diagnostic: false,
     sanitize: false,
     optimize: true,
@@ -20,6 +26,7 @@ RNinja.config(file: "build.yaml") do
 
   profile :debug, {
     debug: true,
+    debug_symbols: true,
     sanitize: true,
     optimize: false,
   }
@@ -122,8 +129,9 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-fcolor-diagnostics",
       "-ferror-limit=0",
       "-std=c11",
+      *("-g" if config(:debug_symbols)),
+      *("-flto" if config(:optimize) && !config(:no_lto)),
       *(config(:debug) ? [
-        "-g",
         *("-O0" unless config(:optimize)),
         "-DDEBUG",
         "-D_DEBUG",
@@ -152,8 +160,9 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-DDEBUG_DIAGNOSTIC",
         "-D_DEBUG_DIAGNOSTIC",
       ] : []),
+      *("-g3" if config(:debug_symbols)),
+      *("-flto" if config(:optimize) && !config(:no_lto)),
       *(config(:debug) ? [
-        "-g3",
         *("-O0" unless config(:optimize)),
         "-D_GLIBCXX_DEBUG",
         "-D_GLIBCXX_DEBUG_PEDANTIC",
@@ -222,6 +231,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     cc_pchs: cc_pchs,
     cxx_pchs: cxx_pchs,
     ld_flags: [
+      *("-flto" if config(:optimize) && !config(:no_lto)),
       "-ldl",
       *pkldflags,
       *san_flags,

@@ -26,7 +26,7 @@ namespace fie {
 FUN_CONSPOD(FIVariable, std::string) {
   FCP_GET(0, name);
 
-  inline FIVariable(const std::string &_name) : FCP_INIT(_name) {}
+  inline FIVariable(const std::string &_name) : FCP_INIT(FIVariable, _name) {}
 };
 } // namespace fie
 

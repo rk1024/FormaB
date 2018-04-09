@@ -327,7 +327,7 @@ int run(int argc, char **argv) {
         try {
           graph->run();
 
-          inputs->llModule()->print(llvm::outs(), nullptr);
+          inputs->llModule()->print(llvm::errs(), nullptr);
         }
         catch (fun::compiler_error &) {
           assert(tag.errors().size());

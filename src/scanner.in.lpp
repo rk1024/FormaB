@@ -323,7 +323,7 @@ PraeQLLineEsc \\\n
 
 <SSPraeBlock>{
   /*{ignore me}*/
-  <<EOF>> { $ML $E("unterminated Praeforma block") }
+  <<EOF>> { $ML $E("unterminated Præforma block") }
 }
 
 %astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
@@ -353,8 +353,8 @@ PraeQLLineEsc \\\n
 <INITIAL,SSPraeBlock>{
   /*{ignore me}*/
 
-  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BS }
-  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BS }
+  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BSW }
+  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BSW }
 }
 
 <SSPraeSQLiteral>{
@@ -365,7 +365,7 @@ PraeQLLineEsc \\\n
   {PraeQLEscape}+ { $ML $BW }
   {PraeQLLineEsc}+ { $WL $BW }
 
-  %astgen-token SQLiteral /{SQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
+  %astgen-token SQLiteral /{SQuote}{Identifier}*/ { $ML $BW $SSPOP } capture buf end
 }
 
 <SSPraeDQLiteral>{
@@ -376,7 +376,7 @@ PraeQLLineEsc \\\n
   {PraeQLEscape}+ { $ML $BW }
   {PraeQLLineEsc}+ { $WL $BW }
 
-  %astgen-token DQLiteral /{DQuote}{Identifier}*/ { $ML $SSPOP } capture buf end
+  %astgen-token DQLiteral /{DQuote}{Identifier}*/ { $ML $BW $SSPOP } capture buf end
 }
 
 %astgen-token Operator /{OpStart}{Operator}*/ { $SL $ML } capture

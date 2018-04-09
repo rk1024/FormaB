@@ -36,8 +36,10 @@ namespace ll = llvm;
 
 namespace fie {
 void FILLVMEmitter::emitFunc(const std::string &name, FIFunctionAtom id) {
-  auto func = m_inputs->assem()->funcs().value(id);
-  // auto &body = func->body();
+  auto  func = m_inputs->assem()->funcs().value(id);
+  auto &body = func->body();
+
+  auto &llCtx = m_inputs->llCtx();
 
   // TODO: Handle arguments
   auto llFuncType = ll::FunctionType::get(ll::Type::getDoubleTy(
@@ -51,217 +53,171 @@ void FILLVMEmitter::emitFunc(const std::string &name, FIFunctionAtom id) {
 
   m_inputs->llFuncs().emplace(id, llFunc);
 
-  // auto llBB = ll::BasicBlock::Create(m_inputs->llCtx(), "_root", llFunc);
-  // m_llBuilder.SetInsertPoint(llBB);
+  std::unordered_map<fun::FPtr<FIBlock>, ll::BasicBlock *> blocks;
+  std::unordered_map<FIRegId, ll::Value *>                 regs;
+  std::unordered_map<FIRegId, FIMessageKeywordAtom>        kws;
+  std::unordered_map<FIVariableAtom, ll::Value *>          locals;
 
-  // struct stack_el {
-  //   enum { Void, Instruction, Value } type;
+  for (int i = 0; i < body.blocks.size(); ++i) {
+    auto &block   = body.blocks[i];
+    auto  llBlock = ll::BasicBlock::Create(
+        m_inputs->llCtx(), std::to_string(i) + "-" + block->name(), llFunc);
 
-  //   union {
-  //     ll::Value *      value;
-  //     ll::Instruction *ins;
-  //   };
+    blocks[block] = llBlock;
 
-  //   ll::Value *as_val() const {
-  //     switch (type) {
-  //     case Instruction: return ins;
-  //     case Value: return value;
-  //     default: return nullptr;
-  //     }
-  //   }
+    m_llBuilder.SetInsertPoint(llBlock);
 
-  //   stack_el() : type(Void) {}
-  //   stack_el(ll::Value *v) : type(Value), value(v) {}
-  //   stack_el(ll::Instruction *i) : type(Instruction), ins(i) {}
+    for (auto &ins : block->body()) {
+      auto &     val   = ins.value();
+      ll::Value *llVal = nullptr;
 
-  //   stack_el(const stack_el &other) : type(other.type) {
-  //     switch (other.type) {
-  //     case Instruction: ins = other.ins; break;
-  //     case Value: value = other.value; break;
-  //     default: break;
-  //     }
-  //   }
+      switch (val->opcode()) {
+      case FIOpcode::Const: {
+        switch (val.as<const FIConstantBase>()->constType()) {
+        case FIConstType::Bool:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(8,
+                        val.as<const FIConstant<bool>>()->value() ? 1 : 0,
+                        false));
+          break;
 
-  //   stack_el(stack_el &&other) : type(other.type) {
-  //     switch (other.type) {
-  //     case Instruction: ins = other.ins; break;
-  //     case Value: value = other.value; break;
-  //     default: break;
-  //     }
-  //   }
+        case FIConstType::Float:
+          llVal = ll::ConstantFP::get(
+              llCtx, ll::APFloat(val.as<const FIConstant<float>>()->value()));
+          break;
+        case FIConstType::Double:
+          llVal = ll::ConstantFP::get(
+              llCtx, ll::APFloat(val.as<const FIConstant<double>>()->value()));
+          break;
 
-  //   operator ll::Value *() const { return as_val(); }
-  //   operator bool() const { return type != Void; }
-  // };
+        case FIConstType::Int8:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(8,
+                        val.as<const FIConstant<std::int8_t>>()->value(),
+                        true));
+          break;
+        case FIConstType::Int16:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(16,
+                        val.as<const FIConstant<std::int16_t>>()->value(),
+                        true));
+          break;
+        case FIConstType::Int32:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(32,
+                        val.as<const FIConstant<std::int32_t>>()->value(),
+                        true));
+          break;
+        case FIConstType::Int64:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(64,
+                        val.as<const FIConstant<std::int64_t>>()->value(),
+                        true));
+          break;
 
-  std::unordered_map<FIRegId, ll::Value *>        regs;
-  std::unordered_map<FIVariableAtom, ll::Value *> locals;
+        case FIConstType::Uint8:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(8,
+                        val.as<const FIConstant<std::uint8_t>>()->value(),
+                        false));
+          break;
+        case FIConstType::Uint16:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(16,
+                        val.as<const FIConstant<std::uint16_t>>()->value(),
+                        false));
+          break;
+        case FIConstType::Uint32:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(32,
+                        val.as<const FIConstant<std::uint32_t>>()->value(),
+                        false));
+          break;
+        case FIConstType::Uint64:
+          llVal = ll::ConstantInt::get(
+              llCtx,
+              ll::APInt(64,
+                        val.as<const FIConstant<std::uint64_t>>()->value(),
+                        false));
+          break;
 
-  std::cerr << "WARNING: LLVM emitter unimplemented\n";
+        case FIConstType::Func:
+          llVal = m_inputs->llFuncs().at(
+              val.as<const FIConstant<FIFunctionAtom>>()->value());
+          break;
+        case FIConstType::MsgKw:
+          kws[ins.reg()] = val.as<const FIConstant<FIMessageKeywordAtom>>()
+                               ->value();
+          break;
+        case FIConstType::String: {
+          auto str = val.as<const FIConstant<FIStringAtom>>()->value();
+          if (m_inputs->llStrings().find(str) == m_inputs->llStrings().end())
+            m_inputs->llStrings().emplace(
+                str,
+                m_llBuilder.CreateGlobalString(
+                    m_inputs->assem()->strings().value(str),
+                    "s@" + std::to_string(str)));
 
-  // for (auto &ins : body.instructions) {
-  //   switch (ins->opcode()) {
-  //   case FIOpcode::Nop: break;
-  //   case FIOpcode::Dup: stack.emplace(stack.top()); break;
-  //   case FIOpcode::Pop:
-  //     if (stack.top().type == stack_el::Instruction)
-  //       m_llBuilder.Insert(stack.top().ins);
-  //     else if (stack.top()) {
-  //       std::cerr << "\e[1mwarning:\e[0m voiding the following:\n";
-  //       stack.top().as_val()->print(ll::errs(), true);
-  //     }
+          llVal = m_inputs->llStrings().at(str);
 
-  //     stack.pop();
-  //     break;
-  //   case FIOpcode::Ret:
-  //     if (stack.top())
-  //       m_llBuilder.CreateRet(stack.top());
-  //     else
-  //       m_llBuilder.CreateRetVoid();
+          break;
+        }
+        }
+        break;
+      }
+      case FIOpcode::Ldvar:
+        std::cerr << "WARNING: ldvar not supported\n";
+        break;
+      case FIOpcode::Msg: std::cerr << "WARNING: msg not supported\n"; break;
+      case FIOpcode::Nil: std::cerr << "WARNING: nil not supported\n"; break;
+      case FIOpcode::Phi: {
+        auto phi = val.as<const FIPhiValue>();
+        // TODO: Make this better, or do we even need to?
+        auto llPhi = m_llBuilder.CreatePHI(
+            regs[phi->values()[0].first]->getType(), phi->values().size());
 
-  //     stack.pop();
-  //     break;
-  //   // case FIOpcode::Br: break;
-  //   // case FIOpcode::Bez: break;
-  //   // case FIOpcode::Bnz: break;
-  //   case FIOpcode::Load: {
-  //     auto type = structs.intern(ins.as<FILoadInstructionBase>()->type());
+        for (auto &[reg, blk] : phi->values())
+          llPhi->addIncoming(regs[reg], blocks[blk.lock()]);
+        std::cerr << "WARNING: phi not supported\n";
+        break;
+      }
+      case FIOpcode::Stvar:
+        std::cerr << "WARNING: stvar not supported\n";
+        break;
+      case FIOpcode::Tpl: std::cerr << "WARNING: tpl not supported\n"; break;
+      case FIOpcode::Void: /* Leave this blank */ break;
+      default: assert(false); break;
+      }
 
-  //     if (type == tpInt8)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(8,
-  //                     ins.as<FILoadInstruction<std::int8_t>>()->value(),
-  //                     true)));
-  //     else if (type == tpInt16)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(16,
-  //                     ins.as<FILoadInstruction<std::int16_t>>()->value(),
-  //                     true)));
-  //     else if (type == tpInt32)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(32,
-  //                     ins.as<FILoadInstruction<std::int32_t>>()->value(),
-  //                     true)));
-  //     else if (type == tpInt64)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(64,
-  //                     ins.as<FILoadInstruction<std::int64_t>>()->value(),
-  //                     true)));
-  //     else if (type == tpUint8)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(8,
-  //                     ins.as<FILoadInstruction<std::uint8_t>>()->value(),
-  //                     false)));
-  //     else if (type == tpUint16)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(16,
-  //                     ins.as<FILoadInstruction<std::uint16_t>>()->value(),
-  //                     false)));
-  //     else if (type == tpUint32)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(32,
-  //                     ins.as<FILoadInstruction<std::uint32_t>>()->value(),
-  //                     false)));
-  //     else if (type == tpUint64)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(64,
-  //                     ins.as<FILoadInstruction<std::uint64_t>>()->value(),
-  //                     false)));
-  //     else if (type == tpFloat)
-  //       stack.push(ll::ConstantFP::get(
-  //           m_inputs->llCtx(),
-  //           ll::APFloat(ins.as<FILoadInstruction<float>>()->value())));
-  //     else if (type == tpDouble)
-  //       stack.push(ll::ConstantFP::get(
-  //           m_inputs->llCtx(),
-  //           ll::APFloat(ins.as<FILoadInstruction<double>>()->value())));
-  //     else if (type == tpBool)
-  //       stack.push(ll::ConstantInt::get(
-  //           m_inputs->llCtx(),
-  //           ll::APInt(8, ins.as<FILoadInstruction<bool>>()->value(), false)));
-  //     else if (type == tpString) {
-  //       auto val = ins.as<FILoadInstruction<FIStringAtom>>()->value();
-  //       if (m_inputs->llStrings().find(val) == m_inputs->llStrings().end())
-  //         m_inputs->llStrings().emplace(
-  //             val,
-  //             m_llBuilder.CreateGlobalString(
-  //                 m_inputs->assem()->strings().value(val),
-  //                 "s@" + std::to_string(val.value())));
+      regs.emplace(ins.reg(), llVal);
+    }
+  }
 
-  //       stack.emplace(m_inputs->llStrings().at(val));
-  //     }
-  //     else
-  //       abort();
+  for (auto &block : body.blocks) {
+    auto llBlock = blocks[block];
+    m_llBuilder.SetInsertPoint(llBlock);
 
-  //     break;
-  //   }
-  //   case FIOpcode::Ldnil:
-  //     stack.push(ll::ConstantPointerNull::get(
-  //         ll::PointerType::get(ll::IntegerType::get(m_inputs->llCtx(), 32),
-  //                              0)));
-  //     break;
-  //   case FIOpcode::Ldvoid: stack.emplace(); break;
-  //   case FIOpcode::Ldvar:
-  //     stack.emplace(locals.at(ins.as<FIVarInstruction>()->var()));
-  //     break;
-  //   case FIOpcode::Stvar:
-  //     locals[ins.as<FIVarInstruction>()->var()] = std::move(
-  //         stack.top()); // TODO: pretty sure this isn't right
-
-  //     stack.pop();
-  //     break;
-  //   case FIOpcode::Msg: {
-  //     auto msg = ins.as<FIMessageInstruction>()->msg();
-
-  //     if (msg == msgAdd) {
-  //       auto r = stack.top();
-  //       stack.pop();
-  //       auto l = stack.top();
-  //       stack.pop();
-
-  //       stack.push(m_llBuilder.CreateFAdd(l, r, "t@add"));
-  //     }
-  //     else if (msg == msgSub) {
-  //       auto r = stack.top();
-  //       stack.pop();
-  //       auto l = stack.top();
-  //       stack.pop();
-
-  //       stack.push(m_llBuilder.CreateFSub(l, r, "t@sub"));
-  //     }
-  //     else if (msg == msgMul) {
-  //       auto r = stack.top();
-  //       stack.pop();
-  //       auto l = stack.top();
-  //       stack.pop();
-
-  //       stack.push(m_llBuilder.CreateFMul(l, r, "t@mul"));
-  //     }
-  //     else if (msg == msgDiv) {
-  //       auto r = stack.top();
-  //       stack.pop();
-  //       auto l = stack.top();
-  //       stack.pop();
-
-  //       stack.push(m_llBuilder.CreateFDiv(l, r, "t@div"));
-  //     }
-  //     else
-  //       assert(false);
-
-  //     break;
-  //   }
-  //   // case FIOpcode::Tpl: break;
-  //   default: assert(false); break;
-  //   }
-  // }
+    switch (block->cont()) {
+    case FIBlock::Branch:
+      m_llBuilder.CreateCondBr(regs[block->ret()],
+                               blocks[block->contA().lock()],
+                               blocks[block->contB().lock()]);
+      break;
+    case FIBlock::Return: m_llBuilder.CreateRet(regs[block->ret()]); break;
+    case FIBlock::Static:
+      m_llBuilder.CreateBr(blocks[block->contA().lock()]);
+      break;
+    default: assert(false); break;
+    }
+  }
 
   if (ll::verifyFunction(*llFunc, &ll::errs())) std::cerr << std::endl;
 

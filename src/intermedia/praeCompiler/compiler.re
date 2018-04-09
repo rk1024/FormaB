@@ -91,11 +91,7 @@ static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
       assert(expon > 0);
 
       for (; expon > 0; --expon) {
-        if (num > nmax) {
-          closure->error("FUCK " + std::to_string(num) + " " +
-                         std::to_string(nmax));
-          goto overflow;
-        }
+        if (num > nmax) goto overflow;
 
         num *= radix;
       }

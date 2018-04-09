@@ -28,7 +28,7 @@
 
 namespace fie {
 namespace builtins {
-  extern fun::FPtr<FIStruct> FIErrorT, FINilT, FIVoidT, FIFuncT, FIMsgKeywordT,
+  extern fun::FPtr<FIStruct> FIErrorT, FIVoidT, FIMsgKwT,
 
       FIInt8, FIUint8, FIInt16, FIUint16, FIInt32, FIUint32, FIInt64, FIUint64,
 

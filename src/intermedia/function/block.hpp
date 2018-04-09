@@ -30,9 +30,7 @@
 namespace fie {
 class FIBlock : public fun::FObject {
 public:
-  // NOTE: BranchTF: contA is true, contB is false
-  //       BranchFT: contB is true, contA is false
-  enum Continue { Static, BranchTF, BranchFT, Return, ERR = -1 };
+  enum Continue { Static, Branch, Return, ERR = -1 };
 
 private:
   std::string                m_name;

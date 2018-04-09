@@ -177,10 +177,11 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
          ++it2) {
       auto &ins = *it2;
 
-      nodes.emplace(ins.reg(),
-                    graph->node(std::to_string(ins.id()) + ":" +
-                                    ins.value()->to_string(),
-                                ins.reg()));
+      nodes.emplace(
+          ins.reg(),
+          graph->node(std::to_string(ins.id()) + ": " +
+                          fun::gsub(ins.value()->to_string(), "\"", "\\\""),
+                      ins.reg()));
     }
   }
 
@@ -232,8 +233,7 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
     }
     case Job::Block: {
       switch (job.block->cont()) {
-      case FIBlock::BranchFT:
-      case FIBlock::BranchTF: {
+      case FIBlock::Branch: {
         auto tp         = t.context.getType(job.block->ret());
         auto sb         = tp->mgu(fnew<WTypeStruct>(builtins::FIBool,
                                             WTypeStruct::Params()),
@@ -246,9 +246,8 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
 
         if (retType.type().nil()) {
           w::TIPos _(t,
-                     "\e[1mreturn type\e[0m " + tp->to_string() + " (from '" +
-                         t.context.values->at(job.block->ret())->to_string() +
-                         "')");
+                     "\e[1mreturn type\e[0m " + tp->to_string() + " from " +
+                         t.context.values->at(job.block->ret())->to_string());
 
           retType = w::generalize(t.context.env, t.context.constraints, tp);
         }
@@ -281,6 +280,14 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
     w::sub(t.context.subst, constraint);
   }
 
+  for (auto &block : body.blocks) {
+    for (auto &ins : block->body()) {
+      // TODO: This is naughty
+      const_cast<FIValue *>(ins.value().get())->type() = fun::ref(
+          t.context.getType(ins.reg()));
+    }
+  }
+
   // TODO: Probably shouldn't discard the constraints
   WTypeStruct::Params typeParams{
       t.instantiate(w::sub(t.context.subst, retType)).first};
@@ -293,9 +300,11 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
   m_funcs[func] = w::generalize(
       decltype(t.context.env)(), // TODO: This should probably be something else
       t.context.constraints,
-      fnew<WTypeStruct>(fnew<FIStruct>("fun", func->args().size() + 1),
-                        typeParams));
+      fnew<WTypeMessageStruct>(
+          fnew<FIMessageStruct>("fun", func->msg(), func->args().size() + 1),
+          typeParams));
 
+#if defined(DEBUG)
   for (auto &pair : values) {
     std::cerr << "\e[1mRESULT:\e[0m " << pair.second->to_string()
               << " :: " << t.context.getType(pair.first)->to_string()
@@ -318,5 +327,6 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
 
   std::cerr << "\e[1mFUNCTION TYPE:\e[0m " << m_funcs[func].to_string()
             << std::endl;
+#endif
 }
 } // namespace fie

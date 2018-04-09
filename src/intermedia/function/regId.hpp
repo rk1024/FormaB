@@ -30,7 +30,7 @@ FUN_CONSPOD(FIRegId, std::uint32_t) {
 
   FIRegId() = default;
 
-  explicit FIRegId(std::uint32_t _id) : FCP_INIT(_id) {}
+  explicit FIRegId(std::uint32_t _id) : FCP_INIT(FIRegId, _id) {}
 };
 } // namespace fie
 

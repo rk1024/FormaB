@@ -103,7 +103,9 @@ namespace vc {
 
     std::unordered_set<std::size_t> covered;
 
+#if defined(DEBUG)
     std::cerr << "WARNING: verifier unimplemented\n";
+#endif
     // abort();
     // while (m_pc < body.instructions.size()) {
     //   if (!covered.insert(m_pc).second) break;

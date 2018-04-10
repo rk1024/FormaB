@@ -845,13 +845,14 @@ FIFunctionAtom FIPraeCompiler::compileEntryPoint(
 
   fclosure->cleanup();
 
-  std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> funcArgs;
+  // There should be no arguments anyway
+  assert(fclosure->args()->getOwned().empty());
 
-  for (auto info : fclosure->args()->getOwned())
-    funcArgs[fclosure->args()->get(info.get<0>())] = builtins::FIErrorT;
-
-  auto id = m_inputs->assem()->funcs().intern(
-      fnew<FIFunction>(FIMessage(0, ""), funcArgs, body));
+  auto id = m_inputs->assem()->funcs().intern(fnew<FIFunction>(
+      FIMessage(0, ""),
+      std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>>{},
+      std::vector<FIVariableAtom>{},
+      body));
   m_inputs->funcs()[args.get<0>()] = id;
 
   return id;
@@ -880,8 +881,9 @@ FIFunctionAtom FIPraeCompiler::compileFunc(
     }
   }
 
-  std::ostringstream keyword;
-  std::uint32_t      arity = paramStack.size();
+  std::ostringstream          keyword;
+  std::uint32_t               arity = paramStack.size();
+  std::vector<FIVariableAtom> paramOrder;
 
   while (paramStack.size()) {
     auto param = paramStack.top();
@@ -893,10 +895,12 @@ FIFunctionAtom FIPraeCompiler::compileFunc(
     case OF_(pat, AnonAny):
     case OF_(pat, AnonPattern): break;
     case OF_(pat, NamedAny):
-    case OF_(pat, NamedPattern):
-      fclosure->args()->bind(pat->id()->value(), false);
+    case OF_(pat, NamedPattern): {
+      auto atom = fclosure->args()->bind(pat->id()->value(), false);
+      paramOrder.emplace_back(atom);
       keyword << param->id()->value();
       break;
+    }
     }
   }
 
@@ -909,11 +913,13 @@ FIFunctionAtom FIPraeCompiler::compileFunc(
   std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> funcArgs;
 
   for (auto info : fclosure->args()->getOwned())
+    // TODO: handle type annotations
     funcArgs[fclosure->args()->get(info.get<0>())] = builtins::FIErrorT;
 
   auto id = m_inputs->assem()->funcs().intern(
       fnew<FIFunction>(FIMessage(arity, arity ? keyword.str() : "call"),
                        funcArgs,
+                       paramOrder,
                        body)); // TODO
   m_inputs->funcs()[node] = id;
 

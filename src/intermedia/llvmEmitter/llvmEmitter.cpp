@@ -23,6 +23,7 @@
 #include <stack>
 
 #include <llvm/ADT/STLExtras.h>
+#include <llvm/IR/Type.h>
 #include <llvm/IR/Verifier.h>
 
 #include "util/compilerError.hpp"
@@ -181,8 +182,13 @@ void FILLVMEmitter::emitFunc(const std::string &name, FIFunctionAtom id) {
       case FIOpcode::Phi: {
         auto phi = val.as<const FIPhiValue>();
         // TODO: Make this better, or do we even need to?
+
+        std::cerr << "PHI TYPE " << phi->type()->to_string() << "\n";
+
         auto llPhi = m_llBuilder.CreatePHI(
-            regs[phi->values()[0].first]->getType(), phi->values().size());
+            /* regs[phi->values()[0].first]->getType() */
+            m_llTypes.at(phi->type()),
+            phi->values().size());
 
         for (auto &[reg, blk] : phi->values())
           llPhi->addIncoming(regs[reg], blocks[blk.lock()]);
@@ -226,7 +232,31 @@ void FILLVMEmitter::emitFunc(const std::string &name, FIFunctionAtom id) {
 
 FILLVMEmitter::FILLVMEmitter(fun::FPtr<FIInputs> inputs) :
     m_inputs(inputs),
-    m_llBuilder(m_inputs->llCtx()) {}
+    m_llBuilder(m_inputs->llCtx()) {
+  auto &llCtx = inputs->llCtx();
+
+  // TODO: This seems hacky
+#define ADD_BUILTIN(_fi, _ll)                                                  \
+  m_llTypes[fref<WTypeStruct>(builtins::_fi, WTypeStruct::Params{})] = _ll;
+
+  ADD_BUILTIN(FIInt8, ll::IntegerType::get(llCtx, 8));
+  ADD_BUILTIN(FIInt16, ll::IntegerType::get(llCtx, 16));
+  ADD_BUILTIN(FIInt32, ll::IntegerType::get(llCtx, 32));
+  ADD_BUILTIN(FIInt64, ll::IntegerType::get(llCtx, 64));
+
+  ADD_BUILTIN(FIUint8, ll::IntegerType::get(llCtx, 8));
+  ADD_BUILTIN(FIUint16, ll::IntegerType::get(llCtx, 16));
+  ADD_BUILTIN(FIUint32, ll::IntegerType::get(llCtx, 32));
+  ADD_BUILTIN(FIUint64, ll::IntegerType::get(llCtx, 64));
+
+  // Where are LLVM's float types?
+  ADD_BUILTIN(FIFloat, ll::IntegerType::get(llCtx, 32));
+  ADD_BUILTIN(FIDouble, ll::IntegerType::get(llCtx, 64));
+
+  ADD_BUILTIN(FIBool, ll::IntegerType::get(llCtx, 8));
+
+#undef ADD_BUILTIN
+}
 
 void FILLVMEmitter::emitFunc(fun::cons_cell<FIFunctionAtom> args) {
   emitFunc("stuff", args.get<0>());

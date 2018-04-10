@@ -156,11 +156,11 @@ void FIDumpFunction::dumpFunc(fun::cons_cell<FIFunctionAtom> args) {
       }
       case FIOpcode::Nil: m_os << "nil"; break;
       case FIOpcode::Phi: {
-        m_os << "phi  \e[38;5;2m";
+        m_os << "phi  \e[0m";
         auto phi = ins.value().as<const FIPhiValue>();
         for (auto &[reg, blk] : phi->values()) {
-          m_os << " (" << blockNames.at(blk.lock()) << " -> "
-               << regNames.at(reg) << ")";
+          m_os << " (\e[38;5;3m" << blockNames.at(blk.lock())
+               << "\e[0m -> \e[38;5;2m" << regNames.at(reg) << "\e[0m)";
         }
         break;
       }

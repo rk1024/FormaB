@@ -292,9 +292,9 @@ void FITypeSolver::typeFunc(fun::cons_cell<FIFunctionAtom> args) {
   WTypeStruct::Params typeParams{
       t.instantiate(w::sub(t.context.subst, retType)).first};
 
-  for (auto &pair : func->args()) {
+  for (auto &arg : func->argOrder()) {
     // TODO: Also maybe don't discard them here?
-    typeParams.push_back(t.instantiate(t.context.getEnv(pair.first)).first);
+    typeParams.push_back(t.instantiate(t.context.getEnv(arg)).first);
   }
 
   m_funcs[func] = w::generalize(

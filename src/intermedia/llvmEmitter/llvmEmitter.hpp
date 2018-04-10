@@ -31,8 +31,9 @@
 
 namespace fie {
 class FILLVMEmitter : public fun::FObject {
-  fun::FPtr<FIInputs> m_inputs;
-  llvm::IRBuilder<>   m_llBuilder;
+  fun::FPtr<FIInputs>                                            m_inputs;
+  llvm::IRBuilder<>                                              m_llBuilder;
+  std::unordered_map<fun::FRef<const w::TypeBase>, llvm::Type *> m_llTypes;
 
   void emitFunc(const std::string &, FIFunctionAtom);
 

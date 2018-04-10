@@ -41,19 +41,25 @@ struct FIFunctionBody {
 class FIFunction : public fun::FObject {
   FIMessage                                               m_msg;
   std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> m_args;
+  std::vector<FIVariableAtom>                             m_argOrder;
   FIFunctionBody                                          m_body;
 
 public:
   constexpr const auto &msg() const { return m_msg; }
   constexpr const auto &args() const { return m_args; }
+  constexpr const auto &argOrder() const { return m_argOrder; }
   constexpr const auto &body() const { return m_body; }
 
   FIFunction(
       const FIMessage &                                              msg,
       const std::unordered_map<FIVariableAtom, fun::FPtr<FIStruct>> &args,
+      const std::vector<FIVariableAtom> &                            argOrder,
       const FIFunctionBody &                                         body) :
       m_msg(msg),
       m_args(args),
-      m_body(body) {}
+      m_argOrder(argOrder),
+      m_body(body) {
+    assert(m_args.size() == m_argOrder.size());
+  }
 };
 } // namespace fie

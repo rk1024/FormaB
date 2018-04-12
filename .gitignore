@@ -4,5 +4,6 @@ lex.backup
 Gemfile.lock
 build.yaml
 
+_src/
 bin/
 build/

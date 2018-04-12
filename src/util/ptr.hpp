@@ -53,7 +53,7 @@ class FPtr {
   T *m_ptr = nullptr;
 
 public:
-  inline T *get() const { return m_ptr; }
+  T *get() const { return m_ptr; }
 
   explicit FPtr(T *ptr) : m_ptr(ptr) {
     if (m_ptr) m_ptr->acquire();
@@ -78,10 +78,10 @@ public:
     m_ptr = nullptr;
   }
 
-  inline bool nil() const { return !m_ptr; }
+  bool nil() const { return !m_ptr; }
 
   template <typename U>
-  inline U *as() const {
+  U *as() const {
     return dynamic_cast<U *>(m_ptr);
   }
 
@@ -107,42 +107,42 @@ public:
     return *this;
   }
 
-  inline T *operator->() const {
+  T *operator->() const {
     assert(m_ptr);
     return m_ptr;
   }
-  inline T &operator*() const {
+  T &operator*() const {
     assert(m_ptr);
     return *m_ptr;
   }
 
   template <typename U>
-  inline U operator->*(U T::*memb) const {
+  U operator->*(U T::*memb) const {
     assert(m_ptr);
     return m_ptr->*memb;
   }
 
   template <typename U, typename... TArgs>
-  inline FMFPtr<T, U, TArgs...> operator->*(U (T::*memb)(TArgs...)) const {
+  FMFPtr<T, U, TArgs...> operator->*(U (T::*memb)(TArgs...)) const {
     assert(m_ptr);
     return FMFPtr<T, U, TArgs...>(*this, memb);
   }
 
-  inline bool operator==(const FPtr &rhs) const { return m_ptr == rhs.m_ptr; }
-  inline bool operator!=(const FPtr &rhs) const { return m_ptr != rhs.m_ptr; }
+  bool operator==(const FPtr &rhs) const { return m_ptr == rhs.m_ptr; }
+  bool operator!=(const FPtr &rhs) const { return m_ptr != rhs.m_ptr; }
 
   template <typename U>
-  inline auto operator<<(U &&rhs) {
+  auto operator<<(U &&rhs) {
     return m_ptr->operator<<(std::forward<U>(rhs));
   }
 
   template <typename U>
-  inline auto operator>>(U &&rhs) {
+  auto operator>>(U &&rhs) {
     return m_ptr->operator>>(std::forward<U>(rhs));
   }
 
   template <typename... TArgs>
-  inline auto operator[](TArgs &&... args) {
+  auto operator[](TArgs &&... args) {
     return m_ptr->operator[](std::forward<TArgs>(args)...);
   }
 
@@ -278,12 +278,8 @@ public:
     return *this;
   }
 
-  inline bool operator==(const FWeakPtr &rhs) const {
-    return m_ptr == rhs.m_ptr;
-  }
-  inline bool operator!=(const FWeakPtr &rhs) const {
-    return m_ptr != rhs.m_ptr;
-  }
+  bool operator==(const FWeakPtr &rhs) const { return m_ptr == rhs.m_ptr; }
+  bool operator!=(const FWeakPtr &rhs) const { return m_ptr != rhs.m_ptr; }
 
   friend struct std::hash<FWeakPtr>;
 

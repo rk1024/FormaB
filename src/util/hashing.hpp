@@ -32,16 +32,14 @@ struct forward_hash {
 
 template <typename T>
 struct _get_hash {
-  inline constexpr std::size_t operator()(T &&val) {
+  constexpr std::size_t operator()(T &&val) {
     return std::hash<std::decay_t<T>>{}(std::forward<T>(val));
   }
 };
 
 template <>
 struct _get_hash<forward_hash> {
-  inline constexpr std::size_t operator()(forward_hash &&fwd) {
-    return fwd.hash;
-  }
+  constexpr std::size_t operator()(forward_hash &&fwd) { return fwd.hash; }
 };
 
 template <typename...>
@@ -49,7 +47,7 @@ struct combine_hashes;
 
 template <>
 struct combine_hashes<> {
-  inline void operator()(std::size_t &) const {}
+  void operator()(std::size_t &) const {}
 };
 
 template <typename TCar, typename... TCdr>

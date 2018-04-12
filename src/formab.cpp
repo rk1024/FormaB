@@ -19,47 +19,29 @@
  ************************************************************************/
 
 #include <cstdio>
-#include <list>
+#include <vector>
 
 #include <signal.h>
 
-#include <llvm/Support/raw_ostream.h>
-
-#include "pipeline/depsGraph.hpp"
-
-#include "lexerDriver.hpp"
-#include "parser.hpp"
-#include "parserTag.hpp"
-
-#include "ast/walker.hpp"
-
 #include "util/atom.hpp"
 #include "util/cli.hpp"
-#include "util/compilerError.hpp"
 
-#include "intermedia/debug/dumpFunction.hpp"
-#include "intermedia/optimizer/optimizer.hpp"
-#include "intermedia/praeCompiler/compiler.hpp"
-#include "intermedia/scheduler.hpp"
-#include "intermedia/verifier/verifier.hpp"
+#include "diagnostic/logger.hpp"
 
-using namespace frma;
-using namespace fie;
+#include "parser.hpp"
+#include "parser/lexerDriver.hpp"
+#include "parser/parserTag.hpp"
 
-class ArgParser : public fun::FArgParser {
-  fun::FAtomStore<std::string> m_flags, m_dotModes;
-  using Flag    = decltype(m_flags)::Atom;
-  using DotMode = decltype(m_dotModes)::Atom;
+class FMainArgParser : public fun::FArgParser {
+  fun::FAtomStore<std::string> m_flags;
+  using Flag = decltype(m_flags)::Atom;
 
   std::unordered_map<std::string, Flag> m_short;
-  Flag    m_dot, m_help, m_module, m_usage, m_verbose;
-  DotMode m_dotDeps;
+  Flag                                  m_help, m_usage, m_verbose;
 
-  std::list<std::string> m_args;
-  DotMode                m_dotMode = DotMode(-1);
-  std::string            m_moduleName;
-  bool                   m_showHelp = false, m_showUsage = false;
-  int                    m_verboseLvl = 0;
+  std::vector<std::string> m_args;
+  bool                     m_showHelp = false, m_showUsage = false;
+  int                      m_verboseLvl = 0;
 
   Flag resolve(bool shortFlag, const std::string &flag) {
     Flag id;
@@ -75,6 +57,7 @@ class ArgParser : public fun::FArgParser {
     return id;
 
   nonexist:
+    // TODO: Add diagnostic logging
     std::cerr << "Invalid flag '" << flag << "'." << std::endl;
     throw fun::bad_argument();
   }
@@ -82,12 +65,8 @@ class ArgParser : public fun::FArgParser {
   virtual TakesArg takesArg(bool shortFlag, const std::string &flag) override {
     Flag id = resolve(shortFlag, flag);
 
-    if (id == m_dot)
-      return Optional;
-    else if (id == m_help)
+    if (id == m_help)
       m_showHelp = true;
-    else if (id == m_module)
-      return Required;
     else if (id == m_usage)
       m_showUsage = true;
     else if (id == m_verbose)
@@ -96,23 +75,11 @@ class ArgParser : public fun::FArgParser {
     return None;
   }
 
-  virtual TakesArg handleVal(bool               shortFlag,
-                             const std::string &flag,
-                             const std::string &val,
+  virtual TakesArg handleVal(bool /* shortFlag */,
+                             const std::string & /* flag */,
+                             const std::string & /* val */,
                              int) override {
-    Flag id = resolve(shortFlag, flag);
-
-    if (id == m_dot) {
-      if (!m_dotModes.find(val, &m_dotMode)) {
-        std::cerr << "Invalid --dot mode '" << val << "'." << std::endl;
-        throw fun::bad_argument();
-      }
-    }
-    else if (id == m_module) {
-      m_moduleName = val;
-    }
-    else
-      assert(false);
+    // Flag id = resolve(shortFlag, flag);
 
     return None;
   }
@@ -122,26 +89,19 @@ class ArgParser : public fun::FArgParser {
   }
 
 public:
-  inline auto dotDeps() const { return m_dotDeps; }
+  constexpr auto &args() const { return m_args; }
+  constexpr auto &showHelp() const { return m_showHelp; }
+  constexpr auto &showUsage() const { return m_showUsage; }
+  constexpr auto &verboseLvl() const { return m_verboseLvl; }
 
-  inline auto &args() const { return m_args; }
-  inline auto  dotMode() const { return m_dotMode; }
-  inline auto  moduleName() const { return m_moduleName; }
-  inline auto  showHelp() const { return m_showHelp; }
-  inline auto  showUsage() const { return m_showUsage; }
-  inline auto  verboseLvl() const { return m_verboseLvl; }
-
-  ArgParser() {
+  FMainArgParser() {
 #define MKFLAG(name, lname, sname)                                             \
   m_short.emplace(#sname, m_##name = m_flags.intern(#lname));
 
-    MKFLAG(dot, dot, d)
     MKFLAG(help, help, h)
-    MKFLAG(module, module, m)
     MKFLAG(usage, usage, u)
     MKFLAG(verbose, verbose, v)
 
-    m_dotDeps = m_dotModes.intern("deps");
 #undef MKFLAG
   }
 
@@ -152,13 +112,10 @@ public:
   void help() {
     usage();
 
+    // TODO: Find a better solution for this
     std::cerr << "Flags:\n"
                  "  \e[1m--verbose, -v\e[0m: Output extra information.\n"
-                 "  \e[1m--dot [type], -d [type]\e[0m: Output a dotfile.\n"
-                 "    \e[1mTODO:\e[0m document [type]\n"
                  "  \e[1m--help, -h\e[0m: Display this message.\n"
-                 "  \e[1m--module [name], -m [name]\e[0m: Specify module "
-                 "name.\n"
                  "  \e[1m--usage, -u\e[0m: Display brief usage info.\n";
   }
 };
@@ -176,7 +133,7 @@ int run(int, char **);
 int main(int argc, char **argv) {
   if (atexit(postRun)) {
     std::cerr << "Failed to register atexit handler." << std::endl;
-    return 1;
+    return -1;
   }
 
   s_signals[SIGINT] = "SIGINT";
@@ -235,7 +192,12 @@ void postRun() {
 }
 
 void onSignal(int id, siginfo_t *, void *) {
-  std::cerr << "Received " << s_signals[id] << "." << std::endl;
+  std::cerr << "Received ";
+  if (auto it = s_signals.find(id); it != s_signals.end())
+    std::cerr << it->second;
+  else
+    std::cerr << "signal " << id;
+  std::cerr << "." << std::endl;
 
   struct sigaction oact;
   sigaction(id, &s_sigOacts[id], &oact);
@@ -244,10 +206,12 @@ void onSignal(int id, siginfo_t *, void *) {
 }
 
 int run(int argc, char **argv) {
-  FILE *      infile;
-  std::string filename("???"), moduleName;
+  fdi::FLogger logger(std::cerr);
 
-  ArgParser ap;
+  FILE *      infile;
+  std::string filename("???");
+
+  FMainArgParser ap;
 
   try {
     ap.parse(argc, argv);
@@ -256,19 +220,12 @@ int run(int argc, char **argv) {
       ap.help();
       return 0;
     }
-
     if (ap.showUsage()) {
       ap.usage();
       return 0;
     }
 
-    // TODO: This probably needs further validation
-    if (ap.moduleName().empty()) {
-      std::cerr << "Bad module name." << std::endl;
-      throw fun::bad_argument();
-    }
-
-    std::vector<std::string> args(ap.args().begin(), ap.args().end());
+    auto &&args = ap.args();
 
     switch (args.size()) {
     case 0:
@@ -292,9 +249,9 @@ int run(int argc, char **argv) {
 #if defined(NDEBUG)
   try {
 #endif
-    frma::FormaParserTag tag(filename);
-    frma::lexer          lex(tag);
-    frma::parser         parse(&tag, &lex);
+    fps::FParserTag tag(logger, filename);
+    fps::FLexer     lex(tag);
+    fps::parser     parse(&tag, &lex);
 
     lex.inFile(infile);
 
@@ -305,41 +262,9 @@ int run(int argc, char **argv) {
     }
 #endif
 
-    bool success = !parse.parse() && tag.errors().empty();
+    bool success = !parse.parse() && true; // TODO: Add proper error handling
 
-    for (auto r : tag.errors()) r.print(std::cerr);
-
-    assert(tag.prims || !success);
-
-    if (success && tag.prims) {
-      auto graph = fnew<fps::FDepsGraph>();
-
-      auto assem  = fnew<fie::FIAssembly>();
-      auto inputs = fnew<fie::FIInputs>(assem, moduleName, filename);
-
-      auto sched = fnew<fie::FIScheduler>(graph, inputs);
-
-      sched->schedule(tag.prims);
-
-      if (ap.dotMode() == ap.dotDeps())
-        graph->dot(std::cout);
-      else {
-        try {
-          graph->run();
-
-          inputs->llModule()->print(llvm::errs(), nullptr);
-        }
-        catch (fun::compiler_error &) {
-          assert(tag.errors().size());
-        }
-      }
-    }
-
-    std::cerr << tag.errors().size() << " error";
-    if (tag.errors().size() != 1) std::cerr << "s";
-    std::cerr << "." << std::endl;
-
-    return tag.errors().size() ? 1 : 0;
+    return 0;
 #if defined(NDEBUG)
   }
   catch (std::exception &e) {

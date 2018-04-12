@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (astBase.hpp)
+ * FormaB - the bootstrap Forma compiler (position.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,34 +20,42 @@
 
 #pragma once
 
+#include <cstdint>
 #include <sstream>
 #include <string>
 
-#include "diagnostic/location.hpp"
-
-namespace fps {
-class FASTBase {
-protected:
-  bool           m_rooted = false;
-  fdi::FLocation m_loc;
-
+namespace fdi {
+class FPosition {
 public:
-  constexpr auto &rooted() const { return m_rooted; }
-  constexpr auto &loc() const { return m_loc; }
+  std::string   filename;
+  std::uint32_t line = 1, column = 1;
 
-  FASTBase(const fdi::FLocation &loc) : m_loc(loc) {}
+  FPosition() = default;
 
-  virtual ~FASTBase();
+  FPosition(const std::string &_filename,
+            std::uint32_t      _line,
+            std::uint32_t      _column) :
+      filename(_filename),
+      line(_line),
+      column(_column) {}
 
-  virtual void print(std::ostream &) const = 0;
+  void lines(int count = 1) {
+    line += count;
+    column = 1;
+  }
+
+  void columns(int count = 1) { column += count; }
 
   std::string toString() const {
     std::ostringstream oss;
-    oss << this;
+    oss << *this;
     return oss.str();
   }
 
-  friend std::ostream &operator<<(std::ostream &, const FASTBase &);
-  friend std::ostream &operator<<(std::ostream &, const FASTBase *);
+  bool operator==(const FPosition &) const;
+
+  bool operator!=(const FPosition &rhs) const { return !operator==(rhs); }
+
+  friend std::ostream &operator<<(std::ostream &, const FPosition &);
 };
-} // namespace fps
+} // namespace fdi

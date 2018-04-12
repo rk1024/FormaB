@@ -38,9 +38,9 @@ public:
                             COUNT_UNCLAIMED  = 0xfffffffe,
                             COUNT_MAX        = 0xfffffffd;
 
-  inline FObject *    target() const { return m_target; }
-  inline unsigned int trackedCount() const { return m_tracked; }
-  inline unsigned int refCount() const { return m_count; }
+  constexpr auto &target() const { return m_target; }
+  constexpr auto &trackedCount() const { return m_tracked; }
+  constexpr auto &refCount() const { return m_count; }
 
   FRefTracker(FObject *target);
 

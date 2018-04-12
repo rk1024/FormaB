@@ -26,12 +26,12 @@
 
 // Mutable getter/setter ("accessor")
 #define FCP_ACC(id, name)                                                      \
-  inline constexpr auto &name() { return get<id>(); }                          \
+  constexpr auto &name() { return this->template get<id>(); }                  \
   FCP_GET(id, name);
 
 // Immutable getter
 #define FCP_GET(id, name)                                                      \
-  inline constexpr const auto &name() const { return this->template get<id>(); }
+  constexpr const auto &name() const { return this->template get<id>(); }
 
 // For use in constructor initializer list
 #define FCP_INIT(type, ...) type::cell_t(fun::cons(__VA_ARGS__))

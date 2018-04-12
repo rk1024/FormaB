@@ -356,6 +356,7 @@ module ASTGen
     @@class_name_prefix = ""
     @@class_base = ""
     @@class_token = "Token"
+    @@loc_type = "location"
     @@header_dir = ""
     @@header_base = "node.hpp"
     @@header_token = "token.hpp"
@@ -393,6 +394,9 @@ module ASTGen
     def self.class_token=(value)
       (*@@namespace_token, @@class_token) = split_namespace(value)
     end
+
+    def self.loc_type; @@loc_type end
+    def self.loc_type=(value) @@loc_type = value end
 
     def self.header_dir; @@header_dir end
     def self.header_dir=(value) @@header_dir = value end
@@ -635,7 +639,7 @@ module ASTGen
             emit_ctor = lambda do |args|
 
               vis << :public
-              l << "#{class_name}(#{[*args, *memb_args, "const location &"].join(", ")});"
+              l << "#{class_name}(#{[*args, *memb_args, "const #{@@loc_type} &"].join(", ")});"
             end
 
             if syms.length <= 1 && syms.all?{|k, v| (!k || k.length <= 1) && v.length <= 1 }
@@ -714,11 +718,11 @@ module ASTGen
           l.sep << "#{qual_name(class_name)}(#{[
             *args,
             *sig.map{|a| "#{Node.just_class_name(@members[a])} *#{a}" },
-            "const location &loc"
+            "const #{@@loc_type} &loc"
           ].join(", ")})"
           l.fmt with_indent: "  " do
             l << ": #{[
-              "FormaAST(loc)",
+              "#{@@class_base}(loc)",
               *memb_inits,
               *inits,
             ].join(", ")} {"

@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (astBase.hpp)
+ * FormaB - the bootstrap Forma compiler (location.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,36 +18,27 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "location.hpp"
 
-#include <sstream>
-#include <string>
+namespace fdi {
+bool FLocation::operator==(const FLocation &rhs) const {
+  return begin == rhs.begin && end == rhs.end;
+}
 
-#include "diagnostic/location.hpp"
+std::ostream &operator<<(std::ostream &os, const FLocation &loc) {
+  os << loc.begin;
 
-namespace fps {
-class FASTBase {
-protected:
-  bool           m_rooted = false;
-  fdi::FLocation m_loc;
+  if (loc.end != loc.begin) {
+    os << "-";
 
-public:
-  constexpr auto &rooted() const { return m_rooted; }
-  constexpr auto &loc() const { return m_loc; }
-
-  FASTBase(const fdi::FLocation &loc) : m_loc(loc) {}
-
-  virtual ~FASTBase();
-
-  virtual void print(std::ostream &) const = 0;
-
-  std::string toString() const {
-    std::ostringstream oss;
-    oss << this;
-    return oss.str();
+    if (loc.end.filename != loc.begin.filename)
+      os << loc.end;
+    else if (loc.end.line != loc.begin.line)
+      os << loc.end.line << ":" << loc.end.column;
+    else if (loc.end.column != loc.begin.column)
+      os << loc.end.column;
   }
 
-  friend std::ostream &operator<<(std::ostream &, const FASTBase &);
-  friend std::ostream &operator<<(std::ostream &, const FASTBase *);
-};
-} // namespace fps
+  return os;
+}
+} // namespace fdi

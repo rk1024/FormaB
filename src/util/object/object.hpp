@@ -30,11 +30,11 @@ class FObject {
   FRefTracker *m_tracker = new FRefTracker(this);
 
 public:
-  inline FRefTracker *tracker() const {
+  FRefTracker *tracker() const {
     assert(m_tracker);
     return m_tracker;
   }
-  inline unsigned int refCount() const {
+  unsigned int refCount() const {
     assert(m_tracker);
     return m_tracker->m_tracked;
   }

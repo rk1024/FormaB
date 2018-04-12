@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (astBase.hpp)
+ * FormaB - the bootstrap Forma compiler (lexerDriver.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,34 +20,31 @@
 
 #pragma once
 
-#include <sstream>
-#include <string>
-
-#include "diagnostic/location.hpp"
+#include "parserTag.hpp"
 
 namespace fps {
-class FASTBase {
-protected:
-  bool           m_rooted = false;
-  fdi::FLocation m_loc;
+class FLexer {
+  void *m_yyscanner;
 
 public:
-  constexpr auto &rooted() const { return m_rooted; }
-  constexpr auto &loc() const { return m_loc; }
+  FLexer(FParserTag &tag);
 
-  FASTBase(const fdi::FLocation &loc) : m_loc(loc) {}
+  ~FLexer();
 
-  virtual ~FASTBase();
+  void init();
 
-  virtual void print(std::ostream &) const = 0;
+#if defined(_DEBUG)
+  bool debug() const;
 
-  std::string toString() const {
-    std::ostringstream oss;
-    oss << this;
-    return oss.str();
-  }
+  void debug(bool);
+#endif
 
-  friend std::ostream &operator<<(std::ostream &, const FASTBase &);
-  friend std::ostream &operator<<(std::ostream &, const FASTBase *);
+  FILE *inFile() const;
+
+  void inFile(FILE *);
+
+  FILE *outFile() const;
+
+  void outFile(FILE *);
 };
 } // namespace fps

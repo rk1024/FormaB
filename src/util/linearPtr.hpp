@@ -33,10 +33,10 @@ class FLinearPtr {
   T *m_ptr = nullptr;
 
 public:
-  inline T *get() const { return m_ptr; }
+  T *get() const { return m_ptr; }
 
   template <typename U>
-  inline U *as() const {
+  U *as() const {
     return dynamic_cast<U *>(m_ptr);
   }
 
@@ -80,52 +80,42 @@ public:
     return *this;
   }
 
-  inline T *operator->() const {
+  T *operator->() const {
     assert(m_ptr);
     return m_ptr;
   }
 
-  inline T &operator*() const {
+  T &operator*() const {
     assert(m_ptr);
     return *m_ptr;
   }
 
   // TODO: Maybe implement member pointers?
 
-  inline bool operator==(const FLinearPtr &rhs) const {
-    return m_ptr == rhs.m_ptr;
-  }
-  inline bool operator!=(const FLinearPtr &rhs) const {
-    return m_ptr != rhs.m_ptr;
-  }
-  inline bool operator<(const FLinearPtr &rhs) const {
-    return m_ptr < rhs.m_ptr;
-  }
-  inline bool operator>(const FLinearPtr &rhs) const {
-    return m_ptr > rhs.m_ptr;
-  }
-  inline bool operator<=(const FLinearPtr &rhs) const {
-    return m_ptr <= rhs.m_ptr;
-  }
-  inline bool operator>=(const FLinearPtr &rhs) const {
-    return m_ptr >= rhs.m_ptr;
-  }
+  bool operator==(const FLinearPtr &rhs) const { return m_ptr == rhs.m_ptr; }
+  bool operator!=(const FLinearPtr &rhs) const { return m_ptr != rhs.m_ptr; }
+  bool operator<(const FLinearPtr &rhs) const { return m_ptr < rhs.m_ptr; }
+  bool operator>(const FLinearPtr &rhs) const { return m_ptr > rhs.m_ptr; }
+  bool operator<=(const FLinearPtr &rhs) const { return m_ptr <= rhs.m_ptr; }
+  bool operator>=(const FLinearPtr &rhs) const { return m_ptr >= rhs.m_ptr; }
 
-  inline bool operator!() const { return !m_ptr; }
-  inline      operator bool() const { return !!m_ptr; }
+  // TODO: Remove these
+
+  bool operator!() const { return !m_ptr; }
+       operator bool() const { return !!m_ptr; }
 
   template <typename U>
-  inline auto operator<<(U &&rhs) {
+  auto operator<<(U &&rhs) {
     return m_ptr->operator<<(std::forward<U>(rhs));
   }
 
   template <typename U>
-  inline auto operator>>(U &&rhs) {
+  auto operator>>(U &&rhs) {
     return m_ptr->operator>>(std::forward<U>(rhs));
   }
 
   template <typename... TArgs>
-  inline auto operator[](TArgs &&... args) {
+  auto operator[](TArgs &&... args) {
     return m_ptr->operator[](std::forward<TArgs>(args)...);
   }
 

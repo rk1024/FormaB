@@ -21,28 +21,36 @@
 %define parse.error verbose
 %defines
 %language "c++"
-%locations
-%name-prefix "frma"
+// %locations
+%name-prefix "fps"
 
+// TODO: This should only happen in debug mode
 %define parse.trace
 
-%param {frma::FormaParserTag *tag}
-%param {frma::lexer *lex}
+// %define YYSTYPE "fps::parser::semantic_type"
+%define api.location.type {fdi::FLocation}
+
+%param {fps::FParserTag *tag}
+%param {fps::FLexer *lex}
 
 %code requires {
-#include "ast.hpp"
-#include "lexerDriver.hpp"
-#include "parserTag.hpp"
+#include "parser/ast.hpp"
+#include "parser/lexerDriver.hpp"
+#include "parser/parserTag.hpp"
 }
 
 %code provides {
-#define YYSTYPE frma::parser::semantic_type
+#define YYSTYPE fps::parser::semantic_type
+#define YYLTYPE fdi::FLocation
 #define YYSTRIM($$) if (!$$->rooted()) delete $$;
 #undef yylex
 
-int frmalex(YYSTYPE *, frma::location *, void *);
+int frmalex(YYSTYPE *, YYLTYPE *, void *);
 
-static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaParserTag *tag, frma::lexer *) {
+static inline int yylex(YYSTYPE *yylval,
+                        YYLTYPE *yylloc,
+                        fps::FParserTag *tag,
+                        fps::FLexer *) {
   return frmalex(yylval, yylloc, tag->scan);
 }
 }
@@ -60,39 +68,24 @@ static inline int yylex(YYSTYPE *yylval, frma::location *yylloc, frma::FormaPars
 %token-table
 
 %astgen-token-defs
-%token end 0 "end of file"
 
 %astgen-types
-%type <_primaries> Input
-%type <_token> Identifier
-%type <_token> AtomKeyword
 
-%start Input
+%start TranslationUnit
 
 %initial-action {
   lex->init();
-  @$.begin.filename = @$.end.filename = &tag->filename();
+  @$ = fdi::FPosition(tag->filename(), 1, 1);
 }
 
 %%
-Input: PrimariesOpt { $$ = $1; tag->prims = $1; };
+TranslationUnit: Inputs { tag->inputs = $1; };
 
 %astgen-rules
 
-Identifier:
-  UnescapedIdentifier[self] { $$ = $self; } |
-  EscapedIdentifier[self] { $$ = $self; };
-
-AtomKeyword:
-  UnescapedAtomKeyword[self] { $$ = $self; } |
-  EscapedAtomKeyword[self] { $$ = $self; };
-
-CommaOpt:
-  %empty |
-  ",";
 %%
 
-void frma::parser::error(const frma::location &loc, const std::string &msg) {
+void fps::parser::error(const YYLTYPE &loc, const std::string &msg) {
   YYCDEBUG << "Reporting error: " << msg << std::endl;
   if (!(tag->lexFail && loc == tag->lexFailPos)) tag->error(loc, msg);
 }

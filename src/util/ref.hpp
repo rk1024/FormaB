@@ -49,7 +49,7 @@ private:
   FPtr m_ptr;
 
 public:
-  inline T *get() const { return m_ptr.get(); }
+  T *get() const { return m_ptr.get(); }
 
   explicit FRef(T *ptr) : m_ptr(ptr) {}
 

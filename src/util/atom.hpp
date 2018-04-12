@@ -50,15 +50,15 @@ private:
   KeyMap m_keys;
 
 public:
-  inline TKey next() const { return static_cast<TKey>(m_values.size()); }
+  TKey next() const { return static_cast<TKey>(m_values.size()); }
 
-  inline TKey     key(T value) const { return m_keys.at(value); }
-  inline const T &value(TKey key) const { return m_values.at(key); }
-  inline T &      value(TKey key) { return m_values.at(key); }
-  auto            begin() const { return m_keys.begin(); }
-  auto            end() const { return m_keys.end(); }
+  TKey     key(T value) const { return m_keys.at(value); }
+  const T &value(TKey key) const { return m_values.at(key); }
+  T &      value(TKey key) { return m_values.at(key); }
+  auto     begin() const { return m_keys.begin(); }
+  auto     end() const { return m_keys.end(); }
 
-  inline bool find(T value, TKey *key) const {
+  bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
     if (it == m_keys.end()) return false;
 
@@ -66,7 +66,7 @@ public:
     return true;
   }
 
-  inline void put(TKey key, T value) {
+  void put(TKey key, T value) {
     m_values.push_back(value);
     m_keys[value] = key;
   }
@@ -91,15 +91,15 @@ private:
   KeyMap m_keys;
 
 public:
-  inline TKey next() const { return m_nextKey; }
+  TKey next() const { return m_nextKey; }
 
-  inline TKey     key(T value) const { return m_keys.at(value); }
-  inline const T &value(TKey key) const { return m_values.at(key); }
-  inline T &      value(TKey key) { return m_values.at(key); }
-  auto            begin() const { return m_keys.begin(); }
-  auto            end() const { return m_keys.end(); }
+  TKey     key(T value) const { return m_keys.at(value); }
+  const T &value(TKey key) const { return m_values.at(key); }
+  T &      value(TKey key) { return m_values.at(key); }
+  auto     begin() const { return m_keys.begin(); }
+  auto     end() const { return m_keys.end(); }
 
-  inline bool find(T value, TKey *key) const {
+  bool find(T value, TKey *key) const {
     auto it = m_keys.find(value);
     if (it == m_keys.end()) return false;
 
@@ -107,7 +107,7 @@ public:
     return true;
   }
 
-  inline void put(TKey key, T value) {
+  void put(TKey key, T value) {
     m_values[key] = value;
     m_keys[value] = key;
     ++m_nextKey;
@@ -119,12 +119,12 @@ class FAtom {
   T m_value;
 
 public:
-  inline FAtom() : m_value() {}
+  FAtom() : m_value() {}
 
-  inline explicit FAtom(const T &value) : m_value(value) {}
+  explicit FAtom(const T &value) : m_value(value) {}
 
-  inline T &      value() { return m_value; }
-  inline const T &value() const { return m_value; }
+  T &      value() { return m_value; }
+  const T &value() const { return m_value; }
 
   bool operator==(const FAtom &rhs) const { return m_value == rhs.m_value; }
   bool operator!=(const FAtom &rhs) const { return m_value != rhs.m_value; }
@@ -268,7 +268,7 @@ struct hash<fun::FAtom<T, TValue>> {
   std::hash<T> m_hash;
 
 public:
-  inline auto operator()(const fun::FAtom<T, TValue> &atom) const {
+  auto operator()(const fun::FAtom<T, TValue> &atom) const {
     return m_hash(atom.m_value);
   }
 };

@@ -45,7 +45,7 @@ public:
 namespace std {
 template <>
 struct hash<fun::UUID> {
-  inline std::size_t operator()(const fun::UUID &uuid) const {
+  std::size_t operator()(const fun::UUID &uuid) const {
     return hash<decltype(uuid.m_uuid)>{}(uuid.m_uuid);
   }
 };

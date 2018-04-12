@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (astBase.hpp)
+ * FormaB - the bootstrap Forma compiler (position.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,36 +18,16 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "position.hpp"
 
-#include <sstream>
-#include <string>
+namespace fdi {
+bool FPosition::operator==(const FPosition &rhs) const {
+  return filename == rhs.filename && line == rhs.line && column == rhs.column;
+}
 
-#include "diagnostic/location.hpp"
+std::ostream &operator<<(std::ostream &os, const FPosition &pos) {
+  os << pos.filename << ":" << pos.line << ":" << pos.column;
 
-namespace fps {
-class FASTBase {
-protected:
-  bool           m_rooted = false;
-  fdi::FLocation m_loc;
-
-public:
-  constexpr auto &rooted() const { return m_rooted; }
-  constexpr auto &loc() const { return m_loc; }
-
-  FASTBase(const fdi::FLocation &loc) : m_loc(loc) {}
-
-  virtual ~FASTBase();
-
-  virtual void print(std::ostream &) const = 0;
-
-  std::string toString() const {
-    std::ostringstream oss;
-    oss << this;
-    return oss.str();
-  }
-
-  friend std::ostream &operator<<(std::ostream &, const FASTBase &);
-  friend std::ostream &operator<<(std::ostream &, const FASTBase *);
-};
-} // namespace fps
+  return os;
+}
+} // namespace fdi

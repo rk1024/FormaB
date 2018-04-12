@@ -18,24 +18,30 @@
  *
  ************************************************************************/
 
+#pragma once
+
 #include <string>
 
 #include "ast/astBase.hpp"
 
 #pragma astgen friends forward "  "
 
-namespace frma {
-class FToken : public FormaAST {
+namespace fps {
+class FToken : public FASTBase {
   std::string m_value;
 
 public:
-  FToken(const std::string &, const location &loc);
-  FToken(const char *, const location &loc);
+  constexpr auto &value() const { return m_value; }
+
+  FToken(const std::string &value, const fdi::FLocation &loc) :
+      FASTBase(loc),
+      m_value(value) {}
+
+  FToken(const char *value, const fdi::FLocation &loc) :
+      FToken(std::string(value), loc) {}
 
   virtual void print(std::ostream &os) const override;
 
-  const std::string &value() const;
-
 #pragma astgen friends "  "
 };
-} // namespace frma
+} // namespace fps

@@ -50,7 +50,7 @@ protected:
 public:
   void parse(const std::vector<std::string> &);
 
-  inline void parse(int argc, char **argv) {
+  void parse(int argc, char **argv) {
     parse(std::vector<std::string>(argv + 1, argv + argc));
   }
 };

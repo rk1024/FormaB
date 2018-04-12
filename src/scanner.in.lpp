@@ -18,8 +18,7 @@
  *
  ************************************************************************/
 
-/*%array*/
-
+%option nodefault warn backup perf-report
 %option 8bit
 %option batch never-interactive
 %option stack
@@ -29,7 +28,8 @@
 
 %option noyywrap
 
-%option debug nodefault warn backup perf-report
+/* TODO: Only do this in debug builds */
+%option debug
 
 %top{
 #pragma clang diagnostic push
@@ -40,21 +40,18 @@
 }
 
 %{
-#include <iostream>
-#include <map>
-#include <stdexcept>
-#include <string>
-
-#include "parserTag.hpp"
-#include "lexerDriver.hpp"
+#include "parser/parserTag.hpp"
+#include "parser/lexerDriver.hpp"
 #include "parser.hpp"
 
-#define YYSTYPE frma::parser::semantic_type
-#define YYLTYPE frma::location
-#define YY_EXTRA_TYPE frma::FormaParserTag *
-#define YY_DECL int frmalex(YYSTYPE *yylval_param, YYLTYPE *yylloc_param, yyscan_t yyscanner)
+#define YYSTYPE fps::parser::semantic_type
+#define YYLTYPE fdi::FLocation
+#define YY_EXTRA_TYPE fps::FParserTag *
+#define YY_DECL int frmalex(YYSTYPE *yylval_param,                             \
+                            YYLTYPE *yylloc_param,                             \
+                            yyscan_t yyscanner)
 
-typedef frma::parser::token tk;
+using tk = fps::parser::token;
 
 #define $x yyg->yyextra_r
 
@@ -64,18 +61,6 @@ typedef frma::parser::token tk;
   $E(value); \
   yyterminate(); \
 } while (false);
-
-#define $TK(value) return tk::value;
-
-#define $SKT(text) yylval->_tok = new frma::FToken(text, *yylloc);
-
-#define $SK $SKT(yytext)
-#define $SKB $SKT($B)
-
-#define $YKT(type, text) $SKT(text) $TK(type)
-#define $YK(type) $SK $TK(type)
-#define $YKB(type) $SKB $TK(type)
-#define $YKE(type) $SKB $BE $TK(type)
 
 #define $SSBEGIN(value) BEGIN(SS##value);
 #define $SSPUSH(value) yy_push_state(SS##value, yyscanner);
@@ -90,8 +75,6 @@ typedef frma::parser::token tk;
 #define $BW $x->buf() << yytext;
 
 #define $BSW $BS $BW
-
-#define $B $x->buf().str()
 
 #define $SL yylloc->step();
 
@@ -119,307 +102,65 @@ Whitespace [ \r\t]
 Newline [\v\n]
 
 LCommentOpen @@
-LShebangCommentOpen #!
-LCommentClose \n
-LCommentInput [^\n]
+ShebangCommentOpen #!
+LCommentClose [\v\n]
+LCommentInput [^\v\n]
 
 BCommentOpen @\[
 BCommentClose @+\]
-BCommentNoAt [^@\n]
-BCommentAts @+[^\]\n]?
-
-RawBlockStart @!
-RawBlockOpen \{
-RawBlockClose @+\}
-RawBlockNoAt [^@\n]
-RawBlockAts @+[^\}\n]?
-
-PraeBlockID prae
-
-SQuote \'
-DQuote \"
-BQuote \`
-
-IDStart [a-zA-Z]
-IDEscape @
-PPStart @#
-NumDecStart \.
-NumStart [0-9]
-OpStart [`~!#$%^&*=+|;:,<.>/?-]
-Identifier [0-9a-zA-Z_]
-Number [0-9a-zA-Z_.]
-Operator [`~!@#$%^&*_=+|;:,<.>/?-]
-SQChar [^'\\]
-DQChar [^"\\]
-QLEscape \\.
-
-PraeNumSign [-+]
-PraeDecPoint \.
-PraeHexNumStart 0x
-PraeDecNumStart [0-9]
-PraeOctNumStart 0o
-PraeBinNumStart 0b
-PraeHexDigit [0-9a-fA-F_]
-PraeDecDigit [0-9_]
-PraeOctDigit [0-7_]
-PraeBinDigit [01_]
-PraeNumTypeSpecInt [usUS]?[yhilYHIL]?
-PraeNumTypeSpecDec [usUS]?[fdFDyhilYHIL]?
-PraeNumTypeSpecFloat [fdFD]?
-PraeNumExpon [eE]{PraeNumSign}?{PraeDecDigit}+
-PraeSQChar [^'\\\n]
-PraeDQChar [^"\\\n]
-PraeQLEscape \\[^\n]
-PraeQLLineEsc \\\n
+BCommentNoAt [^@\v\n]
+BCommentAts @+[^\]\v\n]?
 
 %x SSStart
-
 %x SSBComment
-
-%x SSRawBlockStart
-%x SSRawBlockID
-%x SSPraeBlockID
-%x SSRawBlock
-%x SSPraeBlock
-%x SSPraeSQLiteral
-%x SSPraeDQLiteral
-
-%x SSEscapedID
 
 %%
 <SSStart>{
-  /*{ignore me}*/
-  {LShebangCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO $SSPOP }
-  . { $SSPOP $LN(0) }
+  {ShebangCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO $SSPOP $BS }
+  . { $SSPOP $LN(0) $BS }
 }
 
-<INITIAL,SSPraeBlock>{
-  /*{ignore me}*/
-  {Whitespace}+ { $SL $ML }
-}
-
-<INITIAL,SSPraeBlock>{
-  /*{ignore me}*/
-  {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
-
-  {BCommentOpen} { $SL $ML $SSPUSH(BComment) }
-}
-
-<SSBComment>{
-  /*{ignore me}*/
-  {BCommentClose} { $SL $ML $SSPOP }
-  {BCommentNoAt}+ { $SL $ML }
-  {BCommentAts}+ { $SL $ML }
-
-  <<EOF>> { $SL $ML $E("unterminated block comment") }
-}
-
-{RawBlockStart} { $SL $ML $SSPUSH(RawBlockStart) }
-
-<SSRawBlockStart>{
-  /*{ignore me}*/
-  {PraeBlockID} { $SL $ML $SSBEGIN(PraeBlockID) }
-
-  %astgen-token RawBlockID /({IDStart}{Identifier}*|{Anon}{Identifier}+)/ { $SL $ML $SSBEGIN(RawBlockID) } capture
-}
-
-<SSRawBlockID>{
-  /*{ignore me}*/
-  {RawBlockOpen} { $SL $ML $SSBEGIN(RawBlock) $BS }
-}
-
-<SSPraeBlockID>{
-  /*{ignore me}*/
-  %astgen-token PraeBlockStart /{RawBlockOpen}/ "@!prae{" { $SL $ML $SSBEGIN(PraeBlock) }
-}
-
-<SSRawBlock>{
-  /*{ignore me}*/
-  {Newline}+ { $WL $BW }
-
-  %astgen-token RawBlockBody /{RawBlockClose}/ "@}" { $ML $SSPOP } capture buf end
-
-  {RawBlockNoAt}+ { $ML $BW }
-  {RawBlockAts}+ { $ML $BW }
-}
-
-<SSPraeBlock>{
-  /*{ignore me}*/
-  %astgen-token PraeBlockEnd /{RawBlockClose}/ "@}" { $SL $ML $SSPOP }
-
-  %astgen-token PraeHexLiteral /{PraeNumSign}?{PraeHexNumStart}{PraeHexDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeDecLiteral /{PraeNumSign}?{PraeDecNumStart}{PraeDecDigit}*{PraeNumExpon}?{PraeNumTypeSpecDec}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeOctLiteral /{PraeNumSign}?{PraeOctNumStart}{PraeOctDigit}+{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeBinLiteral /{PraeNumSign}?{PraeBinNumStart}{PraeBinDigit}+{PraeNumExpon}?{PraeNumTypeSpecInt}/ { $SL $ML } capture //: ignore me
-  %astgen-token PraeFloatLiteral /{PraeNumSign}?({PraeDecNumStart}|{Anon}{PraeDecDigit}+)?{PraeDecPoint}{PraeDecDigit}+{PraeNumExpon}?{PraeNumTypeSpecFloat}/ { $SL $ML } capture //: ignore me
-
-  %astgen-token KWBreak     "break"     { $SL $ML }
-  %astgen-token KWCase      "case"      { $SL $ML }
-  %astgen-token KWCatch     "catch"     { $SL $ML }
-  %astgen-token KWDefault   "default"   { $SL $ML }
-  %astgen-token KWDo        "do"        { $SL $ML }
-  %astgen-token KWElse      "else"      { $SL $ML }
-  %astgen-token KWFalse     "false"     { $SL $ML }
-  %astgen-token KWFinally   "finally"   { $SL $ML }
-  %astgen-token KWFor       "for"       { $SL $ML }
-  %astgen-token KWIf        "if"        { $SL $ML }
-  %astgen-token KWInterface "interface" { $SL $ML }
-  %astgen-token KWLet       "let"       { $SL $ML }
-  %astgen-token KWLoop      "loop"      { $SL $ML }
-  %astgen-token KWNext      "next"      { $SL $ML }
-  %astgen-token KWNil       "nil"       { $SL $ML }
-  %astgen-token KWRecord    "record"    { $SL $ML }
-  %astgen-token KWReturn    "return"    { $SL $ML }
-  %astgen-token KWStruct    "struct"    { $SL $ML }
-  %astgen-token KWSwitch    "switch"    { $SL $ML }
-  %astgen-token KWTrue      "true"      { $SL $ML }
-  %astgen-token KWTry       "try"       { $SL $ML }
-  %astgen-token KWUnless    "unless"    { $SL $ML }
-  %astgen-token KWVar       "var"       { $SL $ML }
-  %astgen-token KWVariant   "variant"   { $SL $ML }
-  %astgen-token KWVoid      "void"      { $SL $ML }
-  %astgen-token KWWhile     "while"     { $SL $ML }
-  %astgen-token KWYield     "yield"     { $SL $ML }
-
-  %astgen-token Anon     "_"   { $SL $ML }
-  %astgen-token Asg      "="   { $SL $ML }
-  %astgen-token Colon    ":"   { $SL $ML }
-  %astgen-token Comma    ","   { $SL $ML }
-  %astgen-token Con      "&&"  { $SL $ML }
-  %astgen-token ConAsg   "&&=" { $SL $ML }
-  %astgen-token Dis      "||"  { $SL $ML }
-  %astgen-token DisAsg   "||=" { $SL $ML }
-  %astgen-token Div      "/"   { $SL $ML }
-  %astgen-token DivAsg   "/="  { $SL $ML }
-  %astgen-token Dot      "."   { $SL $ML }
-  %astgen-token DotDot   ".."  { $SL $ML }
-  %astgen-token Eql      "=="  { $SL $ML }
-  %astgen-token FatArrow "=>"  { $SL $ML }
-  %astgen-token Grt      ">"   { $SL $ML }
-  %astgen-token Geq      ">="  { $SL $ML }
-  %astgen-token Inv      "!"   { $SL $ML }
-  %astgen-token Lss      "<"   { $SL $ML }
-  %astgen-token Leq      "<="  { $SL $ML }
-  %astgen-token Sub      "-"   { $SL $ML }
-  %astgen-token SubAsg   "-="  { $SL $ML }
-  %astgen-token Dec      "--"  { $SL $ML }
-  %astgen-token Mod      "%"   { $SL $ML }
-  %astgen-token ModAsg   "%="  { $SL $ML }
-  %astgen-token Mul      "*"   { $SL $ML }
-  %astgen-token MulAsg   "*="  { $SL $ML }
-  %astgen-token Neq      "!="  { $SL $ML }
-  %astgen-token Pipe     "|"   { $SL $ML }
-  %astgen-token Add      "+"   { $SL $ML }
-  %astgen-token AddAsg   "+="  { $SL $ML }
-  %astgen-token Inc      "++"  { $SL $ML }
-  %astgen-token Quest    "?"   { $SL $ML }
-  %astgen-token Semi     ";"   { $SL $ML }
-}
-
-<SSRawBlock>{
-  /*{ignore me}*/
-  <<EOF>> { $ML $BE $E("unterminated raw block") }
-}
-
-<SSPraeBlock>{
-  /*{ignore me}*/
-  <<EOF>> { $ML $E("unterminated Præforma block") }
-}
-
-%astgen-token Number /{NumDecStart}?{NumStart}{Number}*/ { $SL $ML } capture //: ignore me
-
-<INITIAL,SSPraeBlock>{
-  /*{ignore me}*/
-  %astgen-token LParen "(" { $SL $ML }
-  %astgen-token RParen ")" { $SL $ML }
-  %astgen-token LBracket "[" { $SL $ML }
-  %astgen-token RBracket "]" { $SL $ML }
-  %astgen-token LBrace "{" { $SL $ML }
-  %astgen-token RBrace "}" { $SL $ML }
-
-  %astgen-token UnescapedIdentifier /{IDStart}{Identifier}*/ { $SL $ML } capture
-  %astgen-token UnescapedAtomKeyword /{IDStart}{Identifier}*:/ { $SL $ML } capture
-  %astgen-token PPDirective /{PPStart}{Identifier}*/ { $SL $ML } capture
-
-  {IDEscape} { $SL $ML $SSPUSH(EscapedID) }
-}
-
-<INITIAL,SSPraeBlock,SSEscapedID>{
-  /*{ignore me}*/
-  %astgen-token EscapedIdentifier /{Identifier}+/ { $SL $ML $SSPOP } capture
-  %astgen-token EscapedAtomKeyword /{Identifier}+:/ { $SL $ML $SSPOP } capture
-}
-
-<INITIAL,SSPraeBlock>{
-  /*{ignore me}*/
-
-  {SQuote} { $SL $ML $SSPUSH(PraeSQLiteral) $BSW }
-  {DQuote} { $SL $ML $SSPUSH(PraeDQLiteral) $BSW }
-}
-
-<SSPraeSQLiteral>{
-  /*{ignore me}*/
-  {Newline}+ { $WL $BW }
-
-  {PraeSQChar}+ { $ML $BW }
-  {PraeQLEscape}+ { $ML $BW }
-  {PraeQLLineEsc}+ { $WL $BW }
-
-  %astgen-token SQLiteral /{SQuote}{Identifier}*/ { $ML $BW $SSPOP } capture buf end
-}
-
-<SSPraeDQLiteral>{
-  /*{ignore me}*/
-  {Newline}+ { $WL $BW }
-
-  {PraeDQChar}+ { $ML $BW }
-  {PraeQLEscape}+ { $ML $BW }
-  {PraeQLLineEsc}+ { $WL $BW }
-
-  %astgen-token DQLiteral /{DQuote}{Identifier}*/ { $ML $BW $SSPOP } capture buf end
-}
-
-%astgen-token Operator /{OpStart}{Operator}*/ { $SL $ML } capture
-
-<<EOF>> { $SL $ML $END }
+%astgen-token Fragment /[^@]+/ { $SL $ML } capture
 
 <*>{
-  /*{ignore me}*/
   {Newline}+ { $SL $WL }
+
   . { $SL $ML $E(std::string("unexpected character '") + yytext + "'") }
 }
 %%
 
-namespace frma {
-  lexer::lexer(frma::FormaParserTag &tag) {
+namespace fps {
+  FLexer::FLexer(fps::FParserTag &tag) {
     if (int ret = frmalex_init_extra(&tag, &m_yyscanner))
-      throw std::runtime_error(std::string("Scanner creation failed with code ") + std::to_string(ret));
+      throw std::runtime_error(std::string("scanner constructor failed, code ")
+                               + std::to_string(ret));
 
     tag.scan = m_yyscanner;
   }
 
-  lexer::~lexer() {
+  FLexer::~FLexer() {
     if (int ret = frmalex_destroy(m_yyscanner))
-      throw std::runtime_error(std::string("Scanner destructor failed with code ") + std::to_string(ret));
+      throw std::runtime_error(std::string("scanner destructor failed, code ")
+                               + std::to_string(ret));
   }
 
-  void lexer::init() {
+  void FLexer::init() {
     yy_push_state(SSStart, m_yyscanner);
   }
 
 #if defined(_DEBUG)
-  bool lexer::debug() const { return frmaget_debug(m_yyscanner); }
+  bool FLexer::debug() const { return frmaget_debug(m_yyscanner); }
 
-  void lexer::debug(bool value) { frmaset_debug(value, m_yyscanner); }
+  void FLexer::debug(bool value) { frmaset_debug(value, m_yyscanner); }
 #endif
 
-  FILE *lexer::inFile() const { return frmaget_in(m_yyscanner); }
+  FILE *FLexer::inFile() const { return frmaget_in(m_yyscanner); }
 
-  void lexer::inFile(FILE *value) { frmaset_in(value, m_yyscanner); }
+  void FLexer::inFile(FILE *value) { frmaset_in(value, m_yyscanner); }
 
-  FILE *lexer::outFile() const { return frmaget_out(m_yyscanner); }
+  FILE *FLexer::outFile() const { return frmaget_out(m_yyscanner); }
 
-  void lexer::outFile(FILE *value) { frmaset_out(value, m_yyscanner); }
+  void FLexer::outFile(FILE *value) { frmaset_out(value, m_yyscanner); }
 }
 
 #pragma clang diagnostic pop

@@ -32,16 +32,20 @@
 #include "parser/lexerDriver.hpp"
 #include "parser/parserTag.hpp"
 
+#include "praeforma/scheduler.hpp"
+
 class FMainArgParser : public fun::FArgParser {
+  const fdi::FLogger *m_logger;
+
   fun::FAtomStore<std::string> m_flags;
   using Flag = decltype(m_flags)::Atom;
 
   std::unordered_map<std::string, Flag> m_short;
-  Flag                                  m_help, m_usage, m_verbose;
+  Flag                                  m_help, m_quiet, m_usage, m_verbose;
 
   std::vector<std::string> m_args;
-  bool                     m_showHelp = false, m_showUsage = false;
-  int                      m_verboseLvl = 0;
+  bool m_showHelp = false, m_showUsage = false, m_isQuiet = false;
+  int  m_verboseLvl = 0;
 
   Flag resolve(bool shortFlag, const std::string &flag) {
     Flag id;
@@ -57,8 +61,7 @@ class FMainArgParser : public fun::FArgParser {
     return id;
 
   nonexist:
-    // TODO: Add diagnostic logging
-    std::cerr << "Invalid flag '" << flag << "'." << std::endl;
+    m_logger->error("formab-cli", "Invalid flag '" + flag + "'.");
     throw fun::bad_argument();
   }
 
@@ -67,6 +70,8 @@ class FMainArgParser : public fun::FArgParser {
 
     if (id == m_help)
       m_showHelp = true;
+    else if (id == m_quiet)
+      m_isQuiet = true;
     else if (id == m_usage)
       m_showUsage = true;
     else if (id == m_verbose)
@@ -92,13 +97,15 @@ public:
   constexpr auto &args() const { return m_args; }
   constexpr auto &showHelp() const { return m_showHelp; }
   constexpr auto &showUsage() const { return m_showUsage; }
+  constexpr auto &isQuiet() const { return m_isQuiet; }
   constexpr auto &verboseLvl() const { return m_verboseLvl; }
 
-  FMainArgParser() {
+  FMainArgParser(const fdi::FLogger &logger) : m_logger(&logger) {
 #define MKFLAG(name, lname, sname)                                             \
   m_short.emplace(#sname, m_##name = m_flags.intern(#lname));
 
     MKFLAG(help, help, h)
+    MKFLAG(quiet, quiet, q)
     MKFLAG(usage, usage, u)
     MKFLAG(verbose, verbose, v)
 
@@ -114,9 +121,10 @@ public:
 
     // TODO: Find a better solution for this
     std::cerr << "Flags:\n"
-                 "  \e[1m--verbose, -v\e[0m: Output extra information.\n"
                  "  \e[1m--help, -h\e[0m: Display this message.\n"
-                 "  \e[1m--usage, -u\e[0m: Display brief usage info.\n";
+                 "  \e[1m--quiet, -q\e[0m: Output less information.\n"
+                 "  \e[1m--usage, -u\e[0m: Display brief usage info.\n"
+                 "  \e[1m--verbose, -v\e[0m: Output extra information.\n";
   }
 };
 
@@ -206,15 +214,23 @@ void onSignal(int id, siginfo_t *, void *) {
 }
 
 int run(int argc, char **argv) {
-  fdi::FLogger logger(std::cerr);
+  unsigned int errors = 0;
+
+  fdi::FLogger logger(std::cerr, [&]() { ++errors; });
 
   FILE *      infile;
   std::string filename("???");
 
-  FMainArgParser ap;
+  FMainArgParser ap(logger);
 
   try {
     ap.parse(argc, argv);
+
+    // TODO: Add non-positional logging
+    if (ap.verboseLvl() && ap.isQuiet()) throw fun::bad_argument();
+
+    if (ap.verboseLvl()) logger.verbosity() = fdi::FLogger::Verbose;
+    if (ap.isQuiet()) logger.verbosity() = fdi::FLogger::Quiet;
 
     if (ap.showHelp()) {
       ap.help();
@@ -246,9 +262,7 @@ int run(int argc, char **argv) {
     return 1;
   }
 
-#if defined(NDEBUG)
   try {
-#endif
     fps::FParserTag tag(logger, filename);
     fps::FLexer     lex(tag);
     fps::parser     parse(&tag, &lex);
@@ -262,17 +276,32 @@ int run(int argc, char **argv) {
     }
 #endif
 
-    bool success = !parse.parse() &&
-                   tag.inputs; // TODO: Add proper error handling
+    if (errors) throw fdi::logger_raise();
 
-    if (success) std::cerr << tag.inputs;
+    // NB: Do this separately to avoid it being optimized out
+    bool err = parse.parse();
 
-    return success ? 0 : 1;
-#if defined(NDEBUG)
+    if (err) assert(errors); // There had better be errors if the parser failed
+
+    if (errors) throw fdi::logger_raise();
+
+    std::cerr << tag.inputs << std::endl;
+
+    auto             graph = fnew<fpp::FDepsGraph>();
+    pre::FPScheduler sched(graph);
+
+    if (errors) throw fdi::logger_raise();
   }
-  catch (std::exception &e) {
-    std::cerr << e.what() << std::endl;
+  catch (fdi::logger_raise &) {
+    // TODO: Output warning count
+    if (!logger.quiet()) {
+      std::cerr << errors << " error";
+      if (errors != 1) std::cerr << "s";
+      std::cerr << " generated." << std::endl;
+    }
+
     return -1;
   }
-#endif
+
+  return 0;
 }

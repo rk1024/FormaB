@@ -20,44 +20,148 @@
 
 #pragma once
 
+#include <functional>
 #include <ios>
 
 #include "location.hpp"
 
 namespace fdi {
+class logger_raise : public std::exception {
+  virtual const char *what() const noexcept override { return "logger_raise"; }
+};
+
+// TODO: Have a callback for warnings?
 class FLogger {
-  enum { Quiet, Normal, Verbose } m_verbosity;
-  bool          m_color = true;
-  std::ostream *m_os;
+public:
+  enum Verbosity { Quiet, Normal, Verbose };
+
+private:
+  Verbosity             m_verbosity = Normal;
+  bool                  m_color     = true;
+  std::ostream *        m_os;
+  std::function<void()> m_err;
 
 public:
+  constexpr auto &verbosity() { return m_verbosity; }
+  constexpr auto &verbosity() const { return m_verbosity; }
+
   bool quiet() const { return m_verbosity == Quiet; }
   bool verbose() const { return m_verbosity == Verbose; }
   bool color() const { return m_color; }
 
-  FLogger(std::ostream &os) : m_os(&os) {}
+  template <typename TErr>
+  FLogger(std::ostream &os, const TErr &err) : m_os(&os), m_err(err) {}
 
 private:
+  void writeBody(const std::string &lvlFmt,
+                 const std::string &lvl,
+                 const std::string &str) const {
+    if (m_color) *m_os << "\e[0m" << lvlFmt;
+    *m_os << lvl << ": ";
+
+    if (m_color) *m_os << "\e[0m";
+    *m_os << str << std::endl;
+  }
+
   void write(const std::string &lvlFmt,
              const std::string &lvl,
              const FLocation &  loc,
-             const std::string &str) {
+             const std::string &str) const {
     if (m_color) *m_os << "\e[1m";
-    *m_os << loc << ":";
+    *m_os << loc << ": ";
 
-    if (m_color) *m_os << "\e[0m";
-    *m_os << " ";
-
-    if (m_color) *m_os << lvlFmt;
-    *m_os << lvl << ":";
-
-    if (m_color) *m_os << "\e[0m";
-    *m_os << " " << str << std::endl;
+    writeBody(lvlFmt, lvl, str);
   }
 
-public:
-  void error(const FLocation &loc, const std::string &str) {
-    write("\e[1;38;5;9m", "error", loc, str);
+  void write(const std::string &lvlFmt,
+             const std::string &lvl,
+             const std::string &pre,
+             const std::string &str) const {
+    if (m_color) *m_os << "\e[1m";
+    *m_os << pre << ": ";
+
+    writeBody(lvlFmt, lvl, str);
   }
+
+  void good(const std::string &lvlFmt,
+            const std::string &lvl,
+            const FLocation &  loc,
+            const std::string &str) const {
+    if (!quiet()) write(lvlFmt, lvl, loc, str);
+  }
+
+  void good(const std::string &lvlFmt,
+            const std::string &lvl,
+            const std::string &pre,
+            const std::string &str) const {
+    if (!quiet()) write(lvlFmt, lvl, pre, str);
+  }
+
+  void verb(const std::string &lvlFmt,
+            const std::string &lvl,
+            const FLocation &  loc,
+            const std::string &str) const {
+    if (verbose()) write(lvlFmt, lvl, loc, str);
+  }
+
+  void verb(const std::string &lvlFmt,
+            const std::string &lvl,
+            const std::string &pre,
+            const std::string &str) const {
+    if (verbose()) write(lvlFmt, lvl, pre, str);
+  }
+
+  void bad(const std::string &lvlFmt,
+           const std::string &lvl,
+           const FLocation &  loc,
+           const std::string &str) const {
+    write(lvlFmt, lvl, loc, str);
+    m_err();
+  }
+
+  void bad(const std::string &lvlFmt,
+           const std::string &lvl,
+           const std::string &pre,
+           const std::string &str) const {
+    write(lvlFmt, lvl, pre, str);
+    m_err();
+  }
+
+  [[noreturn]] void raise(const std::string &lvlFmt,
+                          const std::string &lvl,
+                          const FLocation &  loc,
+                          const std::string &str) const {
+    bad(lvlFmt, lvl, loc, str);
+    throw fdi::logger_raise();
+  };
+
+  [[noreturn]] void raise(const std::string &lvlFmt,
+                          const std::string &lvl,
+                          const std::string &pre,
+                          const std::string &str) const {
+    bad(lvlFmt, lvl, pre, str);
+    throw fdi::logger_raise();
+  }
+
+  public:;
+#define _FLOGFN(name, write, lvl, clr, ...)                                    \
+  __VA_ARGS__ void name(const FLocation &loc, const std::string &str) const {  \
+    write("\e[1;38;5;" #clr "m", #lvl, loc, str);                              \
+  }                                                                            \
+  __VA_ARGS__ void name(const std::string &pre, const std::string &str)        \
+      const {                                                                  \
+    write("\e[1;38;5;" #clr "m", #lvl, pre, str);                              \
+  }
+
+  _FLOGFN(debug, good, debug, 8);
+  _FLOGFN(info, good, info, 8);
+  _FLOGFN(warn, good, warning, 13); // TODO: Should this be hidden when quiet?
+  _FLOGFN(debugV, verb, debug, 8);
+  _FLOGFN(infoV, verb, info, 8);
+  _FLOGFN(warnV, verb, warning, 13);
+  _FLOGFN(error, bad, error, 1);
+  _FLOGFN(fatal, bad, fatal, 1);
+  _FLOGFN(errorR, raise, error, 1, [[noreturn]]);
+  _FLOGFN(fatalR, raise, fatal, 1, [[noreturn]]);
 };
 } // namespace fdi

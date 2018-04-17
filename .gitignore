@@ -5,6 +5,7 @@ Gemfile.lock
 build.yaml
 scripts/_ast.rb
 
+_etc/
 _src/
 bin/
 build/

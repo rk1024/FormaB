@@ -1,7 +1,0 @@
-@!prae{
-  let x = 1e3;
-
-  let f = (cond: c, a: a, b: b) => if (c) 1 else 2;
-
-  f[cond: true a: 1 b: 2];
-@}

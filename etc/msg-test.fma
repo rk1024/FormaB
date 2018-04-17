@@ -1,7 +1,0 @@
-@!prae{
-  let f = (a: a, b: b) => (a, b);
-
-  let x = f[a: 1 b: 2];
-
-  let y = f[a: 3 b: 4];
-@}

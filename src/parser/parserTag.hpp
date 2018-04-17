@@ -44,8 +44,8 @@ public:
   constexpr auto &buf() { return m_bufs.top(); }
 
   FParserTag(fdi::FLogger &logger, const std::string &filename) :
-      m_logger(&logger),
-      m_filename(filename) {}
+      m_filename(filename),
+      m_logger(&logger) {}
 
   ~FParserTag() {
     if (inputs) delete inputs;

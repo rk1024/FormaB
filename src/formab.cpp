@@ -262,9 +262,12 @@ int run(int argc, char **argv) {
     }
 #endif
 
-    bool success = !parse.parse() && true; // TODO: Add proper error handling
+    bool success = !parse.parse() &&
+                   tag.inputs; // TODO: Add proper error handling
 
-    return 0;
+    if (success) std::cerr << tag.inputs;
+
+    return success ? 0 : 1;
 #if defined(NDEBUG)
   }
   catch (std::exception &e) {

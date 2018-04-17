@@ -91,6 +91,8 @@ using tk = fps::parser::token;
 #define $WL $WN(yyleng)
 #define $WO $WN(1)
 
+#define $SM $SL $ML
+
 #define $LN(n) yyless(n);
 
 YY_DECL;
@@ -111,8 +113,15 @@ BCommentClose @+\]
 BCommentNoAt [^@\v\n]
 BCommentAts @+[^\]\v\n]?
 
+PIdentStart [a-zA-Z]
+PIdentPart  [a-zA-Z0-9_]
+
+PNumStart [0-9]
+PNumPart  [a-zA-Z0-9_]
+
 %x SSStart
 %x SSBComment
+%x SSPraeforma
 
 %%
 <SSStart>{
@@ -120,12 +129,68 @@ BCommentAts @+[^\]\v\n]?
   . { $SSPOP $LN(0) $BS }
 }
 
-%astgen-token Fragment /[^@]+/ { $SL $ML } capture
+<INITIAL,SSPraeforma>{
+  {LCommentOpen}{LCommentInput}*{LCommentClose} { $SL $WO }
+
+  {BCommentOpen} { $SM $SSPUSH(BComment) }
+
+  <<EOF>> { $END }
+}
+
+<SSBComment>{
+  {BCommentClose} { $SM $SSPOP }
+  {BCommentNoAt}+ { $SM }
+  {BCommentAts}+ { $SM }
+
+  <<EOF>> { $SM $F("unterminated block comment") }
+}
+
+%astgen-token Fragment /([^@]|@[^!@\[])+/ "Fragment" { $SM } capture
+
+%astgen-token PraeStart /@!prae\{/ "@!prae{" { $SM $SSPUSH(Praeforma) }
+
+<SSPraeforma>{
+  %astgen-token PraeEnd /@\}/ "@}" { $SM $SSPOP }
+
+  {Whitespace}+ { $SM }
+
+  /* Keywords */
+  %astgen-token PKWLet "let" { $SM }
+
+  %astgen-token PIdent  /{PIdentStart}{PIdentPart}*|[_@]{PIdentPart}+/ { $SM } capture
+  %astgen-token PNumber /{PNumStart}{PNumPart}*/ { $SM } capture
+
+  /* Grouping */
+  %astgen-token PLParen "(" { $SM }
+  %astgen-token PRParen ")" { $SM }
+  %astgen-token PLBrack "[" { $SM }
+  %astgen-token PRBrack "]" { $SM }
+  %astgen-token PLBrace "{" { $SM }
+  %astgen-token PRBrace "}" { $SM }
+
+  /* General Symbols */
+  %astgen-token PAnon  "_"  { $SM }
+  %astgen-token PGives "=>" { $SM }
+  %astgen-token PSemi  ";"  { $SM }
+
+  /* Operators */
+  %astgen-token PAdd "+"  { $SM }
+  %astgen-token PAsg "="  { $SM }
+  %astgen-token PDiv "/"  { $SM }
+  %astgen-token PEql "==" { $SM }
+  %astgen-token PGeq ">=" { $SM }
+  %astgen-token PGrt ">"  { $SM }
+  %astgen-token PLeq "<=" { $SM }
+  %astgen-token PLss "<"  { $SM }
+  %astgen-token PMod "%"  { $SM }
+  %astgen-token PMul "*"  { $SM }
+  %astgen-token PSub "-"  { $SM }
+}
 
 <*>{
   {Newline}+ { $SL $WL }
 
-  . { $SL $ML $E(std::string("unexpected character '") + yytext + "'") }
+  . { $SM $E(std::string("unexpected character '") + yytext + "'") }
 }
 %%
 

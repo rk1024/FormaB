@@ -79,7 +79,9 @@ static inline int yylex(YYSTYPE *yylval,
 }
 
 %%
-TranslationUnit: Inputs { tag->inputs = $1; };
+TranslationUnit:
+  Inputs { tag->inputs = $1; } |
+  %empty { tag->inputs = nullptr; };
 
 %astgen-rules
 

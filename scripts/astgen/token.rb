@@ -40,7 +40,7 @@ module ASTGen
 
                   throw :err, "'\"'" unless s.scan(/"/)
                 elsif s.scan(/\//)
-                  tok.pattern = s.scan(/[^\/]*/)
+                  tok.pattern = s.scan(/([^\\\/]|\\.)*/).gsub(/\\[\/]/, "\\1")
 
                   throw :err, "'/'" unless s.scan(/\//)
 
@@ -79,7 +79,7 @@ module ASTGen
                   s.scan(/\s+/)
                 end
 
-                while s.scan(/\w+/)
+                while s.scan(/\S+/)
                   case s.matched
                     when "capture"
                       if tok.capture || !tok.pattern
@@ -101,6 +101,10 @@ module ASTGen
                         throw :err, nil
                       end
                       tok.capture = :buf_end
+
+                    else
+                      d.error("bad flag " + s.matched.inspect)
+                      throw :err, nil
                   end
 
                   s.scan(/\s+/)
@@ -111,7 +115,7 @@ module ASTGen
                 nil
               end
 
-              d.error("unexpected #{s.eos ? "end of line" : s.rest.inspect}, expecting #{err}") if err
+              d.error("unexpected #{s.eos? ? "end of line" : s.rest.inspect}, expecting #{err}") if err
 
             when /^\s*%astgen-token\b(?!-)/
               d.error("invalid syntax for %astgen-token")

@@ -306,12 +306,10 @@ module ASTGen
           end
 
           l.fmt with_indent: "  " do
-            @d.p(@syntax, long: true) if @name === :PraeExpression
             @syntax.each_with_index.select{|(_, a), _| !@actions.is_error?(a) }.each do |(syms, alt), i|
-              @d.p([syms, alt], long: true) if @name === :PraeExpression
               l.peek << " |" if i > 0
 
-            l << "#{syms.none? ? "%empty" : syms.map do |sym|
+              l << "#{syms.none? ? "%empty" : syms.map do |sym|
                 case sym
                   when String; sym.inspect
                   when Symbol; "#{sym == :self ? @name : @node.members[sym]}[#{sym}]"

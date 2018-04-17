@@ -22,4 +22,14 @@
 
 namespace fps {
 FASTBase::~FASTBase() {}
+
+std::ostream &operator<<(std::ostream &os, const FASTBase &ast) {
+  ast.print(os);
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const FASTBase *ast) {
+  ast->print(os);
+  return os;
+}
 } // namespace fps

@@ -3,6 +3,7 @@
 lex.backup
 Gemfile.lock
 build.yaml
+scripts/_ast.rb
 
 _src/
 bin/

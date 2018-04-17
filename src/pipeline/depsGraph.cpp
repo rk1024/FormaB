@@ -20,6 +20,8 @@
 
 #include "depsGraph.hpp"
 
+#include <iostream>
+
 #include "util/atom.hpp"
 #include "util/dumpHex.hpp"
 

@@ -21,8 +21,10 @@
 #include "refTracker.hpp"
 
 #include <cassert>
-#include <iostream>
 #include <stdexcept>
+#if !defined(NDEBUG)
+#include <iostream>
+#endif
 
 #include "object.hpp"
 
@@ -38,13 +40,17 @@
         "reference limit "                                                     \
         "exceeded");
 
+#if defined(NDEBUG)
+#define RC_CKINFREE(fn)
+#else
+#define RC_CKINFREE(fn)                                                        \
+  std::cerr << "\e[1;38;5;3mwarning: \e[39m" << fn                             \
+            << "() called on FObject during free; ignoring\e[0m" << std::endl;
+#endif
+
 #define RC_REDUCE(counter, op)                                                 \
   switch (counter) {                                                           \
-  case COUNT_DESTROYING:                                                       \
-    std::cerr << "\e[1;38;5;3mwarning: \e[39m" << __func__                     \
-              << "() called on FObject during free; ignoring\e[0m"             \
-              << std::endl;                                                    \
-    return;                                                                    \
+  case COUNT_DESTROYING: RC_CKINFREE(__func__) return;                         \
   case COUNT_UNCLAIMED: throw std::runtime_error("free before claim");         \
   case 0: throw std::runtime_error("double free");                             \
   }                                                                            \

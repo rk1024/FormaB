@@ -22,7 +22,6 @@
 
 #include <functional>
 #include <iomanip>
-#include <iostream>
 
 namespace fun {
 template <typename T>

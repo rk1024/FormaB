@@ -21,10 +21,13 @@
 #include "object.hpp"
 
 #include <cassert>
+#if !defined(NDEBUG)
 #include <iostream>
+#endif
 
 namespace fun {
 FObject::~FObject() {
+#if !defined(NDEBUG)
   assert(tracker()->m_tracked);
   if (tracker()->m_tracked != FRefTracker::COUNT_DESTROYING) {
     std::cerr << "\e[1;38;5;3mwarning: \e[39mFObject not destroyed by its "
@@ -33,6 +36,7 @@ FObject::~FObject() {
 
     tracker()->m_target = nullptr;
   }
+#endif
 }
 
 void FObject::acquire() const { tracker()->trackAcquire(); }

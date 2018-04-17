@@ -20,8 +20,10 @@
 
 #include "ti.hpp"
 
-#include <iostream>
 #include <sstream>
+#if defined(DEBUG)
+#include <iostream>
+#endif
 
 #include "util/gsub.hpp"
 

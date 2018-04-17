@@ -37,9 +37,6 @@ public:
       FASTBase(loc),
       m_value(value) {}
 
-  FToken(const char *value, const fdi::FLocation &loc) :
-      FToken(std::string(value), loc) {}
-
   virtual void print(std::ostream &os) const override;
 
 #pragma astgen friends "  "

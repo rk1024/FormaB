@@ -55,10 +55,6 @@ public:
     m_logger->error(loc, str);
   }
 
-  void error(const fdi::FLocation &loc, const char *str) {
-    error(loc, std::string(str));
-  }
-
   std::string &filename() { return m_filename; }
 
   void bufStart() { m_bufs.emplace(); }

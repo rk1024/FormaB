@@ -106,6 +106,9 @@ struct cons_cell<TCar, TCdr...> {
 #undef CONS_COMPARE_E
 };
 
+template <typename... TArgs>
+cons_cell(TArgs...)->cons_cell<TArgs...>;
+
 template <std::size_t index, typename TCar, typename... TCdr>
 struct cons_get {
   using next_t = std::enable_if_t<(index > 0), cons_get<index - 1, TCdr...>>;

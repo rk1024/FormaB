@@ -75,6 +75,19 @@ inline fun::cons_cell<TArgs...> _consNodeExtract(
   return _consNodeExtract_impl(nodes, fun::idx_range_for<TArgs...>());
 }
 
+template <typename T, typename U, typename... TArgs, std::size_t... idcs>
+U _consNodeApply_impl(const fun::FMFPtr<T, U, TArgs...> &ptr,
+                      const fun::cons_cell<TArgs...> &   args,
+                      fun::idx_range<idcs...>) {
+  return ptr(args.template get<idcs>()...);
+}
+
+template <typename T, typename U, typename... TArgs>
+U _consNodeApply(const fun::FMFPtr<T, U, TArgs...> &ptr,
+                 const fun::cons_cell<TArgs...> &   args) {
+  return _consNodeApply_impl(ptr, args, fun::idx_range_for<TArgs...>());
+}
+
 template <typename, typename, typename...>
 struct _run_rule;
 
@@ -82,13 +95,12 @@ template <typename T, typename TOut, typename... TArgs>
 class FDataGraphRule : public FDataGraphRuleBase {
   fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> m_ins;
   std::vector<fun::FWeakPtr<FDataGraphNode<TOut>>>    m_outs;
-  fun::FMFPtr<T, TOut, fun::cons_cell<TArgs...>>      m_ptr;
+  fun::FMFPtr<T, TOut, TArgs...>                      m_ptr;
 
   virtual void run() override { _run_rule<T, TOut, TArgs...>{}(this); }
 
 public:
-  FDataGraphRule(fun::FMFPtr<T, TOut, fun::cons_cell<TArgs...>> ptr) :
-      m_ptr(ptr) {}
+  FDataGraphRule(fun::FMFPtr<T, TOut, TArgs...> ptr) : m_ptr(ptr) {}
 
   void in(decltype(m_ins) ins) { m_ins = ins; }
 
@@ -115,7 +127,7 @@ public:
 template <typename T, typename TOut, typename... TArgs>
 struct _run_rule {
   void operator()(FDataGraphRule<T, TOut, TArgs...> *self) {
-    auto ret = self->m_ptr(_consNodeExtract(self->m_ins));
+    auto ret = _consNodeApply(self->m_ptr, _consNodeExtract(self->m_ins));
     for (auto out : self->m_outs) out.lock()->data(ret);
   }
 };
@@ -123,7 +135,7 @@ struct _run_rule {
 template <typename T, typename... TArgs>
 struct _run_rule<T, void, TArgs...> {
   void operator()(FDataGraphRule<T, void, TArgs...> *self) {
-    self->m_ptr(_consNodeExtract(self->m_ins));
+    _consNodeApply(self->m_ptr, _consNodeExtract(self->m_ins));
   }
 };
 
@@ -153,13 +165,13 @@ const fun::FPtr<FDataGraphRule<U, TOut, T>> &FDataGraphNode<T>::operator>>(
 
 template <typename T, typename TOut, typename... TArgs>
 inline fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> rule(
-    fun::FMFPtr<T, TOut, fun::cons_cell<TArgs...>> ptr) {
+    const fun::FMFPtr<T, TOut, TArgs...> &ptr) {
   return fnew<FDataGraphRule<T, TOut, TArgs...>>(ptr);
 }
 
 template <typename T, typename TOut, typename U, typename... TArgs>
 inline fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> rule(
-    fun::FPtr<T> ptr, TOut (U::*pmf)(fun::cons_cell<TArgs...>)) {
+    fun::FPtr<T> ptr, TOut (U::*pmf)(TArgs...)) {
   return fnew<FDataGraphRule<U, TOut, TArgs...>>(ptr->*pmf);
 }
 } // namespace fpp

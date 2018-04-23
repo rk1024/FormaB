@@ -104,15 +104,14 @@ fun::FPtr<FDepsGraphEdge> FDepsGraph::edge(const std::string &           name,
   return edge;
 }
 
-void FDepsGraph::run() {
+void FDepsGraph::run(const fdi::FLogger &logger) {
   assert(!m_run);
 
   for (auto node : m_nodes) node->statSelf();
 
   for (auto edge : m_edges) edge->stat();
 
-  // TODO: Add proper diagnostic logging
-  if (m_q.empty()) std::cerr << "WARNING: Nothing to do." << std::endl;
+  if (m_q.empty()) logger.warn("depsgraph", "nothing to do");
 
   while (m_q.size()) {
     auto edge = m_q.front().lock();

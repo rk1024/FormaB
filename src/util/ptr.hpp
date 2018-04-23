@@ -166,8 +166,8 @@ public:
   FMFPtr(fun::FPtr<T> ptr, PMF_t memb) : m_ptr(ptr), m_memb(memb) {}
 
   template <typename... UArgs>
-  U operator()(UArgs &&... args) {
-    return (m_ptr.m_ptr->*m_memb)(std::forward<TArgs>(args)...);
+  U operator()(UArgs &&... args) const {
+    return (m_ptr.m_ptr->*m_memb)(std::forward<UArgs>(args)...);
   }
 };
 
@@ -320,3 +320,6 @@ template <typename T, typename... TArgs>
 [[nodiscard]] fun::FPtr<T> fnew(TArgs &&... args) {
   return fun::FPtr<T>(new T(std::forward<TArgs>(args)...));
 }
+
+template <typename T>
+[[nodiscard]] fun::FPtr<T> fnull() { return nullptr; }

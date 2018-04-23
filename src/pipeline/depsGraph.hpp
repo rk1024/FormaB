@@ -28,6 +28,8 @@
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
 
+#include "diagnostic/logger.hpp"
+
 #include "dataGraph.hpp"
 
 namespace fpp {
@@ -37,7 +39,7 @@ class FDepsGraphEdge;
 class FDepsGraphNode : public fun::FObject {
   std::string                                m_name;
   std::vector<fun::FWeakPtr<FDepsGraphEdge>> m_ins, m_outs;
-  fun::FWeakPtr<FDataGraphNodeBase>          m_data;
+  fun::FPtr<FDataGraphNodeBase>              m_data;
   bool                                       m_ready = false;
 
   void statSelf();
@@ -45,6 +47,8 @@ class FDepsGraphNode : public fun::FObject {
   void stat();
 
 public:
+  auto data() const { return m_data; }
+
   FDepsGraphNode(const std::string &);
 
   const fun::FPtr<FDepsGraphEdge> &operator<<(
@@ -55,9 +59,9 @@ public:
 
   template <typename T>
   fun::FPtr<FDataGraphNode<T>> data(T value) {
-    auto node = fnew<FDataGraphNode<T>>(value);
-    m_data    = fun::weak(node);
-    return node;
+    assert(m_data.nil());
+    m_data = fnew<FDataGraphNode<T>>(value);
+    return m_data;
   }
 
   friend class FDepsGraphEdge;
@@ -130,7 +134,7 @@ public:
   fun::FPtr<FDepsGraphEdge> edge(const std::string &,
                                  fun::FPtr<FDataGraphRuleBase>);
 
-  void run();
+  void run(const fdi::FLogger &);
 
   void dot(std::ostream &);
 

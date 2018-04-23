@@ -22,6 +22,10 @@
 
 #include "ast/walker.hpp"
 
+#include "intermedia/globalConstant.hpp"
+
+#include "compiler/compiler.hpp"
+
 namespace pre {
 class FPScheduler::WalkerBase : public fps::FWalker {
 protected:
@@ -36,7 +40,32 @@ protected:
   virtual void visit(const fps::FPDAssign *assign) override {
     m_sched->scheduleDAssign(assign);
   }
+
+public:
+  Walker(FPScheduler *sched) : WalkerBase(sched) {}
 };
 
-void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {}
+void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
+  auto name = "global '" + assign->name()->value() + "'";
+
+  auto ast = m_graph->node("[AST] " + name);
+  auto i0  = m_graph->node("[I0] " + name);
+
+  auto compileRule = fpp::rule(m_compiler, &FPCompiler::compileDAssign);
+
+  auto compile = m_graph->edge("compile", compileRule);
+
+  auto astData = ast->data(assign);
+  auto i0Data  = i0->data<fie::FIGlobalConstant *>(nullptr);
+
+  astData >> compileRule >> i0Data;
+
+  ast >> compile >> i0;
+}
+
+void FPScheduler::schedule(const fps::FInputs *inputs) {
+  Walker walker(this);
+
+  walker.walk(inputs);
+}
 } // namespace pre

@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (scheduler.hpp)
+ * FormaB - the bootstrap Forma compiler (compiler.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,29 +20,22 @@
 
 #pragma once
 
-#include <queue>
-
-#include "pipeline/depsGraph.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 #include "parser/ast.hpp"
 
-#include "compiler/compiler.hpp"
+#include "intermedia/globalConstant.hpp"
+
+#include "praeforma/context.hpp"
 
 namespace pre {
-class FPScheduler : public fun::FObject {
-  class WalkerBase;
-  class Walker;
-
-  fun::FPtr<fpp::FDepsGraph> m_graph;
-  fun::FPtr<FPCompiler>      m_compiler;
-
-  void scheduleDAssign(const fps::FPDAssign *);
+class FPCompiler : public fun::FObject {
+  FPContext *m_ctx;
 
 public:
-  FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph, FPContext &ctx) :
-      m_graph(graph),
-      m_compiler(fnew<FPCompiler>(ctx)) {}
+  FPCompiler(FPContext &ctx) : m_ctx(&ctx) {}
 
-  void schedule(const fps::FInputs *);
+  fie::FIGlobalConstant *compileDAssign(const fps::FPDAssign *);
 };
 } // namespace pre

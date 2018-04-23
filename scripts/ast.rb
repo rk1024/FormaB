@@ -54,11 +54,12 @@ ASTGen.run do
     let :Token, :tok
     let :PraeBlock, :praeBlk
 
-    ctor :Fragment, :tok, fmt: :tok
+    ctor [:Fragment, :NewlineFragment], :tok, fmt: :tok
     ctor :PraeBlock, :praeBlk, fmt: :praeBlk
 
     symbol do
       rule :Fragment, [:Fragment, :tok]
+      rule :NewlineFragment, [:NewlineFragment, :tok]
       rule :PraeBlock, :praeBlk
     end
   end
@@ -79,7 +80,7 @@ ASTGen.run do
     let :PraeDeclarations, :decls
     let :PraeDeclaration, :decl
 
-    ctor :Empty, fmt: []
+    ctor :Empty, fmt: ""
     ctor :Decls, :decls, :decl, fmt: [:decls, "\n", :decl]
     ctor :Decl, :decl, fmt: :decl
 
@@ -129,7 +130,7 @@ ASTGen.run do
   end
 
   node :PraeSyntaxDeclaration do
-    ctor :Syntax, fmt: []
+    ctor :Syntax, fmt: ""
 
     symbol do
       rule :Syntax
@@ -206,13 +207,18 @@ ASTGen.run do
   end
 
   node :PraePrimaryExpression do
-    let :Token, :tok
+    union do
+      let :Token, :tok
+      let :PraeExpression, :expr
+    end
 
     ctor [:Ident, :Number], :tok, fmt: :tok
+    ctor :Paren, :expr, fmt: ["(", :expr, ")"]
 
     symbol do
       rule :Ident, [:PIdent, :tok]
       rule :Number, [:PNumber, :tok]
+      rule :Paren, "(", :expr, ")"
     end
   end
 end

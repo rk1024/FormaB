@@ -145,12 +145,13 @@ PNumPart  [a-zA-Z0-9_]
   <<EOF>> { $SM $F("unterminated block comment") }
 }
 
-%astgen-token Fragment /([^@]|@[^!@\[])+/ "Fragment" { $SM } capture
+%astgen-token Fragment /([^@\n\v]|@[^!@\[\n\v])+/ { $SM } capture
+%astgen-token NewlineFragment /{Newline}+/ { $SL $WL } capture
 
-%astgen-token PraeStart /@!prae\{/ "@!prae{" { $SM $SSPUSH(Praeforma) }
+%astgen-token PraeStart "@!prae{" { $SM $SSPUSH(Praeforma) }
 
 <SSPraeforma>{
-  %astgen-token PraeEnd /@\}/ "@}" { $SM $SSPOP }
+  %astgen-token PraeEnd "@}" { $SM $SSPOP }
 
   {Whitespace}+ { $SM }
 

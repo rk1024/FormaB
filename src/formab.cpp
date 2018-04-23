@@ -22,6 +22,7 @@
 #include <vector>
 
 #include <signal.h>
+#include <string.h>
 
 #include "util/atom.hpp"
 #include "util/cli.hpp"
@@ -256,9 +257,17 @@ int run(int argc, char **argv) {
       break;
     default: throw fun::bad_argument();
     }
+
+    if (!infile) {
+      logger.errorR("formab",
+                    "failed to open '" + filename + "': " + +strerror(errno));
+    }
   }
   catch (fun::bad_argument &) {
     ap.help();
+    return 1;
+  }
+  catch (fdi::logger_raise &) {
     return 1;
   }
 
@@ -285,10 +294,19 @@ int run(int argc, char **argv) {
 
     if (errors) throw fdi::logger_raise();
 
-    std::cerr << tag.inputs << std::endl;
+    auto           graph = fnew<fpp::FDepsGraph>();
+    fie::FIContext fiCtx(logger);
+    pre::FPContext fpCtx(fiCtx);
+    auto           sched = fnew<pre::FPScheduler>(graph, fpCtx);
 
-    auto             graph = fnew<fpp::FDepsGraph>();
-    pre::FPScheduler sched(graph);
+    // TODO: There has to be a better way to do this
+    if (errors) throw fdi::logger_raise();
+
+    if (tag.inputs) sched->schedule(tag.inputs);
+
+    if (errors) throw fdi::logger_raise();
+
+    graph->run(logger);
 
     if (errors) throw fdi::logger_raise();
   }

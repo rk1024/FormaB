@@ -333,7 +333,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
 
   set includes: ["$src_d", "$build_d"].map{|i| "-I#{i}" }
 
-  folders = %i[algow ast diagnostic intermedia parser pipeline util]
+  folders = %i[algow ast diagnostic intermedia parser pipeline praeforma util]
 
   [
     "$src_d/formab.cpp",

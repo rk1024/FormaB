@@ -163,5 +163,7 @@ private:
   _FLOGFN(fatal, bad, fatal, 1);
   _FLOGFN(errorR, raise, error, 1, [[noreturn]]);
   _FLOGFN(fatalR, raise, fatal, 1, [[noreturn]]);
+
+#undef _FLOGFN
 };
 } // namespace fdi

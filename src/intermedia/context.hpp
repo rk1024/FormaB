@@ -34,7 +34,7 @@ class FIContext {
   const fdi::FLogger *            m_logger;
 
 public:
-  constexpr auto &logger() const { return m_logger; }
+  constexpr auto &logger() const { return *m_logger; }
 
   template <typename T, typename... TArgs>
   T *val(TArgs &&... args) {

@@ -106,6 +106,9 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     pkldflags.merge(Command.read("llvm-config --libs '#{cmp}'").split(/\s+/))
   end
 
+  # Libraries to link against
+  ldlibs = %w[dl].map{|s| "-l#{s}" }
+
   set astgen_flags: [
       "-f$src_d/scanner.in.lpp:$build_d/scanner.lpp",
       "-b$src_d/parser.in.ypp:$build_d/parser.ypp",
@@ -232,7 +235,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     cxx_pchs: cxx_pchs,
     ld_flags: [
       *("-flto" if config(:optimize) && !config(:no_lto)),
-      "-ldl",
+      *ldlibs,
       *pkldflags,
       *san_flags,
     ]

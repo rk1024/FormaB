@@ -24,8 +24,6 @@
 
 #include "intermedia/globalConstant.hpp"
 
-#include "compiler/compiler.hpp"
-
 namespace pre {
 class FPScheduler::WalkerBase : public fps::FWalker {
 protected:
@@ -48,19 +46,22 @@ public:
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
   auto name = "global '" + assign->name()->value() + "'";
 
-  auto ast = m_graph->node("[AST] " + name);
-  auto i0  = m_graph->node("[I0] " + name);
+  auto ast  = m_graph->node("[AST] " + name);
+  auto i0   = m_graph->node("[I0] " + name);
+  auto done = m_graph->node("[Done] " + name);
 
   auto compileRule = fpp::rule(m_compiler, &FPCompiler::compileDAssign);
+  auto dumpRule    = fpp::rule(m_dump, &fie::FIDump::dumpGlobalConstant);
 
   auto compile = m_graph->edge("compile", compileRule);
+  auto dump    = m_graph->edge("dump", dumpRule);
 
   auto astData = ast->data(assign);
   auto i0Data  = i0->data<fie::FIGlobalConstant *>(nullptr);
 
-  astData >> compileRule >> i0Data;
+  astData >> compileRule >> i0Data >> dumpRule;
 
-  ast >> compile >> i0;
+  ast >> compile >> i0 >> dump >> done;
 }
 
 void FPScheduler::schedule(const fps::FInputs *inputs) {

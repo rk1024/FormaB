@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (compiler.cpp)
+ * FormaB - the bootstrap Forma compiler (dump.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,18 +18,28 @@
  *
  ************************************************************************/
 
-#include "compiler.hpp"
+#include "dump.hpp"
 
-namespace pre {
-fie::FIGlobalConstant *FPCompiler::compileDAssign(
-    const fps::FPDAssign *assign) {
-  auto &fiCtx  = *m_ctx->fiCtx();
-  auto &logger = *m_ctx->logger();
+namespace fie {
+void FIDump::writeValue(const FIValue *val) {
+  switch (val->type()) {
+  case FIValue::Const: {
+    auto konst = dynamic_cast<const FIConstBase *>(val);
 
-  logger.info(assign->loc(), "hai :3");
+    switch (konst->constType()) {
+    case FIConstBase::Double:
+      os() << dynamic_cast<const FIDoubleConst *>(konst)->value();
+      break;
+    }
 
-  auto val = fiCtx.val<fie::FIValue>();
-
-  return fiCtx.globalConstant(assign->name()->value(), val);
+    break;
+  }
+  }
 }
-} // namespace pre
+
+void FIDump::dumpGlobalConstant(FIGlobalConstant *konst) {
+  os() << konst->name() << " = ";
+  writeValue(konst->value());
+  os() << ";" << std::endl;
+}
+} // namespace fie

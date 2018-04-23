@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (context.hpp)
+ * FormaB - the bootstrap Forma compiler (dump.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,17 +20,24 @@
 
 #pragma once
 
-#include "intermedia/context.hpp"
+#include <ostream>
 
-namespace pre {
-class FPContext {
-  fie::FIContext *m_fiCtx;
+#include "util/object/object.hpp"
+
+#include "context.hpp"
+
+namespace fie {
+class FIDump : public fun::FObject {
+  FIContext *   m_ctx;
+  std::ostream *m_os;
+
+  void writeValue(const FIValue *);
 
 public:
-  constexpr auto &fiCtx() const { return *m_fiCtx; }
+  constexpr auto &os() const { return *m_os; }
 
-  constexpr auto &logger() const { return m_fiCtx->logger(); }
+  FIDump(FIContext &ctx, std::ostream &os) : m_ctx(&ctx), m_os(&os) {}
 
-  FPContext(fie::FIContext &fiCtx) : m_fiCtx(&fiCtx) {}
+  void dumpGlobalConstant(FIGlobalConstant *);
 };
-} // namespace pre
+} // namespace fie

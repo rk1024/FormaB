@@ -116,8 +116,9 @@ BCommentAts @+[^\]\v\n]?
 PIdentStart [a-zA-Z]
 PIdentPart  [a-zA-Z0-9_]
 
+PNumDecStart \.
 PNumStart [0-9]
-PNumPart  [a-zA-Z0-9_]
+PNumPart  [a-zA-Z0-9_.]
 
 %x SSStart
 %x SSBComment
@@ -159,7 +160,7 @@ PNumPart  [a-zA-Z0-9_]
   %astgen-token PKWLet "let" { $SM }
 
   %astgen-token PIdent  /{PIdentStart}{PIdentPart}*|[_@]{PIdentPart}+/ { $SM } capture
-  %astgen-token PNumber /{PNumStart}{PNumPart}*/ { $SM } capture
+  %astgen-token PNumber /{PNumDecStart}?{PNumStart}{PNumPart}*/ { $SM } capture
 
   /* Grouping */
   %astgen-token PLParen "(" { $SM }

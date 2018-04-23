@@ -1,9 +1,9 @@
 @!prae{
-let x = 1;
+let x = 1.0;
 
-let y = 2;
+let y = 2.0;
 
-let z = x + y;
+@@ let z = x + y;
 
-let w = (x + z) * 2;
+@@ let w = (x + z) * 2.0;
 @}

@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (scheduler.hpp)
+ * FormaB - the bootstrap Forma compiler (compiler.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,34 +20,34 @@
 
 #pragma once
 
-#include <iostream>
-#include <queue>
-
-#include "pipeline/depsGraph.hpp"
+#include "util/object/object.hpp"
+#include "util/ptr.hpp"
 
 #include "parser/ast.hpp"
 
-#include "intermedia/dump.hpp"
+#include "intermedia/globalConstant.hpp"
 
-#include "compiler.hpp"
+#include "context.hpp"
+
+#include "compiler/context.hpp"
 
 namespace pre {
-class FPScheduler : public fun::FObject {
-  class WalkerBase;
-  class Walker;
+class FPCompiler : public fun::FObject {
+  FPContext *m_ctx;
 
-  fun::FPtr<fpp::FDepsGraph> m_graph;
-  fun::FPtr<FPCompiler>      m_compiler;
-  fun::FPtr<fie::FIDump>     m_dump;
+  fie::FIContext &    fiCtx() const { return m_ctx->fiCtx(); }
+  const fdi::FLogger &logger() const { return m_ctx->logger(); }
 
-  void scheduleDAssign(const fps::FPDAssign *);
+  fie::FIValue *makeNumeric(cc::CompileContext &, const fps::FToken *) const;
+
+  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPExpr *) const;
+  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXInfix *) const;
+  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXUnary *) const;
+  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXPrim *) const;
 
 public:
-  FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph, FPContext &ctx) :
-      m_graph(graph),
-      m_compiler(fnew<FPCompiler>(ctx)),
-      m_dump(fnew<fie::FIDump>(ctx.fiCtx(), std::cerr)) {}
+  FPCompiler(FPContext &ctx) : m_ctx(&ctx) {}
 
-  void schedule(const fps::FInputs *);
+  fie::FIGlobalConstant *compileDAssign(const fps::FPDAssign *);
 };
 } // namespace pre

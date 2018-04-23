@@ -20,6 +20,68 @@
 
 #pragma once
 
+#include "diagnostic/location.hpp"
+
 namespace fie {
-class FIValue {};
+class FIValue {
+public:
+  enum Type {
+    Const,
+  };
+
+private:
+  fdi::FLocation m_loc;
+
+public:
+  constexpr auto &loc() const { return m_loc; }
+
+  FIValue(const fdi::FLocation &loc) : m_loc(loc) {}
+
+  virtual ~FIValue();
+
+  virtual Type type() const = 0;
+};
+
+class FIConstBase : public FIValue {
+public:
+  enum ConstType {
+    Double,
+  };
+
+  FIConstBase(const fdi::FLocation &loc) : FIValue(loc) {}
+
+  virtual Type type() const override;
+
+  virtual ConstType constType() const = 0;
+};
+
+template <typename>
+struct _constTraits;
+
+template <>
+struct _constTraits<double> {
+  static constexpr FIConstBase::ConstType constType = FIConstBase::Double;
+};
+
+template <typename T>
+class FIConst : public FIConstBase {
+  T m_value;
+
+public:
+  constexpr auto &value() const { return m_value; }
+
+  FIConst(const fdi::FLocation &loc, const T &value) :
+      FIConstBase(loc),
+      m_value(value) {}
+
+  FIConst(const fdi::FLocation &loc, T &&value) :
+      FIConstBase(loc),
+      m_value(value) {}
+
+  virtual ConstType constType() const override {
+    return _constTraits<T>::constType;
+  }
+};
+
+using FIDoubleConst = FIConst<double>;
 } // namespace fie

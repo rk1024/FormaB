@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (context.hpp)
+ * FormaB - the bootstrap Forma compiler (context.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,19 +18,6 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "context.hpp"
 
-#include "intermedia/context.hpp"
-
-namespace pre {
-class FPContext {
-  fie::FIContext *m_fiCtx;
-
-public:
-  constexpr auto &fiCtx() const { return *m_fiCtx; }
-
-  constexpr auto &logger() const { return m_fiCtx->logger(); }
-
-  FPContext(fie::FIContext &fiCtx) : m_fiCtx(&fiCtx) {}
-};
-} // namespace pre
+namespace pre::cc {} // namespace pre::cc

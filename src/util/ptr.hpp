@@ -256,27 +256,9 @@ public:
     return FPtr<T>();
   }
 
-  const FWeakPtr &operator=(const FWeakPtr &rhs) {
-    if (&rhs == this) goto done;
-
-    m_ptr = rhs.m_ptr;
-
-  done:
-    return *this;
-  }
-
-  const FWeakPtr &operator=(FWeakPtr &rhs) {
-    return operator=(const_cast<const FWeakPtr &>(rhs));
-  }
-
-  const FWeakPtr &operator=(FWeakPtr &&rhs) {
-    if (&rhs == this) goto done;
-
-    m_ptr = std::move(rhs.m_ptr);
-
-  done:
-    return *this;
-  }
+  FWeakPtr &operator=(const FWeakPtr &) = default;
+  FWeakPtr &operator=(FWeakPtr &) = default;
+  FWeakPtr &operator=(FWeakPtr &&) = default;
 
   bool operator==(const FWeakPtr &rhs) const { return m_ptr == rhs.m_ptr; }
   bool operator!=(const FWeakPtr &rhs) const { return m_ptr != rhs.m_ptr; }

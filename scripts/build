@@ -220,7 +220,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-Wswitch-bool",
         "-Wswitch-enum",
         "-Wweak-template-vtables",
-        "-Wweak-vtables",
+        # "-Wweak-vtables",
 
         # Anti-spam measures:
         "-fno-caret-diagnostics",

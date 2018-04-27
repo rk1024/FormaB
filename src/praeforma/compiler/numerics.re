@@ -44,8 +44,7 @@ static bool isSignNegative(const char *sg) {
 
 template <typename T>
 static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
-    const fdi::FLogger &    logger,
-    cc::CompileContext &    ctx,
+    cc::BlockCtxPtr &       ctx,
     std::uint8_t            radix,
     std::int16_t            expon,
     std::make_unsigned_t<T> max,
@@ -98,16 +97,14 @@ static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
     return static_cast<T>(num);
 
   overflow:
-    logger.errorR(ctx.loc(),
-                  "integer literal '" + std::string(d0, d1) +
-                      "' causes an overflow");
+    ctx->errorR("integer literal '" + std::string(d0, d1) +
+                "' causes an overflow");
   }
 }
 
 template <typename T>
 std::enable_if_t<std::is_integral<T>::value, T> readInt(
-    const fdi::FLogger &    logger,
-    cc::CompileContext *    ctx,
+    cc::BlockCtxPtr &       ctx,
     std::uint8_t            radix,
     std::int16_t            expon,
     bool                    unsign,
@@ -117,11 +114,11 @@ std::enable_if_t<std::is_integral<T>::value, T> readInt(
     const char *            d1) {
   if (!unsign) max >>= 1;
 
-  return readIntBasic<T>(logger, ctx, radix, expon, max, max + 1, sg, d0, d1);
+  return readIntBasic<T>(ctx.move(), radix, expon, max, max + 1, sg, d0, d1);
 }
 
-fie::FIValue *FPCompiler::makeNumeric(cc::CompileContext &ctx,
-                                      const fps::FToken * tok) const {
+cc::ValueResult FPCompiler::makeNumeric(cc::BlockCtxPtr    ctx,
+                                        const fps::FToken *tok) const {
   const char *_str = tok->value().c_str(), *str = _str, *YYMARKER, *sg, *d0,
              *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr, *e1 = nullptr,
              *tu = nullptr, *tl /*!stags:re2c format = ", *@@"; */;
@@ -169,9 +166,8 @@ fie::FIValue *FPCompiler::makeNumeric(cc::CompileContext &ctx,
     float = sign      float_digits float_expon float_type_spec;
 
     * {
-      logger().error(ctx.loc(),
-        "invalid numeric literal '" + tok->value() + "'"
-        " (note: this probably shouldn't happen)");
+      ctx->error("invalid numeric literal '" + tok->value() + "'"
+                 " (note: this probably shouldn't happen)");
     }
 
     hex eof {
@@ -243,7 +239,7 @@ emit:
   }
 
   std::int16_t expon = e0 ? readIntBasic<std::int16_t>(
-                                logger(), ctx, 10u, 0, 0x3ff, 0x3fe, es, e0, e1)
+                                ctx, 10u, 0, 0x3ff, 0x3fe, es, e0, e1)
                           : 0;
 
   switch (fmt) {
@@ -253,39 +249,39 @@ emit:
       //     "u1",
       //     readInt<std::uint8_t>(
       //         logger(), ctx, radix, expon, true, 0xff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "u1 not implemented");
+      ctx->errorR("u1 not implemented");
     else
       // return closure->emitConst<std::int8_t>(
       //     "i1",
       //     readInt<std::int8_t>(
       //         logger(), ctx, radix, expon, false, 0xff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "i1 not implemented");
+      ctx->errorR("i1 not implemented");
   case NumFormat::I2:
     if (unsign)
       // return closure->emitConst<std::uint16_t>(
       //     "u2",
       //     readInt<std::uint16_t>(
       //         logger(), ctx, radix, expon, true, 0xffff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "u2 not implemented");
+      ctx->errorR("u2 not implemented");
     else
       // return closure->emitConst<std::int16_t>(
       //     "i2",
       //     readInt<std::int16_t>(
       //         logger(), ctx, radix, expon, false, 0xffff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "i2 not implemented");
+      ctx->errorR("i2 not implemented");
   case NumFormat::I4:
     if (unsign)
       // return closure->emitConst<std::uint32_t>(
       //     "u4",
       //     readInt<std::uint32_t>(
       //         logger(), ctx, radix, expon, true, 0xffffffff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "u4 not implemented");
+      ctx->errorR("u4 not implemented");
     else
       // return closure->emitConst<std::int32_t>(
       //     "i4",
       //     readInt<std::int32_t>(
       //         logger(), ctx, radix, expon, false, 0xffffffff, sg, d0, d1));
-      logger().errorR(ctx.loc(), "i4 not implemented");
+      ctx->errorR("i4 not implemented");
   case NumFormat::I8:
     if (unsign)
       // return closure->emitConst<std::uint64_t>(
@@ -299,7 +295,7 @@ emit:
       //                            sg,
       //                            d0,
       //                            d1));
-      logger().errorR(ctx.loc(), "u8 not implemented");
+      ctx->errorR("u8 not implemented");
     else
       // return closure->emitConst<std::int64_t>(
       //     "i8",
@@ -312,15 +308,15 @@ emit:
       //                           sg,
       //                           d0,
       //                           d1));
-      logger().errorR(ctx.loc(), "i8 not implemented");
+      ctx->errorR("i8 not implemented");
   case NumFormat::R4: goto emitR4;
   case NumFormat::R8: goto emitR8;
   default: assert(false);
   }
 emitR4:
   // return closure->emitConst<float>("r4", 1337.1337f);
-  logger().errorR(ctx.loc(), "not implemented");
+  ctx->errorR("not implemented");
 emitR8:
-  return fiCtx().val<fie::FIDoubleConst>(ctx.loc(), 1337.1337);
+  return ctx->val<fie::FIDoubleConst>(1337.1337);
 }
 } // namespace pre

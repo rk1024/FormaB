@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (context.cpp)
+ * FormaB - the bootstrap Forma compiler (block.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,6 +18,8 @@
  *
  ************************************************************************/
 
-#include "context.hpp"
+#pragma once
 
-namespace pre::cc {} // namespace pre::cc
+namespace fie {
+class FIBlock {};
+} // namespace fie

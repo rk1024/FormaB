@@ -22,36 +22,40 @@
 
 #include <vector>
 
+#include "util/ptrStore.hpp"
+
 #include "diagnostic/logger.hpp"
 
+#include "function/block.hpp"
 #include "globalConstant.hpp"
 #include "value.hpp"
 
 namespace fie {
 class FIContext {
-  std::vector<FIValue *>          m_values;
-  std::vector<FIGlobalConstant *> m_globalConstants;
-  const fdi::FLogger *            m_logger;
+  fun::FPtrStore<FIValue>          m_values;
+  fun::FPtrStore<FIGlobalConstant> m_globalConstants;
+  fun::FPtrStore<FIBlock>          m_blocks;
+  const fdi::FLogger *             m_logger;
 
 public:
   constexpr auto &logger() const { return *m_logger; }
 
   template <typename T, typename... TArgs>
-  T *val(TArgs &&... args) {
-    auto *ins = new T(std::forward<TArgs>(args)...);
-    m_values.emplace_back(static_cast<FIValue *>(ins));
-    return ins;
+  [[nodiscard]] decltype(auto) val(TArgs &&... args) {
+    return m_values.emplaceP<T>(std::forward<TArgs>(args)...);
   }
 
   template <typename... TArgs>
-  auto *globalConstant(TArgs &&... args) {
-    auto *konst = new FIGlobalConstant(std::forward<TArgs>(args)...);
-    m_globalConstants.emplace_back(konst);
-    return konst;
+  [[nodiscard]] decltype(auto) globalConstant(TArgs &&... args) {
+    return m_globalConstants.emplace(std::forward<TArgs>(args)...);
   }
 
-  FIContext(const fdi::FLogger &logger) : m_logger(&logger) {}
+  template <typename... TArgs>
+  [[nodiscard]] decltype(auto) block(TArgs &&... args) {
+    return m_blocks.emplace(std::forward<TArgs>(args)...);
+  }
 
-  ~FIContext();
+  FIContext(const fdi::FLogger &logger) :
+      m_logger(&logger) {}
 };
 } // namespace fie

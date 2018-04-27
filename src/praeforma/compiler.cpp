@@ -23,49 +23,52 @@
 #include "compiler/context.hpp"
 
 namespace pre {
-fie::FIValue *FPCompiler::makeValue(cc::CompileContext &ctx,
-                                    const fps::FPExpr * node) const {
-  auto _(ctx.move(node));
-  return makeValue(ctx, node->infix());
+cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr    ctx,
+                                      const fps::FPExpr *node) const {
+  auto _(ctx->pos().move(node));
+  return makeValue(ctx.move(), node->infix());
 }
 
-fie::FIValue *FPCompiler::makeValue(cc::CompileContext & ctx,
-                                    const fps::FPXInfix *node) const {
-  auto _(ctx.move(node));
+cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr      ctx,
+                                      const fps::FPXInfix *node) const {
+  auto _(ctx->pos().move(node));
 
   switch (node->alt()) {
-  case fps::FPXInfix::Add: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXInfix::Sub: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXInfix::Mul: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXInfix::Div: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXInfix::Mod: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXInfix::Unary: return makeValue(ctx, node->unary());
+  case fps::FPXInfix::Add: ctx->errorR("not implemented");
+  case fps::FPXInfix::Sub: ctx->errorR("not implemented");
+  case fps::FPXInfix::Mul: ctx->errorR("not implemented");
+  case fps::FPXInfix::Div: ctx->errorR("not implemented");
+  case fps::FPXInfix::Mod: ctx->errorR("not implemented");
+  case fps::FPXInfix::Unary: return makeValue(ctx.move(), node->unary());
   }
 }
 
-fie::FIValue *FPCompiler::makeValue(cc::CompileContext & ctx,
-                                    const fps::FPXUnary *node) const {
-  auto _(ctx.move(node));
-  return makeValue(ctx, node->prim());
+cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr      ctx,
+                                      const fps::FPXUnary *node) const {
+  auto _(ctx->pos().move(node));
+  return makeValue(ctx.move(), node->prim());
 }
 
-fie::FIValue *FPCompiler::makeValue(cc::CompileContext &ctx,
-                                    const fps::FPXPrim *node) const {
-  auto _(ctx.move(node));
+cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr     ctx,
+                                      const fps::FPXPrim *node) const {
+  auto _(ctx->pos().move(node));
 
   switch (node->alt()) {
-  case fps::FPXPrim::Ident: logger().errorR(ctx.loc(), "not implemented");
-  case fps::FPXPrim::Number: return makeNumeric(ctx, node->tok());
-  case fps::FPXPrim::Paren: return makeValue(ctx, node->expr());
+  case fps::FPXPrim::Ident: ctx->errorR("not implemented");
+  case fps::FPXPrim::Number: return makeNumeric(ctx.move(), node->tok());
+  case fps::FPXPrim::Paren: return makeValue(ctx.move(), node->expr());
   }
 }
 
 fie::FIGlobalConstant *FPCompiler::compileDAssign(
     const fps::FPDAssign *assign) {
 
-  cc::CompileContext ctx(assign);
+  cc::CompileContext cctx(m_ctx, assign);
 
-  return fiCtx().globalConstant(assign->name()->value(),
-                                makeValue(ctx, assign->value()));
+  auto ctx = cctx.block();
+
+  auto [ctx2, value] = makeValue(ctx.move(), assign->value());
+
+  return ctx2->globalConstant(assign->name()->value(), value);
 }
 } // namespace pre

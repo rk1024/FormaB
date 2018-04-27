@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (context.cpp)
+ * FormaB - the bootstrap Forma compiler (body.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,11 +18,18 @@
  *
  ************************************************************************/
 
-#include "context.hpp"
+#pragma once
+
+#include <vector>
+
+#include "block.hpp"
 
 namespace fie {
-FIContext::~FIContext() {
-  for (auto *val : m_values) delete val;
-  for (auto *konst : m_globalConstants) delete konst;
-}
+class FIFunctionBody {
+  std::vector<FIBlock *> m_blocks;
+
+public:
+  constexpr auto &blocks() { return m_blocks; }
+  constexpr auto &blocks() const { return m_blocks; }
+};
 } // namespace fie

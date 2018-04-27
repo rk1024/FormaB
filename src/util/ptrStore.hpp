@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (context.hpp)
+ * FormaB - the bootstrap Forma compiler (ptrStore.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,5 +20,33 @@
 
 #pragma once
 
-#include "blockContext.hpp"
-#include "compileContext.hpp"
+#include <vector>
+
+namespace fun {
+template <typename T>
+class FPtrStore {
+  std::vector<T *> m_store;
+
+public:
+  constexpr auto &      store() { return m_store; }
+  constexpr const auto &store() const { return m_store; }
+
+  template <typename... TArgs>
+  [[nodiscard]] decltype(auto) emplace(TArgs &&... args) {
+    auto itm = new T(std::forward<TArgs>(args)...);
+    m_store.push_back(itm);
+    return itm;
+  }
+
+  template <typename U, typename... TArgs>
+  [[nodiscard]] decltype(auto) emplaceP(TArgs &&... args) {
+    auto itm = new U(std::forward<TArgs>(args)...);
+    m_store.push_back(static_cast<T *>(itm));
+    return itm;
+  }
+
+  ~FPtrStore() {
+    for (auto ptr : m_store) delete ptr;
+  }
+};
+} // namespace fun

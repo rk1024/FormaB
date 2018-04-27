@@ -41,16 +41,16 @@
         "exceeded");
 
 #if defined(NDEBUG)
-#define RC_CKINFREE(fn)
+#define RC_WRNINFREE(fn)
 #else
-#define RC_CKINFREE(fn)                                                        \
+#define RC_WRNINFREE(fn)                                                       \
   std::cerr << "\e[1;38;5;3mwarning: \e[39m" << fn                             \
             << "() called on FObject during free; ignoring\e[0m" << std::endl;
 #endif
 
 #define RC_REDUCE(counter, op)                                                 \
   switch (counter) {                                                           \
-  case COUNT_DESTROYING: RC_CKINFREE(__func__) return;                         \
+  case COUNT_DESTROYING: RC_WRNINFREE(__func__) return;                        \
   case COUNT_UNCLAIMED: throw std::runtime_error("free before claim");         \
   case 0: throw std::runtime_error("double free");                             \
   }                                                                            \
@@ -76,14 +76,13 @@ void FRefTracker::tryDestroy() {
   }
 }
 
-void FRefTracker::trackAcquire() { RC_ACQUIRE(m_tracked) }
-void FRefTracker::trackRelease() { RC_RELEASE(m_tracked) }
-void FRefTracker::trackReset(){RC_RESET(m_tracked)}
+void FRefTracker::trackAcquire() { RC_ACQUIRE(m_tracked); }
+void FRefTracker::trackRelease() { RC_RELEASE(m_tracked); }
+void FRefTracker::trackReset() { RC_RESET(m_tracked); }
 
-FRefTracker::FRefTracker(FObject *target) :
-    m_target(target) {}
+FRefTracker::FRefTracker(FObject *target) : m_target(target) {}
 
-void FRefTracker::acquire() { RC_ACQUIRE(m_count) }
-void FRefTracker::release() { RC_RELEASE(m_count) }
-void FRefTracker::reset() { RC_RESET(m_count) }
+void FRefTracker::acquire() { RC_ACQUIRE(m_count); }
+void FRefTracker::release() { RC_RELEASE(m_count); }
+void FRefTracker::reset() { RC_RESET(m_count); }
 } // namespace fun

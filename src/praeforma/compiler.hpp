@@ -33,17 +33,14 @@
 
 namespace pre {
 class FPCompiler : public fun::FObject {
-  FPContext *m_ctx;
+  FPContext *m_ctx; // TODO: Maybe don't make this a field?
 
-  fie::FIContext &    fiCtx() const { return m_ctx->fiCtx(); }
-  const fdi::FLogger &logger() const { return m_ctx->logger(); }
+  cc::ValueResult makeNumeric(cc::BlockCtxPtr, const fps::FToken *) const;
 
-  fie::FIValue *makeNumeric(cc::CompileContext &, const fps::FToken *) const;
-
-  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPExpr *) const;
-  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXInfix *) const;
-  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXUnary *) const;
-  fie::FIValue *makeValue(cc::CompileContext &, const fps::FPXPrim *) const;
+  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPExpr *) const;
+  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXInfix *) const;
+  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXUnary *) const;
+  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXPrim *) const;
 
 public:
   FPCompiler(FPContext &ctx) : m_ctx(&ctx) {}

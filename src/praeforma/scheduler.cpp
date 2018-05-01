@@ -46,22 +46,34 @@ public:
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
   auto name = "global '" + assign->name()->value() + "'";
 
-  auto ast  = m_graph->node("[AST] " + name);
-  auto i0   = m_graph->node("[I0] " + name);
-  auto done = m_graph->node("[Done] " + name);
+  auto ast = m_graph->node("[AST] " + name);
+  auto i0  = m_graph->node("[I0] " + name);
+#if !defined(NDEBUG)
+  auto dumped = m_graph->node("[Dumped] " + name);
+#endif
 
   auto compileRule = fpp::rule(m_compiler, &FPCompiler::compileDAssign);
-  auto dumpRule    = fpp::rule(m_dump, &fie::FIDump::dumpGlobalConstant);
+#if !defined(NDEBUG)
+  auto dumpRule = fpp::rule(m_dump, &fie::FIDump::dumpGlobalConstant);
+#endif
 
   auto compile = m_graph->edge("compile", compileRule);
-  auto dump    = m_graph->edge("dump", dumpRule);
+#if !defined(NDEBUG)
+  auto dump = m_graph->edge("dump", dumpRule);
+#endif
 
   auto astData = ast->data(assign);
   auto i0Data  = i0->data<fie::FIGlobalConstant *>(nullptr);
 
+#if defined(NDEBUG)
+  astData >> compileRule >> i0Data;
+
+  ast >> compile >> i0;
+#else
   astData >> compileRule >> i0Data >> dumpRule;
 
-  ast >> compile >> i0 >> dump >> done;
+  ast >> compile >> i0 >> dump >> dumped;
+#endif
 }
 
 void FPScheduler::schedule(const fps::FInputs *inputs) {

@@ -24,19 +24,25 @@
 #include "util/linearPtr.hpp"
 
 #include "intermedia/function/block.hpp"
-#include "intermedia/value.hpp"
+#include "intermedia/function/value.hpp"
 
-#include "compileContext.hpp"
+#include "funcContext.hpp"
 
 namespace pre::cc {
 class BlockContext;
 
 using BlockCtxPtr = fun::FLinearPtr<BlockContext>;
-using ValueResult = std::pair<cc::BlockCtxPtr, fie::FIValue *>;
+
+template <typename T>
+using BlkResult = std::pair<BlockCtxPtr, T>;
+
+// using ValueResult = BlkResult<fie::FIValue *>;
+using RegResult  = BlkResult<fie::FIRegId>;
+using VoidResult = BlkResult<void>;
 
 class BlockContext : public fun::FLinearObject<BlockContext> {
-  CompileContext *m_ctx;
-  fie::FIBlock *  m_block;
+  FuncContext * m_ctx;
+  fie::FIBlock *m_block;
 
 public:
   constexpr auto &ctx() const { return *m_ctx; }
@@ -45,7 +51,7 @@ public:
   constexpr auto &pos() const { return ctx().pos(); }
   constexpr auto &block() const { return m_block; }
 
-  explicit BlockContext(CompileContext *ctx, fie::FIBlock *block) :
+  explicit BlockContext(FuncContext *ctx, fie::FIBlock *block) :
       m_ctx(ctx),
       m_block(block) {}
 
@@ -57,16 +63,45 @@ public:
     pCtx().logger().errorR(pos().curr()->loc(), str);
   }
 
-  template <typename T, typename... TArgs>
-  [[nodiscard]] ValueResult val(TArgs &&... args) {
-    return std::pair(fun::wrapLinear(this),
-                     fiCtx().val<T>(pos().curr()->loc(),
-                                    std::forward<TArgs>(args)...));
+  void contStatic(fie::FIBlock *next) {
+    assert(m_block->cont() == fie::FIBlock::ERR);
+    m_block->cont() = fie::FIBlock::Static;
+    m_block->next() = next;
+  }
+
+  void contBranch(const fie::FIRegId &reg,
+                  fie::FIBlock *      next,
+                  fie::FIBlock *      Else) {
+    assert(m_block->cont() == fie::FIBlock::ERR);
+    m_block->cont() = fie::FIBlock::Branch;
+    m_block->next() = next;
+    m_block->Else() = Else;
+    m_block->reg()  = reg;
+  }
+
+  void contRet(const fie::FIRegId &reg) {
+    assert(m_block->cont() == fie::FIBlock::ERR);
+    m_block->cont() = fie::FIBlock::Return;
+    m_block->reg()  = reg;
   }
 
   template <typename... TArgs>
-  [[nodiscard]] decltype(auto) globalConstant(TArgs &&... args) {
-    return fiCtx().globalConstant(std::forward<TArgs>(args)...);
+  [[nodiscard]] decltype(auto) newBlock(TArgs &&... args) const {
+    return m_ctx->block(std::forward<TArgs>(args)...);
+  }
+
+  template <typename T>
+  [[nodiscard]] BlkResult<T> ret(const T &val) {
+    return std::pair<decltype(fun::wrapLinear(this)), std::decay_t<T>>(
+        fun::wrapLinear(this), val);
+  }
+
+  template <typename T, typename... TArgs>
+  [[nodiscard]] RegResult store(const std::string &name, TArgs &&... args) {
+    auto &ins = m_block->body().emplace_back(
+        m_ctx->regId(name),
+        fiCtx().val<T>(pos().curr()->loc(), std::forward<TArgs>(args)...));
+    return RegResult(fun::wrapLinear(this), ins.reg());
   }
 };
 } // namespace pre::cc

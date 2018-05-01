@@ -20,13 +20,19 @@
 
 #pragma once
 
+#include <vector>
+
 #include "diagnostic/location.hpp"
+
+#include "regId.hpp"
 
 namespace fie {
 class FIValue {
 public:
   enum Type {
     Const,
+    Msg,
+    Phi,
   };
 
 private:
@@ -45,6 +51,7 @@ public:
 class FIConstBase : public FIValue {
 public:
   enum ConstType {
+    Bool,
     Double,
   };
 
@@ -57,6 +64,11 @@ public:
 
 template <typename>
 struct _constTraits;
+
+template <>
+struct _constTraits<bool> {
+  static constexpr FIConstBase::ConstType constType = FIConstBase::Bool;
+};
 
 template <>
 struct _constTraits<double> {
@@ -83,5 +95,37 @@ public:
   }
 };
 
+using FIBoolConst   = FIConst<bool>;
 using FIDoubleConst = FIConst<double>;
+
+class FIMsgValue : public FIValue {
+  std::string          m_msg;
+  std::vector<FIRegId> m_params;
+
+public:
+  constexpr auto &msg() const { return m_msg; }
+  constexpr auto &params() const { return m_params; }
+
+  FIMsgValue(const fdi::FLocation &      loc,
+             const std::string &         msg,
+             const std::vector<FIRegId> &params) :
+      FIValue(loc),
+      m_msg(msg),
+      m_params(params) {}
+
+  virtual Type type() const override;
+};
+
+class FIPhiValue : public FIValue {
+  std::vector<FIRegId> m_values;
+
+public:
+  constexpr auto &values() const { return m_values; }
+
+  FIPhiValue(const fdi::FLocation &loc, const std::vector<FIRegId> &values) :
+      FIValue(loc),
+      m_values(values) {}
+
+  virtual Type type() const override;
+};
 } // namespace fie

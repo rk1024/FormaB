@@ -24,10 +24,11 @@
 
 namespace fps {
 class FLexer {
-  void *m_yyscanner;
+  void *              m_yyscanner;
+  const fdi::FLogger *m_logger;
 
 public:
-  FLexer(FParserTag &tag);
+  FLexer(FParserTag &);
 
   ~FLexer();
 

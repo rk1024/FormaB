@@ -23,52 +23,100 @@
 #include "compiler/context.hpp"
 
 namespace pre {
-cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr    ctx,
-                                      const fps::FPExpr *node) const {
-  auto _(ctx->pos().move(node));
-  return makeValue(ctx.move(), node->infix());
-}
-
-cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr      ctx,
-                                      const fps::FPXInfix *node) const {
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr    ctx,
+                                    const fps::FPExpr *node) const {
   auto _(ctx->pos().move(node));
 
   switch (node->alt()) {
-  case fps::FPXInfix::Add: ctx->errorR("not implemented");
-  case fps::FPXInfix::Sub: ctx->errorR("not implemented");
-  case fps::FPXInfix::Mul: ctx->errorR("not implemented");
-  case fps::FPXInfix::Div: ctx->errorR("not implemented");
-  case fps::FPXInfix::Mod: ctx->errorR("not implemented");
-  case fps::FPXInfix::Unary: return makeValue(ctx.move(), node->unary());
+  case fps::FPExpr::Infix: return emitStore(ctx.move(), node->infix());
+  case fps::FPExpr::Control: return emitStore(ctx.move(), node->ctl());
   }
 }
 
-cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr      ctx,
-                                      const fps::FPXUnary *node) const {
-  auto _(ctx->pos().move(node));
-  return makeValue(ctx.move(), node->prim());
-}
-
-cc::ValueResult FPCompiler::makeValue(cc::BlockCtxPtr     ctx,
-                                      const fps::FPXPrim *node) const {
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
+                                    const fps::FPXInfix *node) const {
   auto _(ctx->pos().move(node));
 
   switch (node->alt()) {
-  case fps::FPXPrim::Ident: ctx->errorR("not implemented");
+  case fps::FPXInfix::Add:
+    return makeMsg(
+        ctx.move(), "add", "o@op:+:", node->infixl(), node->infixr());
+  case fps::FPXInfix::Sub:
+    return makeMsg(
+        ctx.move(), "sub", "o@op:-:", node->infixl(), node->infixr());
+  case fps::FPXInfix::Mul:
+    return makeMsg(
+        ctx.move(), "mul", "o@op:*:", node->infixl(), node->infixr());
+  case fps::FPXInfix::Div:
+    return makeMsg(
+        ctx.move(), "div", "o@op:/:", node->infixl(), node->infixr());
+  case fps::FPXInfix::Mod:
+    return makeMsg(ctx.move(), "mod", "o@op:%:", node->infixl(), node->unary());
+  case fps::FPXInfix::Unary: return emitStore(ctx.move(), node->unary());
+  }
+}
+
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
+                                    const fps::FPXUnary *node) const {
+  auto _(ctx->pos().move(node));
+  return emitStore(ctx.move(), node->prim());
+}
+
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr     ctx,
+                                    const fps::FPXPrim *node) const {
+  auto _(ctx->pos().move(node));
+
+  switch (node->alt()) {
+  case fps::FPXPrim::Ident: ctx->errorR("ident not implemented");
   case fps::FPXPrim::Number: return makeNumeric(ctx.move(), node->tok());
-  case fps::FPXPrim::Paren: return makeValue(ctx.move(), node->expr());
+  case fps::FPXPrim::True: return ctx->store<fie::FIBoolConst>("true", true);
+  case fps::FPXPrim::False: return ctx->store<fie::FIBoolConst>("false", false);
+  case fps::FPXPrim::Paren: return emitStore(ctx.move(), node->paren());
   }
+}
+
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
+                                    const fps::FPXParen *node) const {
+  auto _(ctx->pos().move(node));
+
+  return emitStore(ctx.move(), node->expr());
+}
+
+cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr        ctx,
+                                    const fps::FPXControl *node) const {
+  auto _(ctx->pos().move(node));
+
+  auto [ctx2, cond] = emitStore(ctx.move(), node->cond());
+
+  auto ctxThen = ctx2->newBlock("xi-then");
+  auto ctxElse = ctx2->newBlock("xi-else");
+  auto ctxDone = ctx2->newBlock("xi-done");
+
+  ctx2->contBranch(cond, ctxThen->block(), ctxElse->block());
+
+  ctxThen->contStatic(ctxDone->block());
+  ctxElse->contStatic(ctxDone->block());
+
+  auto [ctxThen2, then] = emitStore(ctxThen.move(), node->then());
+
+  auto [ctxElse2, Else] = emitStore(ctxElse.move(), node->Else());
+
+  return ctxDone->store<fie::FIPhiValue>("if",
+                                         std::vector<fie::FIRegId>{then, Else});
 }
 
 fie::FIGlobalConstant *FPCompiler::compileDAssign(
     const fps::FPDAssign *assign) {
 
-  cc::CompileContext cctx(m_ctx, assign);
+  cc::FuncContext fctx(m_ctx, assign);
 
-  auto ctx = cctx.block();
+  auto ctx = fctx.block("root");
 
-  auto [ctx2, value] = makeValue(ctx.move(), assign->value());
+  auto [ctx2, value] = emitStore(ctx.move(), assign->value());
 
-  return ctx2->globalConstant(assign->name()->value(), value);
+  ctx2->contRet(value);
+
+  return m_ctx->fiCtx().globalConstant(assign->name()->value(),
+                                       fie::FIFunctionBody(fctx.blocks()));
 }
 } // namespace pre

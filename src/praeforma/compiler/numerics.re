@@ -117,7 +117,7 @@ std::enable_if_t<std::is_integral<T>::value, T> readInt(
   return readIntBasic<T>(ctx.move(), radix, expon, max, max + 1, sg, d0, d1);
 }
 
-cc::ValueResult FPCompiler::makeNumeric(cc::BlockCtxPtr    ctx,
+cc::RegResult FPCompiler::makeNumeric(cc::BlockCtxPtr    ctx,
                                         const fps::FToken *tok) const {
   const char *_str = tok->value().c_str(), *str = _str, *YYMARKER, *sg, *d0,
              *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr, *e1 = nullptr,
@@ -317,6 +317,6 @@ emitR4:
   // return closure->emitConst<float>("r4", 1337.1337f);
   ctx->errorR("not implemented");
 emitR8:
-  return ctx->val<fie::FIDoubleConst>(1337.1337);
+  return ctx->store<fie::FIDoubleConst>("r8", 1337.1337);
 }
 } // namespace pre

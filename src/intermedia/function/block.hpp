@@ -20,6 +20,39 @@
 
 #pragma once
 
+#include "instruction.hpp"
+
 namespace fie {
-class FIBlock {};
+class FIBlock {
+public:
+  enum Continue {
+    ERR,
+    Static,
+    Branch,
+    Return,
+    // TODO: Maybe add indirect jump or jump tables?
+  };
+
+private:
+  std::string                m_name;
+  std::vector<FIInstruction> m_body;
+  Continue                   m_cont;
+  FIBlock *                  m_next, *m_else;
+  FIRegId                    m_reg;
+
+public:
+  constexpr auto &name() const { return m_name; }
+  constexpr auto &body() { return m_body; }
+  constexpr auto &body() const { return m_body; }
+  constexpr auto &cont() { return m_cont; }
+  constexpr auto &cont() const { return m_cont; }
+  constexpr auto &next() { return m_next; }
+  constexpr auto &next() const { return m_next; }
+  constexpr auto &Else() { return m_else; }
+  constexpr auto &Else() const { return m_else; }
+  constexpr auto &reg() { return m_reg; }
+  constexpr auto &reg() const { return m_reg; }
+
+  FIBlock(const std::string &name) : m_name(name), m_cont(ERR) {}
+};
 } // namespace fie

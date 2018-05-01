@@ -74,7 +74,7 @@ ASTGen.run do
     end
   end
 
-  ##### Declarations #####
+  ##### Praeforma Declarations #####
 
   node :PraeDeclarations do
     let :PraeDeclarations, :decls
@@ -137,15 +137,20 @@ ASTGen.run do
     end
   end
 
-  ##### Expressions #####
+  ##### Praeforma Expressions #####
 
   node :PraeExpression do
-    let :PraeInfixExpression, :infix
+    union do
+      let :PraeInfixExpression, :infix
+      let :PraeControlExpression, :ctl
+    end
 
     ctor :Infix, :infix, fmt: :infix
+    ctor :Control, :ctl, fmt: :ctl
 
     symbol do
       rule :Infix, :infix
+      rule :Control, :ctl
     end
   end
 
@@ -209,16 +214,42 @@ ASTGen.run do
   node :PraePrimaryExpression do
     union do
       let :Token, :tok
-      let :PraeExpression, :expr
+      let :PraeParenExpression, :paren
     end
 
     ctor [:Ident, :Number], :tok, fmt: :tok
-    ctor :Paren, :expr, fmt: ["(", :expr, ")"]
+    ctor :True, fmt: "true"
+    ctor :False, fmt: "false"
+    ctor :Paren, :paren, fmt: :paren
 
     symbol do
       rule :Ident, [:PIdent, :tok]
       rule :Number, [:PNumber, :tok]
+      rule :True, "true"
+      rule :False, "false"
+      rule :Paren, :paren
+    end
+  end
+
+  node :PraeParenExpression do
+    let :PraeExpression, :expr
+
+    ctor :Paren, :expr, fmt: ["(", :expr, ")"]
+
+    symbol do
       rule :Paren, "(", :expr, ")"
+    end
+  end
+
+  node :PraeControlExpression do
+    let :PraeParenExpression, :cond
+    let :PraeExpression, :then
+    let :PraeExpression, :Else
+
+    ctor :If, :cond, :then, :Else, fmt: ["if ", :cond, " ", :then, " else ", :Else]
+
+    symbol do
+      rule :If, "if", :cond, :then, "else", :Else
     end
   end
 end

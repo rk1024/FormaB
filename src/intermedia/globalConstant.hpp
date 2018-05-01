@@ -22,19 +22,21 @@
 
 #include "util/object/object.hpp"
 
-#include "value.hpp"
+#include "function/body.hpp"
 
 namespace fie {
 class FIGlobalConstant {
   std::string    m_name;
-  const FIValue *m_value;
+  FIFunctionBody m_body;
 
 public:
+  constexpr auto &name() { return m_name; }
   constexpr auto &name() const { return m_name; }
-  constexpr auto &value() const { return m_value; }
+  constexpr auto &body() { return m_body; }
+  constexpr auto &body() const { return m_body; }
 
-  FIGlobalConstant(const std::string &name, const FIValue *value) :
+  FIGlobalConstant(const std::string &name, const FIFunctionBody &body) :
       m_name(name),
-      m_value(value) {}
+      m_body(body) {}
 };
 } // namespace fie

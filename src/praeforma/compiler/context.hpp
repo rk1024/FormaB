@@ -22,3 +22,4 @@
 
 #include "blockContext.hpp"
 #include "compileContext.hpp"
+#include "funcContext.hpp"

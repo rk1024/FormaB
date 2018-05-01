@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (instruction.hpp)
+ * FormaB - the bootstrap Forma compiler (funcContext.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,6 +20,32 @@
 
 #pragma once
 
-namespace fie {
-class FIInstruction {};
-} // namespace fie
+#include "compileContext.hpp"
+
+namespace pre::cc {
+class FuncContext : public CompileContext {
+  std::vector<fie::FIBlock *> m_blocks;
+  std::uint32_t               m_nextReg = 0;
+
+  fie::FIRegId regId(const std::string &name) {
+    return fie::FIRegId(m_nextReg++, name);
+  }
+
+public:
+  constexpr auto &blocks() const { return m_blocks; }
+
+  FuncContext(FPContext *ctx, const fps::FASTBase *pos) :
+      CompileContext(ctx, pos) {}
+
+  template <typename... TArgs>
+  [[nodiscard]] BlockCtxPtr block(TArgs &&... args) {
+    auto *block = fiCtx().block(std::forward<TArgs>(args)...);
+
+    m_blocks.push_back(block);
+
+    return flinear<BlockContext>(this, block);
+  }
+
+  friend class BlockContext;
+};
+} // namespace pre::cc

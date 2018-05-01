@@ -3,6 +3,10 @@ let x = 1.0;
 
 let y = 2.0;
 
+let m = 10.0 % 3.0;
+
+let i = if (true) 1.0 else 0.0;
+
 @@ let z = x + y;
 
 @@ let w = (x + z) * 2.0;

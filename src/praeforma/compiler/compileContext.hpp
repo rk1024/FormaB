@@ -43,11 +43,5 @@ public:
   CompileContext(FPContext *ctx, const fps::FASTBase *pos) :
       m_ctx(ctx),
       m_pos(pos) {}
-
-  template <typename... TArgs>
-  [[nodiscard]] BlockCtxPtr block(TArgs &&... args) {
-    return flinear<BlockContext>(this,
-                                 fiCtx().block(std::forward<TArgs>(args)...));
-  }
 };
 } // namespace pre::cc

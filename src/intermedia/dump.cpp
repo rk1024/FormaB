@@ -21,15 +21,101 @@
 #include "dump.hpp"
 
 namespace fie {
-void FIDump::writeValue(const FIValue *val) {
+void FIDump::writeBlock(const FIBlock *blk) const {
+  os() << blk->name() << ":\n";
+
+  for (auto &ins : blk->body()) {
+    os() << "  "; // TODO: Add proper indentation
+
+    switch (ins.type()) {
+    case FIInstruction::ERR: os() << "ERR"; break;
+    case FIInstruction::Drop:
+      os() << "drop ";
+      writeValue(ins.value());
+      break;
+
+    case FIInstruction::Store:
+      writeReg(ins.reg());
+      os() << " <- ";
+      writeValue(ins.value());
+    }
+
+    os() << "\n";
+  }
+
+  os() << "  ";
+
+  switch (blk->cont()) {
+  case FIBlock::ERR: os() << "cont = ERR"; break;
+  case FIBlock::Static: os() << "br " << blk->next()->name(); break;
+  case FIBlock::Branch:
+    os() << "btf ";
+    writeReg(blk->reg());
+    os() << " " << blk->next()->name() << " " << blk->Else()->name();
+    break;
+  case FIBlock::Return:
+    os() << "ret ";
+    writeReg(blk->reg());
+    break;
+  }
+
+  os() << "\n";
+}
+
+void FIDump::writeFuncBody(const FIFunctionBody *body) const {
+  for (auto &block : body->blocks()) { writeBlock(block); }
+}
+
+void FIDump::writeGlobalConst(const FIGlobalConstant *Const) const {
+  os() << "const " << Const->name() << " {\n";
+  writeFuncBody(&Const->body());
+  os() << "}";
+}
+
+void FIDump::writeReg(const FIRegId &reg) const {
+  os() << reg.id() << "(" << reg.name() << ")";
+}
+
+void FIDump::writeValue(const FIValue *val) const {
   switch (val->type()) {
   case FIValue::Const: {
-    auto konst = dynamic_cast<const FIConstBase *>(val);
+    auto Const = dynamic_cast<const FIConstBase *>(val);
 
-    switch (konst->constType()) {
-    case FIConstBase::Double:
-      os() << dynamic_cast<const FIDoubleConst *>(konst)->value();
+    os() << "const ";
+
+    switch (Const->constType()) {
+    case FIConstBase::Bool:
+      os() << "bool "
+           << (dynamic_cast<const FIBoolConst *>(Const)->value() ? "true"
+                                                                 : "false");
       break;
+    case FIConstBase::Double:
+      os() << "double " << dynamic_cast<const FIDoubleConst *>(Const)->value();
+      break;
+    }
+
+    break;
+  }
+  case FIValue::Msg: {
+    auto msg = dynamic_cast<const FIMsgValue *>(val);
+
+    os() << "msg " << msg->msg();
+
+    for (auto &param : msg->params()) {
+      os() << " ";
+      writeReg(param);
+    }
+
+    break;
+  }
+  case FIValue::Phi: {
+    auto phi = dynamic_cast<const FIPhiValue *>(val);
+
+    os() << "phi";
+
+    for (auto &value : phi->values()) {
+      os() << " ";
+      writeReg(value);
     }
 
     break;
@@ -37,9 +123,8 @@ void FIDump::writeValue(const FIValue *val) {
   }
 }
 
-void FIDump::dumpGlobalConstant(FIGlobalConstant *konst) {
-  os() << konst->name() << " = ";
-  writeValue(konst->value());
-  os() << ";" << std::endl;
+void FIDump::dumpGlobalConstant(FIGlobalConstant *Const) {
+  writeGlobalConst(Const);
+  os() << "\n" << std::flush;
 }
 } // namespace fie

@@ -35,12 +35,56 @@ namespace pre {
 class FPCompiler : public fun::FObject {
   FPContext *m_ctx; // TODO: Maybe don't make this a field?
 
-  cc::ValueResult makeNumeric(cc::BlockCtxPtr, const fps::FToken *) const;
+  cc::RegResult makeNumeric(cc::BlockCtxPtr, const fps::FToken *) const;
 
-  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPExpr *) const;
-  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXInfix *) const;
-  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXUnary *) const;
-  cc::ValueResult makeValue(cc::BlockCtxPtr, const fps::FPXPrim *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPExpr *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPXInfix *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPXUnary *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPXPrim *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPXParen *) const;
+  cc::RegResult emitStore(cc::BlockCtxPtr, const fps::FPXControl *) const;
+
+  template <std::size_t n, typename T, typename... TArgs>
+  cc::BlockCtxPtr emitStores_impl(std::array<fie::FIRegId, n> &ret,
+                                  cc::BlockCtxPtr              ctx,
+                                  std::size_t                  i,
+                                  T &&                         first,
+                                  TArgs &&... args) const {
+    auto [ctx2, val] = emitStore(ctx.move(), first);
+    ret[i]           = val;
+    return emitStores_impl(ret, ctx2.move(), ++i, std::forward<TArgs>(args)...);
+  }
+
+  template <std::size_t n>
+  cc::BlockCtxPtr emitStores_impl(std::array<fie::FIRegId, n> &,
+                                  cc::BlockCtxPtr ctx,
+                                  std::size_t) const {
+    return ctx.move();
+  }
+
+  template <typename... TArgs>
+  cc::BlkResult<std::array<fie::FIRegId, sizeof...(TArgs)>> makeValues(
+      cc::BlockCtxPtr ctx, TArgs &&... args) const {
+    std::array<fie::FIRegId, sizeof...(TArgs)> ret;
+
+    auto ctx2 = emitStores_impl(ret,
+                                ctx.move(),
+                                0,
+                                std::forward<TArgs>(args)...);
+
+    return ctx2->ret(ret);
+  }
+
+  template <typename... TArgs>
+  cc::RegResult makeMsg(cc::BlockCtxPtr    ctx,
+                        const std::string &name,
+                        const std::string &msg,
+                        TArgs &&... args) const {
+    auto [ctx2, params] = makeValues(ctx.move(), std::forward<TArgs>(args)...);
+
+    return ctx2->template store<fie::FIMsgValue>(
+        name, msg, std::vector<fie::FIRegId>(params.begin(), params.end()));
+  }
 
 public:
   FPCompiler(FPContext &ctx) : m_ctx(&ctx) {}

@@ -157,7 +157,11 @@ PNumPart  [a-zA-Z0-9_.]
   {Whitespace}+ { $SM }
 
   /* Keywords */
-  %astgen-token PKWLet "let" { $SM }
+  %astgen-token PKWElse  "else"  { $SM }
+  %astgen-token PKWFalse "false" { $SM }
+  %astgen-token PKWIf    "if"    { $SM }
+  %astgen-token PKWLet   "let"   { $SM }
+  %astgen-token PKWTrue  "true"  { $SM }
 
   %astgen-token PIdent  /{PIdentStart}{PIdentPart}*|[_@]{PIdentPart}+/ { $SM } capture
   %astgen-token PNumber /{PNumDecStart}?{PNumStart}{PNumPart}*/ { $SM } capture
@@ -197,7 +201,8 @@ PNumPart  [a-zA-Z0-9_.]
 %%
 
 namespace fps {
-  FLexer::FLexer(fps::FParserTag &tag) {
+  FLexer::FLexer(fps::FParserTag &tag)
+      : m_logger(&tag.logger()) {
     if (int ret = frmalex_init_extra(&tag, &m_yyscanner))
       throw std::runtime_error(std::string("scanner constructor failed, code ")
                                + std::to_string(ret));
@@ -207,7 +212,7 @@ namespace fps {
 
   FLexer::~FLexer() {
     if (int ret = frmalex_destroy(m_yyscanner))
-      throw std::runtime_error(std::string("scanner destructor failed, code ")
+      m_logger->error("lexer", "scanner destructor failed, code "
                                + std::to_string(ret));
   }
 

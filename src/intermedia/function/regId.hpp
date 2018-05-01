@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (value.cpp)
+ * FormaB - the bootstrap Forma compiler (regId.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,10 +18,20 @@
  *
  ************************************************************************/
 
-#include "value.hpp"
+#pragma once
+
+#include "util/consPod.hpp"
 
 namespace fie {
-FIValue::~FIValue() {}
+FUN_CONSPOD(FIRegId, std::uint32_t, std::string) {
+  FCP_GET(0, id);
+  FCP_GET(1, name);
 
-FIValue::Type FIConstBase::type() const { return Const; }
+  FIRegId() = default;
+
+  FIRegId(std::uint32_t _id, const std::string &_name) :
+      FCP_INIT(FIRegId, _id, _name) {}
+};
 } // namespace fie
+
+FCP_HASH(fie::FIRegId);

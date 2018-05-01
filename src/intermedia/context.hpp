@@ -27,8 +27,8 @@
 #include "diagnostic/logger.hpp"
 
 #include "function/block.hpp"
+#include "function/value.hpp"
 #include "globalConstant.hpp"
-#include "value.hpp"
 
 namespace fie {
 class FIContext {

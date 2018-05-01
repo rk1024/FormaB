@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (body.hpp)
+ * FormaB - the bootstrap Forma compiler (value.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,21 +18,14 @@
  *
  ************************************************************************/
 
-#pragma once
-
-#include <vector>
-
-#include "block.hpp"
+#include "value.hpp"
 
 namespace fie {
-class FIFunctionBody {
-  std::vector<FIBlock *> m_blocks;
+FIValue::~FIValue() {}
 
-public:
-  constexpr auto &blocks() { return m_blocks; }
-  constexpr auto &blocks() const { return m_blocks; }
+FIValue::Type FIConstBase::type() const { return Const; }
 
-  explicit FIFunctionBody(const std::vector<FIBlock *> blocks) :
-      m_blocks(blocks) {}
-};
+FIValue::Type FIMsgValue::type() const { return Msg; }
+
+FIValue::Type FIPhiValue::type() const { return Phi; }
 } // namespace fie

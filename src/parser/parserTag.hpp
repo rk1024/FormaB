@@ -33,7 +33,7 @@ namespace fps {
 struct FParserTag {
   std::string                    m_filename;
   std::stack<std::ostringstream> m_bufs;
-  fdi::FLogger *                 m_logger;
+  const fdi::FLogger *           m_logger;
 
 public:
   FInputs *      inputs  = nullptr;
@@ -41,9 +41,10 @@ public:
   bool           lexFail = false;
   fdi::FLocation lexFailPos;
 
-  constexpr auto &buf() { return m_bufs.top(); }
+  constexpr auto &buf() const { return m_bufs.top(); }
+  constexpr auto &logger() const { return *m_logger; }
 
-  FParserTag(fdi::FLogger &logger, const std::string &filename) :
+  FParserTag(const fdi::FLogger &logger, const std::string &filename) :
       m_filename(filename),
       m_logger(&logger) {}
 

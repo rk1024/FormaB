@@ -31,7 +31,15 @@ class FIDump : public fun::FObject {
   FIContext *   m_ctx;
   std::ostream *m_os;
 
-  void writeValue(const FIValue *);
+  void writeBlock(const FIBlock *) const;
+
+  void writeFuncBody(const FIFunctionBody *) const;
+
+  void writeGlobalConst(const FIGlobalConstant *) const;
+
+  void writeReg(const FIRegId &) const;
+
+  void writeValue(const FIValue *) const;
 
 public:
   constexpr auto &os() const { return *m_os; }

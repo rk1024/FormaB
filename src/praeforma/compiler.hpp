@@ -25,7 +25,7 @@
 
 #include "parser/ast.hpp"
 
-#include "intermedia/globalConstant.hpp"
+#include "intermedia/const.hpp"
 
 #include "context.hpp"
 
@@ -89,6 +89,6 @@ class FPCompiler : public fun::FObject {
 public:
   FPCompiler(FPContext &ctx) : m_ctx(&ctx) {}
 
-  fie::FIGlobalConstant *compileDAssign(const fps::FPDAssign *);
+  fie::FIConst *compileDAssign(const fps::FPDAssign *);
 };
 } // namespace pre

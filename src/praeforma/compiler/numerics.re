@@ -315,6 +315,6 @@ emitR4:
   // return closure->emitConst<float>("r4", 1337.1337f);
   ctx->errorR("not implemented");
 emitR8:
-  return ctx->store<fie::FIDoubleConst>("r8", 1337.1337);
+  return ctx->store<fie::FIDoubleConstValue>("r8", 1337.1337);
 }
 } // namespace pre

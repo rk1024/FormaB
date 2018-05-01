@@ -26,16 +26,16 @@
 
 #include "diagnostic/logger.hpp"
 
+#include "const.hpp"
 #include "function/block.hpp"
 #include "function/value.hpp"
-#include "globalConstant.hpp"
 
 namespace fie {
 class FIContext {
-  fun::FPtrStore<FIValue>          m_values;
-  fun::FPtrStore<FIGlobalConstant> m_globalConstants;
-  fun::FPtrStore<FIBlock>          m_blocks;
-  const fdi::FLogger *             m_logger;
+  fun::FPtrStore<FIValue> m_values;
+  fun::FPtrStore<FIConst> m_consts;
+  fun::FPtrStore<FIBlock> m_blocks;
+  const fdi::FLogger *    m_logger;
 
 public:
   constexpr auto &logger() const { return *m_logger; }
@@ -46,8 +46,8 @@ public:
   }
 
   template <typename... TArgs>
-  [[nodiscard]] decltype(auto) globalConstant(TArgs &&... args) {
-    return m_globalConstants.emplace(std::forward<TArgs>(args)...);
+  [[nodiscard]] decltype(auto) Const(TArgs &&... args) {
+    return m_consts.emplace(std::forward<TArgs>(args)...);
   }
 
   template <typename... TArgs>

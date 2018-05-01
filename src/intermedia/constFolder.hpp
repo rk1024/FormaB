@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (value.cpp)
+ * FormaB - the bootstrap Forma compiler (constFolder.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,14 +18,20 @@
  *
  ************************************************************************/
 
-#include "value.hpp"
+#pragma once
+
+#include "util/object/object.hpp"
+
+#include "const.hpp"
+#include "context.hpp"
 
 namespace fie {
-FIValue::~FIValue() {}
+class FIConstFolder : public fun::FObject {
+  FIContext *m_ctx;
 
-FIValue::Type FIConstValueBase::type() const { return Const; }
+public:
+  FIConstFolder(FIContext &ctx) : m_ctx(&ctx) {}
 
-FIValue::Type FIMsgValue::type() const { return Msg; }
-
-FIValue::Type FIPhiValue::type() const { return Phi; }
+  FIFoldedConst *foldConstant(FIConst *);
+};
 } // namespace fie

@@ -62,14 +62,14 @@ void FIDump::writeBlock(const FIBlock *blk) const {
   os() << "\n";
 }
 
-void FIDump::writeFuncBody(const FIFunctionBody *body) const {
-  for (auto &block : body->blocks()) { writeBlock(block); }
-}
-
-void FIDump::writeGlobalConst(const FIGlobalConstant *Const) const {
+void FIDump::writeConst(const FIConst *Const) const {
   os() << "const " << Const->name() << " {\n";
   writeFuncBody(&Const->body());
   os() << "}";
+}
+
+void FIDump::writeFuncBody(const FIFunctionBody *body) const {
+  for (auto &block : body->blocks()) { writeBlock(block); }
 }
 
 void FIDump::writeReg(const FIRegId &reg) const {
@@ -79,18 +79,20 @@ void FIDump::writeReg(const FIRegId &reg) const {
 void FIDump::writeValue(const FIValue *val) const {
   switch (val->type()) {
   case FIValue::Const: {
-    auto Const = dynamic_cast<const FIConstBase *>(val);
+    auto Const = dynamic_cast<const FIConstValueBase *>(val);
 
     os() << "const ";
 
     switch (Const->constType()) {
-    case FIConstBase::Bool:
+    case FIConstValueBase::Bool:
       os() << "bool "
-           << (dynamic_cast<const FIBoolConst *>(Const)->value() ? "true"
-                                                                 : "false");
+           << (dynamic_cast<const FIBoolConstValue *>(Const)->value()
+                   ? "true"
+                   : "false");
       break;
-    case FIConstBase::Double:
-      os() << "double " << dynamic_cast<const FIDoubleConst *>(Const)->value();
+    case FIConstValueBase::Double:
+      os() << "double "
+           << dynamic_cast<const FIDoubleConstValue *>(Const)->value();
       break;
     }
 
@@ -123,8 +125,8 @@ void FIDump::writeValue(const FIValue *val) const {
   }
 }
 
-void FIDump::dumpGlobalConstant(FIGlobalConstant *Const) {
-  writeGlobalConst(Const);
+void FIDump::dumpConst(FIConst *Const) {
+  writeConst(Const);
   os() << "\n" << std::flush;
 }
 } // namespace fie

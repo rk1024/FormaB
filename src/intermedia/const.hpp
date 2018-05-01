@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (globalConstant.hpp)
+ * FormaB - the bootstrap Forma compiler (const.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -25,18 +25,30 @@
 #include "function/body.hpp"
 
 namespace fie {
-class FIGlobalConstant {
+class FIConst {
   std::string    m_name;
   FIFunctionBody m_body;
 
 public:
-  constexpr auto &name() { return m_name; }
   constexpr auto &name() const { return m_name; }
   constexpr auto &body() { return m_body; }
   constexpr auto &body() const { return m_body; }
 
-  FIGlobalConstant(const std::string &name, const FIFunctionBody &body) :
+  FIConst(const std::string &name, const FIFunctionBody &body) :
       m_name(name),
       m_body(body) {}
+};
+
+class FIFoldedConst {
+  std::string m_name;
+  FIValue *   m_value;
+
+public:
+  constexpr auto &name() const { return m_name; }
+  constexpr auto &value() const { return m_value; }
+
+  FIFoldedConst(const std::string &name, FIValue *value) :
+      m_name(name),
+      m_value(value) {}
 };
 } // namespace fie

@@ -228,7 +228,7 @@ inline void printLogs(const fdi::FLogger &logger, int warnings, int errors) {
       if (errors != 1) std::cerr << "s";
     }
 
-    std::cerr << " generated." << std::endl;
+    if (warnings || errors) std::cerr << " generated." << std::endl;
   }
 }
 
@@ -332,6 +332,8 @@ int run(int argc, char **argv) {
 
     return -1;
   }
+
+  assert(!errors);
 
   printLogs(logger, warnings, errors);
 

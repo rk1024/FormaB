@@ -69,8 +69,10 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr     ctx,
   switch (node->alt()) {
   case fps::FPXPrim::Ident: ctx->errorR("ident not implemented");
   case fps::FPXPrim::Number: return makeNumeric(ctx.move(), node->tok());
-  case fps::FPXPrim::True: return ctx->store<fie::FIBoolConst>("true", true);
-  case fps::FPXPrim::False: return ctx->store<fie::FIBoolConst>("false", false);
+  case fps::FPXPrim::True:
+    return ctx->store<fie::FIBoolConstValue>("true", true);
+  case fps::FPXPrim::False:
+    return ctx->store<fie::FIBoolConstValue>("false", false);
   case fps::FPXPrim::Paren: return emitStore(ctx.move(), node->paren());
   }
 }
@@ -105,9 +107,7 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr        ctx,
                                          std::vector<fie::FIRegId>{then, Else});
 }
 
-fie::FIGlobalConstant *FPCompiler::compileDAssign(
-    const fps::FPDAssign *assign) {
-
+fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
   cc::FuncContext fctx(m_ctx, assign);
 
   auto ctx = fctx.block("root");
@@ -116,7 +116,7 @@ fie::FIGlobalConstant *FPCompiler::compileDAssign(
 
   ctx2->contRet(value);
 
-  return m_ctx->fiCtx().globalConstant(assign->name()->value(),
-                                       fie::FIFunctionBody(fctx.blocks()));
+  return m_ctx->fiCtx().Const(assign->name()->value(),
+                              fie::FIFunctionBody(fctx.blocks()));
 }
 } // namespace pre

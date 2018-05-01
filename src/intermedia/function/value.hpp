@@ -48,14 +48,14 @@ public:
   virtual Type type() const = 0;
 };
 
-class FIConstBase : public FIValue {
+class FIConstValueBase : public FIValue {
 public:
   enum ConstType {
     Bool,
     Double,
   };
 
-  FIConstBase(const fdi::FLocation &loc) : FIValue(loc) {}
+  FIConstValueBase(const fdi::FLocation &loc) : FIValue(loc) {}
 
   virtual Type type() const override;
 
@@ -67,27 +67,29 @@ struct _constTraits;
 
 template <>
 struct _constTraits<bool> {
-  static constexpr FIConstBase::ConstType constType = FIConstBase::Bool;
+  static constexpr FIConstValueBase::ConstType
+      constType = FIConstValueBase::Bool;
 };
 
 template <>
 struct _constTraits<double> {
-  static constexpr FIConstBase::ConstType constType = FIConstBase::Double;
+  static constexpr FIConstValueBase::ConstType
+      constType = FIConstValueBase::Double;
 };
 
 template <typename T>
-class FIConst : public FIConstBase {
+class FIConstValue : public FIConstValueBase {
   T m_value;
 
 public:
   constexpr auto &value() const { return m_value; }
 
-  FIConst(const fdi::FLocation &loc, const T &value) :
-      FIConstBase(loc),
+  FIConstValue(const fdi::FLocation &loc, const T &value) :
+      FIConstValueBase(loc),
       m_value(value) {}
 
-  FIConst(const fdi::FLocation &loc, T &&value) :
-      FIConstBase(loc),
+  FIConstValue(const fdi::FLocation &loc, T &&value) :
+      FIConstValueBase(loc),
       m_value(value) {}
 
   virtual ConstType constType() const override {
@@ -95,8 +97,8 @@ public:
   }
 };
 
-using FIBoolConst   = FIConst<bool>;
-using FIDoubleConst = FIConst<double>;
+using FIBoolConstValue   = FIConstValue<bool>;
+using FIDoubleConstValue = FIConstValue<double>;
 
 class FIMsgValue : public FIValue {
   std::string          m_msg;

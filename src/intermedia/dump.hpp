@@ -33,9 +33,9 @@ class FIDump : public fun::FObject {
 
   void writeBlock(const FIBlock *) const;
 
-  void writeFuncBody(const FIFunctionBody *) const;
+  void writeConst(const FIConst *) const;
 
-  void writeGlobalConst(const FIGlobalConstant *) const;
+  void writeFuncBody(const FIFunctionBody *) const;
 
   void writeReg(const FIRegId &) const;
 
@@ -46,6 +46,6 @@ public:
 
   FIDump(FIContext &ctx, std::ostream &os) : m_ctx(&ctx), m_os(&os) {}
 
-  void dumpGlobalConstant(FIGlobalConstant *);
+  void dumpConst(FIConst *);
 };
 } // namespace fie

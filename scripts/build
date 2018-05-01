@@ -14,7 +14,7 @@ RNinja.config(file: "build.yaml") do
     dashOFast: false,
     diagnostic: false,
     gen: :ninja,
-    no_lto: true
+    no_lto: false
 
   profile :release, {
     debug: false,

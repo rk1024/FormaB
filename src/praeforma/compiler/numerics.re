@@ -64,8 +64,6 @@ static std::enable_if_t<std::is_integral<T>::value, T> readIntBasic(
 
       next = num * radix;
 
-      // TODO: Do radix checking?
-
       if (*d0 > 0x5a)
         next += *d0 - 0x61 + 10; // Capital
       else if (*d0 > 0x39)

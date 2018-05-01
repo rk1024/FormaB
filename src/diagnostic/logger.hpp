@@ -30,7 +30,6 @@ class logger_raise : public std::exception {
   virtual const char *what() const noexcept override { return "logger_raise"; }
 };
 
-// TODO: Have a callback for warnings?
 class FLogger {
 public:
   enum Verbosity { Quiet, Normal, Verbose };
@@ -39,7 +38,7 @@ private:
   Verbosity             m_verbosity = Normal;
   bool                  m_color     = true;
   std::ostream *        m_os;
-  std::function<void()> m_err;
+  std::function<void()> m_warn, m_err;
 
 public:
   constexpr auto &verbosity() { return m_verbosity; }
@@ -49,8 +48,11 @@ public:
   bool verbose() const { return m_verbosity == Verbose; }
   bool color() const { return m_color; }
 
-  template <typename TErr>
-  FLogger(std::ostream &os, const TErr &err) : m_os(&os), m_err(err) {}
+  template <typename TWarn, typename TErr>
+  FLogger(std::ostream &os, const TWarn &warn, const TErr &err) :
+      m_os(&os),
+      m_warn(warn),
+      m_err(err) {}
 
 private:
   void writeBody(const std::string &lvlFmt,
@@ -111,6 +113,22 @@ private:
     if (verbose()) write(lvlFmt, lvl, pre, str);
   }
 
+  void okay(const std::string &lvlFmt,
+            const std::string &lvl,
+            const FLocation &  loc,
+            const std::string &str) const {
+    write(lvlFmt, lvl, loc, str);
+    m_warn();
+  }
+
+  void okay(const std::string &lvlFmt,
+            const std::string &lvl,
+            const std::string &pre,
+            const std::string &str) const {
+    write(lvlFmt, lvl, pre, str);
+    m_warn();
+  }
+
   void bad(const std::string &lvlFmt,
            const std::string &lvl,
            const FLocation &  loc,
@@ -155,10 +173,9 @@ private:
 
   _FLOGFN(debug, good, debug, 8);
   _FLOGFN(info, good, info, 8);
-  _FLOGFN(warn, good, warning, 13); // TODO: Should this be hidden when quiet?
   _FLOGFN(debugV, verb, debug, 8);
   _FLOGFN(infoV, verb, info, 8);
-  _FLOGFN(warnV, verb, warning, 13);
+  _FLOGFN(warn, okay, warning, 13);
   _FLOGFN(error, bad, error, 1);
   _FLOGFN(fatal, bad, fatal, 1);
   _FLOGFN(errorR, raise, error, 1, [[noreturn]]);

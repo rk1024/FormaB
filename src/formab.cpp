@@ -214,10 +214,28 @@ void onSignal(int id, siginfo_t *, void *) {
   sigaction(id, &oact, nullptr);
 }
 
-int run(int argc, char **argv) {
-  unsigned int errors = 0;
+inline void printLogs(const fdi::FLogger &logger, int warnings, int errors) {
+  if (!logger.quiet()) {
+    if (warnings) {
+      std::cerr << warnings << " warning";
+      if (warnings != 1) std::cerr << "s";
+    }
 
-  fdi::FLogger logger(std::cerr, [&]() { ++errors; });
+    if (warnings && errors) std::cerr << " and ";
+
+    if (errors) {
+      std::cerr << errors << " error";
+      if (errors != 1) std::cerr << "s";
+    }
+
+    std::cerr << " generated." << std::endl;
+  }
+}
+
+int run(int argc, char **argv) {
+  std::uint32_t warnings = 0, errors = 0;
+
+  fdi::FLogger logger(std::cerr, [&]() { ++warnings; }, [&]() { ++errors; });
 
   FILE *      infile;
   std::string filename("???");
@@ -227,7 +245,6 @@ int run(int argc, char **argv) {
   try {
     ap.parse(argc, argv);
 
-    // TODO: Add non-positional logging
     if (ap.verboseLvl() && ap.isQuiet()) throw fun::bad_argument();
 
     if (ap.verboseLvl()) logger.verbosity() = fdi::FLogger::Verbose;
@@ -311,15 +328,12 @@ int run(int argc, char **argv) {
     if (errors) throw fdi::logger_raise();
   }
   catch (fdi::logger_raise &) {
-    // TODO: Output warning count
-    if (!logger.quiet()) {
-      std::cerr << errors << " error";
-      if (errors != 1) std::cerr << "s";
-      std::cerr << " generated." << std::endl;
-    }
+    printLogs(logger, warnings, errors);
 
     return -1;
   }
+
+  printLogs(logger, warnings, errors);
 
   return 0;
 }

@@ -99,11 +99,6 @@ public:
   bool operator<=(const FLinearPtr &rhs) const { return m_ptr <= rhs.m_ptr; }
   bool operator>=(const FLinearPtr &rhs) const { return m_ptr >= rhs.m_ptr; }
 
-  // TODO: Remove these
-
-  bool operator!() const { return !m_ptr; }
-       operator bool() const { return !!m_ptr; }
-
   template <typename U>
   auto operator<<(U &&rhs) {
     return m_ptr->operator<<(std::forward<U>(rhs));

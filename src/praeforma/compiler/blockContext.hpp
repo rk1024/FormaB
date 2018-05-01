@@ -36,7 +36,6 @@ using BlockCtxPtr = fun::FLinearPtr<BlockContext>;
 template <typename T>
 using BlkResult = std::pair<BlockCtxPtr, T>;
 
-// using ValueResult = BlkResult<fie::FIValue *>;
 using RegResult  = BlkResult<fie::FIRegId>;
 using VoidResult = BlkResult<void>;
 

@@ -26,7 +26,6 @@
 #include "util/cons.hpp"
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
-#include "util/range.hpp"
 
 namespace fpp {
 template <typename T, typename TOut, typename... TArgs>
@@ -57,27 +56,27 @@ class FDataGraphRuleBase : public fun::FObject {
 template <typename... TArgs, std::size_t... idcs>
 fun::cons_cell<TArgs...> _consNodeExtract_impl(
     const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &nodes,
-    fun::idx_range<idcs...>) {
+    std::index_sequence<idcs...>) {
   return fun::cons(nodes.template get<idcs>()->data()...);
 }
 
 template <typename... TArgs>
 inline fun::cons_cell<TArgs...> _consNodeExtract(
     const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &nodes) {
-  return _consNodeExtract_impl(nodes, fun::idx_range_for<TArgs...>());
+  return _consNodeExtract_impl(nodes, std::index_sequence_for<TArgs...>());
 }
 
 template <typename T, typename U, typename... TArgs, std::size_t... idcs>
 U _consNodeApply_impl(const fun::FMFPtr<T, U, TArgs...> &ptr,
                       const fun::cons_cell<TArgs...> &   args,
-                      fun::idx_range<idcs...>) {
+                      std::index_sequence<idcs...>) {
   return ptr(args.template get<idcs>()...);
 }
 
 template <typename T, typename U, typename... TArgs>
 U _consNodeApply(const fun::FMFPtr<T, U, TArgs...> &ptr,
                  const fun::cons_cell<TArgs...> &   args) {
-  return _consNodeApply_impl(ptr, args, fun::idx_range_for<TArgs...>());
+  return _consNodeApply_impl(ptr, args, std::index_sequence_for<TArgs...>());
 }
 
 template <typename, typename, typename...>

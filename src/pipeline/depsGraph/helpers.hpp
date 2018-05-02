@@ -62,7 +62,7 @@ class FDepsEdgeHelper {
 
   template <std::size_t... idcs>
   void multiIn_impl(const fun::cons_cell<FDepsNodeHelper<TArgs>...> &ins,
-                    fun::idx_range<idcs...>) {
+                    std::index_sequence<idcs...>) {
     m_rule->in(fun::cons(ins.template get<idcs>().m_data...));
     multiIn_impl_deps(ins.template get<idcs>().m_node...);
   }
@@ -82,7 +82,7 @@ public:
   friend FDepsEdgeHelper &operator>>(
       const fun::cons_cell<FDepsNodeHelper<TArgs>...> &lhs,
       FDepsEdgeHelper &                                rhs) {
-    rhs.multiIn_impl(lhs, fun::idx_range_for<TArgs...>());
+    rhs.multiIn_impl(lhs, std::index_sequence_for<TArgs...>());
     return rhs;
   }
 

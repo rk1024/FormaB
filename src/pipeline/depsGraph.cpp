@@ -91,19 +91,6 @@ FDepsGraphEdge::FDepsGraphEdge(const std::string &           name,
     m_graph(graph),
     m_rule(rule) {}
 
-fun::FPtr<FDepsGraphNode> FDepsGraph::node(const std::string &name) {
-  auto node = fnew<FDepsGraphNode>(name);
-  m_nodes.push_back(node);
-  return node;
-}
-
-fun::FPtr<FDepsGraphEdge> FDepsGraph::edge(const std::string &           name,
-                                           fun::FPtr<FDataGraphRuleBase> rule) {
-  auto edge = fnew<FDepsGraphEdge>(name, fun::weak(this), rule);
-  m_edges.push_back(edge);
-  return edge;
-}
-
 void FDepsGraph::run(const fdi::FLogger &logger) {
   assert(!m_run);
 

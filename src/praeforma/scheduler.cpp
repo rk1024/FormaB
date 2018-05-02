@@ -46,39 +46,31 @@ public:
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
   auto name = "global '" + assign->name()->value() + "'";
 
-  auto ast    = m_graph->node("[AST] " + name);
-  auto i0     = m_graph->node("[I0] " + name);
-  auto folded = m_graph->node("[Folded] " + name);
-  // #if !defined(NDEBUG)
-  //   auto dumped = m_graph->node("[Dumped] " + name);
-  // #endif
+  auto ast    = m_graph->node("[AST] " + name, assign);
+  auto i0     = m_graph->node<fie::FIConst *>("[I0] " + name, nullptr);
+  auto folded = m_graph->node<fie::FIFoldedConst *>("[Folded] " + name,
+                                                    nullptr);
 
-  auto compileRule = fpp::rule(m_compiler, &FPCompiler::compileDAssign);
-  auto foldRule = fpp::rule(m_constFolder, &fie::FIConstFolder::foldConstant);
-  // #if !defined(NDEBUG)
-  //   auto dumpRule = fpp::rule(m_dump, &fie::FIDump::dumpConst);
-  // #endif
-
-  auto compile = m_graph->edge("compile", compileRule);
-  auto fold    = m_graph->edge("fold", foldRule);
-  // #if !defined(NDEBUG)
-  //   auto dump = m_graph->edge("dump", dumpRule);
-  // #endif
-
-  auto astData    = ast->data(assign);
-  auto i0Data     = i0->data<fie::FIConst *>(nullptr);
-  auto foldedData = folded->data<fie::FIFoldedConst *>(nullptr);
-
-  astData >> compileRule >> i0Data >> foldRule >> foldedData;
+  auto compile = m_graph->edge("compile",
+                               m_compiler,
+                               &FPCompiler::compileDAssign);
+  auto fold    = m_graph->edge("fold",
+                            m_constFolder,
+                            &fie::FIConstFolder::foldConstant);
 
   ast >> compile >> i0 >> fold >> folded;
 
-  // #if defined(NDEBUG)
-  // #else
-  //   astData >> compileRule >> i0Data >> dumpRule;
+#if !defined(NDEBUG)
+  auto printed = m_graph->node<void>("[Printed] " + name);
 
-  //   ast >> compile >> i0 >> dump >> dumped;
-  // #endif
+  auto dump       = m_graph->edge("dump", m_dump, &fie::FIDump::dumpConst);
+  auto dumpFolded = m_graph->edge("dumpFolded",
+                                  m_dump,
+                                  &fie::FIDump::dumpFoldedConst);
+
+  i0 >> dump >> printed;
+  folded >> dumpFolded >> printed;
+#endif
 }
 
 void FPScheduler::schedule(const fps::FInputs *inputs) {

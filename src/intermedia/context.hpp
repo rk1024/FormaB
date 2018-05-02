@@ -32,10 +32,11 @@
 
 namespace fie {
 class FIContext {
-  fun::FPtrStore<FIValue> m_values;
-  fun::FPtrStore<FIConst> m_consts;
-  fun::FPtrStore<FIBlock> m_blocks;
-  const fdi::FLogger *    m_logger;
+  fun::FPtrStore<FIValue>       m_values;
+  fun::FPtrStore<FIConst>       m_consts;
+  fun::FPtrStore<FIFoldedConst> m_foldedConsts;
+  fun::FPtrStore<FIBlock>       m_blocks;
+  const fdi::FLogger *          m_logger;
 
 public:
   constexpr auto &logger() const { return *m_logger; }
@@ -48,6 +49,11 @@ public:
   template <typename... TArgs>
   [[nodiscard]] decltype(auto) Const(TArgs &&... args) {
     return m_consts.emplace(std::forward<TArgs>(args)...);
+  }
+
+  template <typename... TArgs>
+  [[nodiscard]] decltype(auto) foldedConst(TArgs &&... args) {
+    return m_foldedConsts.emplace(std::forward<TArgs>(args)...);
   }
 
   template <typename... TArgs>

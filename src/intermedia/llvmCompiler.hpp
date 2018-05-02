@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (constFolder.cpp)
+ * FormaB - the bootstrap Forma compiler (llvmCompiler.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,12 +18,34 @@
  *
  ************************************************************************/
 
-#include "constFolder.hpp"
+#pragma once
+
+#include "util/object/object.hpp"
+
+#include "const.hpp"
+#include "context.hpp"
+
+#include <llvm/IR/IRBuilder.h>
+#include <llvm/IR/LLVMContext.h>
+#include <llvm/IR/Module.h>
+// TODO: This is temporary
+#include <llvm/Support/raw_ostream.h>
 
 namespace fie {
-FIFoldedConst *FIConstFolder::foldConstant(FIConst *Const) {
-  return m_ctx->foldedConst(Const->name(),
-                            m_ctx->val<FIDoubleConstValue>(Const->body().loc(),
-                                                           1337.1337));
-}
+class FILLVMCompiler : public fun::FObject {
+  FIContext *       m_ctx;
+  llvm::LLVMContext m_llCtx;
+  // TODO: Should this even be a singleton?
+  std::unique_ptr<llvm::Module> m_llModule;
+
+public:
+  FILLVMCompiler(FIContext &ctx, const std::string &moduleName) :
+      m_ctx(&ctx),
+      m_llModule(std::make_unique<llvm::Module>(moduleName, m_llCtx)) {}
+
+  void compileGlobalConst(FIFoldedConst *);
+
+  // TODO: This is also temporary
+  void printModule() { m_llModule->print(llvm::errs(), nullptr); }
+};
 } // namespace fie

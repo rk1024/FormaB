@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (constFolder.cpp)
+ * FormaB - the bootstrap Forma compiler (llvmCompiler.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,12 +18,12 @@
  *
  ************************************************************************/
 
-#include "constFolder.hpp"
+#include "llvmCompiler.hpp"
+
+namespace ll = llvm;
 
 namespace fie {
-FIFoldedConst *FIConstFolder::foldConstant(FIConst *Const) {
-  return m_ctx->foldedConst(Const->name(),
-                            m_ctx->val<FIDoubleConstValue>(Const->body().loc(),
-                                                           1337.1337));
+void FILLVMCompiler::compileGlobalConst(FIFoldedConst *Const) {
+  // TODO: I don't actually think there's anything to do here.
 }
 } // namespace fie

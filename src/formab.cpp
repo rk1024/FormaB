@@ -194,10 +194,9 @@ void postRun() {
 #if defined(DEBUG)
     std::cerr << "Exited normally." << std::endl;
 #endif
-    return;
   }
-
-  std::cerr << "WARNING: Exited unexpectedly!" << std::endl;
+  else
+    std::cerr << "WARNING: Exited unexpectedly!" << std::endl;
 }
 
 void onSignal(int id, siginfo_t *, void *) {
@@ -314,7 +313,7 @@ int run(int argc, char **argv) {
     auto           graph = fnew<fpp::FDepsGraph>();
     fie::FIContext fiCtx(logger);
     pre::FPContext fpCtx(fiCtx);
-    auto           sched = fnew<pre::FPScheduler>(graph, fpCtx);
+    auto sched = fnew<pre::FPScheduler>(graph, fpCtx, "cool module wow");
 
     // TODO: There has to be a better way to do this
     if (errors) throw fdi::logger_raise();
@@ -326,6 +325,11 @@ int run(int argc, char **argv) {
     graph->run(logger);
 
     if (errors) throw fdi::logger_raise();
+
+#if !defined(NDEBUG)
+    // TODO: Remove this eventually
+    sched->llvmCompiler()->printModule();
+#endif
   }
   catch (fdi::logger_raise &) {
     printLogs(logger, warnings, errors);

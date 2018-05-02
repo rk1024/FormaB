@@ -116,7 +116,6 @@ fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
 
   ctx2->contRet(value);
 
-  return m_ctx->fiCtx().Const(assign->name()->value(),
-                              fie::FIFunctionBody(fctx.blocks()));
+  return m_ctx->fiCtx().Const(assign->name()->value(), fctx.body());
 }
 } // namespace pre

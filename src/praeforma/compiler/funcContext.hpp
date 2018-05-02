@@ -46,6 +46,10 @@ public:
     return flinear<BlockContext>(this, block);
   }
 
+  fie::FIFunctionBody body() {
+    return fie::FIFunctionBody(pos().curr()->loc(), m_blocks);
+  }
+
   friend class BlockContext;
 };
 } // namespace pre::cc

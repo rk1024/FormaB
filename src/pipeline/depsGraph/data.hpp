@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (dataGraph.hpp)
+ * FormaB - the bootstrap Forma compiler (data.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -43,14 +43,6 @@ public:
   void            data(fun::autoref<T> data) { m_data = data; }
 
   FDataGraphNode(fun::autoref<T> data) : m_data(data) {}
-
-  template <typename U, typename TOut>
-  const fun::FPtr<FDataGraphRule<U, TOut, T>> &operator<<(
-      const fun::FPtr<FDataGraphRule<U, TOut, T>> &);
-
-  template <typename U, typename TOut>
-  const fun::FPtr<FDataGraphRule<U, TOut, T>> &operator>>(
-      const fun::FPtr<FDataGraphRule<U, TOut, T>> &);
 };
 
 template <>
@@ -106,21 +98,6 @@ public:
 
   void out(fun::FWeakPtr<FDataGraphNode<TOut>> out) { m_outs.push_back(out); }
 
-  const decltype(m_ins) &operator<<(const decltype(m_ins) &rhs) {
-    in(rhs);
-    return rhs;
-  }
-
-  const fun::FPtr<FDataGraphNode<TOut>> &operator>>(
-      const fun::FPtr<FDataGraphNode<TOut>> &rhs) {
-    out(fun::weak(rhs));
-    return rhs;
-  }
-
-  friend const fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> &operator>>(
-      const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &lhs,
-      const fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> &       rhs);
-
   friend struct _run_rule<T, TOut, TArgs...>;
 };
 
@@ -138,40 +115,4 @@ struct _run_rule<T, void, TArgs...> {
     _consNodeApply(self->m_ptr, _consNodeExtract(self->m_ins));
   }
 };
-
-template <typename T, typename TOut, typename... TArgs>
-const fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> &operator>>(
-    const fun::cons_cell<fun::FPtr<FDataGraphNode<TArgs>>...> &lhs,
-    const fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> &       rhs) {
-  rhs->in(lhs);
-  return rhs;
-}
-
-template <typename T>
-template <typename U, typename TOut>
-const fun::FPtr<FDataGraphRule<U, TOut, T>> &FDataGraphNode<T>::operator<<(
-    const fun::FPtr<FDataGraphRule<U, TOut, T>> &rhs) {
-  rhs->out(fun::weak(this));
-  return rhs;
-}
-
-template <typename T>
-template <typename U, typename TOut>
-const fun::FPtr<FDataGraphRule<U, TOut, T>> &FDataGraphNode<T>::operator>>(
-    const fun::FPtr<FDataGraphRule<U, TOut, T>> &rhs) {
-  rhs->in(fun::cons(fun::wrap(this)));
-  return rhs;
-}
-
-template <typename T, typename TOut, typename... TArgs>
-inline fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> rule(
-    const fun::FMFPtr<T, TOut, TArgs...> &ptr) {
-  return fnew<FDataGraphRule<T, TOut, TArgs...>>(ptr);
-}
-
-template <typename T, typename TOut, typename U, typename... TArgs>
-inline fun::FPtr<FDataGraphRule<T, TOut, TArgs...>> rule(
-    fun::FPtr<T> ptr, TOut (U::*pmf)(TArgs...)) {
-  return fnew<FDataGraphRule<U, TOut, TArgs...>>(ptr->*pmf);
-}
 } // namespace fpp

@@ -68,6 +68,12 @@ void FIDump::writeConst(const FIConst *Const) const {
   os() << "}";
 }
 
+void FIDump::writeFoldedConst(const FIFoldedConst *Const) const {
+  os() << "const " << Const->name() << " = ";
+  writeValue(Const->value());
+  os() << ";";
+}
+
 void FIDump::writeFuncBody(const FIFunctionBody *body) const {
   for (auto &block : body->blocks()) { writeBlock(block); }
 }
@@ -127,6 +133,11 @@ void FIDump::writeValue(const FIValue *val) const {
 
 void FIDump::dumpConst(FIConst *Const) {
   writeConst(Const);
+  os() << "\n" << std::flush;
+}
+
+void FIDump::dumpFoldedConst(FIFoldedConst *Const) {
+  writeFoldedConst(Const);
   os() << "\n" << std::flush;
 }
 } // namespace fie

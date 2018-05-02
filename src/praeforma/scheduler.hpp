@@ -29,6 +29,7 @@
 
 #include "intermedia/constFolder.hpp"
 #include "intermedia/dump.hpp"
+#include "intermedia/llvmCompiler.hpp"
 
 #include "compiler.hpp"
 
@@ -41,16 +42,25 @@ class FPScheduler : public fun::FObject {
   fun::FPtr<FPCompiler>      m_compiler;
   fun::FPtr<fie::FIDump>     m_dump;
   // TODO: Maybe make the Intermedia pipeline separate?
-  fun::FPtr<fie::FIConstFolder> m_constFolder;
+  fun::FPtr<fie::FIConstFolder>  m_constFolder;
+  fun::FPtr<fie::FILLVMCompiler> m_llvmCompiler;
 
   void scheduleDAssign(const fps::FPDAssign *);
 
 public:
-  FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph, FPContext &ctx) :
+  constexpr auto &compiler() const { return m_compiler; }
+  constexpr auto &dump() const { return m_dump; }
+  constexpr auto &constFolder() const { return m_constFolder; }
+  constexpr auto &llvmCompiler() const { return m_llvmCompiler; }
+
+  FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph,
+              FPContext &                       ctx,
+              const std::string &               moduleName) :
       m_graph(graph),
       m_compiler(fnew<FPCompiler>(ctx)),
       m_dump(fnew<fie::FIDump>(ctx.fiCtx(), std::cerr)),
-      m_constFolder(fnew<fie::FIConstFolder>(ctx.fiCtx())) {}
+      m_constFolder(fnew<fie::FIConstFolder>(ctx.fiCtx())),
+      m_llvmCompiler(fnew<fie::FILLVMCompiler>(ctx.fiCtx(), moduleName)) {}
 
   void schedule(const fps::FInputs *);
 };

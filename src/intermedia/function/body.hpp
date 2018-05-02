@@ -26,13 +26,17 @@
 
 namespace fie {
 class FIFunctionBody {
+  fdi::FLocation         m_loc;
   std::vector<FIBlock *> m_blocks;
 
 public:
+  constexpr auto &loc() const { return m_loc; }
   constexpr auto &blocks() { return m_blocks; }
   constexpr auto &blocks() const { return m_blocks; }
 
-  explicit FIFunctionBody(const std::vector<FIBlock *> blocks) :
+  explicit FIFunctionBody(const fdi::FLocation &       loc,
+                          const std::vector<FIBlock *> blocks) :
+      m_loc(loc),
       m_blocks(blocks) {}
 };
 } // namespace fie

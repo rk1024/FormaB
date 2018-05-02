@@ -52,11 +52,8 @@ void FArgParser::parse(const std::vector<std::string> &args) {
                *l1 = nullptr, *l2 = nullptr, *v0 = nullptr, *v1 = nullptr
         /*!stags:re2c format = ", *@@"; */;
 
-    switch (acceptMode) {
-    case Required:
-      goto handle; // Parsing not necessary; we're just going to handleVal
-    default: break;
-    }
+    // Parsing not necessary; we're just going to handleVal
+    if (acceptMode == Required) goto handle;
 
     /*!re2c
       re2c:flags:T = 1;

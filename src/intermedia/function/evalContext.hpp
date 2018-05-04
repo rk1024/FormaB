@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (value.cpp)
+ * FormaB - the bootstrap Forma compiler (evalContext.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,30 +18,18 @@
  *
  ************************************************************************/
 
-#include "value.hpp"
+#pragma once
+
+#include <unordered_map>
+
+#include "regId.hpp"
 
 namespace fie {
-FIValue::~FIValue() {}
+class FIValue;
+class FIBlock;
 
-FIValue::Type FIConstValueBase::type() const { return Const; }
-
-FIValue::Type FIMsgValue::type() const { return Msg; }
-
-FIValue *FIMsgValue::eval(FIContext &ctx, const FIEvalContext &state) const {
-  return m_msg->eval(ctx, state, m_params);
-}
-
-FIValue::Type FIPhiValue::type() const { return Phi; }
-
-FIValue *FIPhiValue::eval(FIContext &, const FIEvalContext &state) const {
-  for (auto &[blk, reg] : m_values) {
-    if (blk == state.prev) {
-      if (auto it = state.regs.find(reg); it != state.regs.end())
-        return it->second;
-      return nullptr;
-    }
-  }
-
-  return nullptr;
-}
+struct FIEvalContext {
+  std::unordered_map<FIRegId, FIValue *> regs;
+  FIBlock *                              prev = nullptr;
+};
 } // namespace fie

@@ -120,9 +120,16 @@ PNumDecStart \.
 PNumStart [0-9]
 PNumPart  [a-zA-Z0-9_.]
 
+PDQuote \"
+
+PDQChar [^"\\\n]
+PQLEscape \\[^\n]
+PQLLineEsc \\\n
+
 %x SSStart
 %x SSBComment
 %x SSPraeforma
+%x SSPraeDQLiteral
 
 %%
 <SSStart>{
@@ -156,6 +163,8 @@ PNumPart  [a-zA-Z0-9_.]
 
   {Whitespace}+ { $SM }
 
+  {PDQuote} { $SM $SSPUSH(PraeDQLiteral) $BSW }
+
   /* Keywords */
   %astgen-token PKWElse  "else"  { $SM }
   %astgen-token PKWFalse "false" { $SM }
@@ -174,8 +183,12 @@ PNumPart  [a-zA-Z0-9_.]
   %astgen-token PLBrace "{" { $SM }
   %astgen-token PRBrace "}" { $SM }
 
+  /* Quoting */
+  %astgen-token PBQuote "`" { $SM }
+
   /* General Symbols */
   %astgen-token PAnon  "_"  { $SM }
+  %astgen-token PColon ":"  { $SM }
   %astgen-token PGives "=>" { $SM }
   %astgen-token PSemi  ";"  { $SM }
 
@@ -191,6 +204,16 @@ PNumPart  [a-zA-Z0-9_.]
   %astgen-token PMod "%"  { $SM }
   %astgen-token PMul "*"  { $SM }
   %astgen-token PSub "-"  { $SM }
+}
+
+<SSPraeDQLiteral>{
+  {Newline}+ { $WL $BW }
+
+  {PDQChar}+ { $ML $BW }
+  {PQLEscape}+ { $ML $BW }
+  {PQLLineEsc}+ { $WL $BW }
+
+  %astgen-token PDQLiteral /{PDQuote}{PIdentPart}*/ { $ML $BW $SSPOP } capture buf end
 }
 
 <*>{

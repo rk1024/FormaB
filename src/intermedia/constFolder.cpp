@@ -22,8 +22,11 @@
 
 namespace fie {
 FIFoldedConst *FIConstFolder::foldConstant(FIConst *Const) {
-  return m_ctx->foldedConst(Const->name(),
-                            m_ctx->val<FIDoubleConstValue>(Const->body().loc(),
-                                                           1337.1337));
+  auto folded = Const->body().eval(*m_ctx);
+
+  if (!folded)
+    m_ctx->logger().errorR(Const->body().loc(), "failed to evaluate constant");
+
+  return m_ctx->foldedConst(Const->name(), folded);
 }
 } // namespace fie

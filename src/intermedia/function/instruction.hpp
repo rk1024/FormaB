@@ -21,9 +21,10 @@
 #pragma once
 
 #include "regId.hpp"
-#include "value.hpp"
 
 namespace fie {
+class FIValue;
+
 class FIInstruction {
 public:
   enum Type {

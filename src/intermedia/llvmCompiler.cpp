@@ -23,7 +23,7 @@
 namespace ll = llvm;
 
 namespace fie {
-void FILLVMCompiler::compileGlobalConst(FIFoldedConst *Const) {
+void FILLVMCompiler::compileGlobalConst(FIFoldedConst *) {
   // TODO: I don't actually think there's anything to do here.
 }
 } // namespace fie

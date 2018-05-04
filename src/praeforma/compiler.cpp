@@ -37,21 +37,23 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
                                     const fps::FPXInfix *node) const {
   auto _(ctx->pos().move(node));
 
+  auto &fiCtx = ctx->fiCtx();
+
   switch (node->alt()) {
   case fps::FPXInfix::Add:
-    return makeMsg(
-        ctx.move(), "add", "o@op:+:", node->infixl(), node->infixr());
+    return makeMsg(ctx,
+                   "add",
+                   ctx->msg<fie::FIAddMessage>(),
+                   node->infixl(),
+                   node->infixr());
   case fps::FPXInfix::Sub:
-    return makeMsg(
-        ctx.move(), "sub", "o@op:-:", node->infixl(), node->infixr());
+    return makeMsg(ctx, "sub", nullptr, node->infixl(), node->infixr());
   case fps::FPXInfix::Mul:
-    return makeMsg(
-        ctx.move(), "mul", "o@op:*:", node->infixl(), node->infixr());
+    return makeMsg(ctx, "mul", nullptr, node->infixl(), node->infixr());
   case fps::FPXInfix::Div:
-    return makeMsg(
-        ctx.move(), "div", "o@op:/:", node->infixl(), node->infixr());
+    return makeMsg(ctx, "div", nullptr, node->infixl(), node->infixr());
   case fps::FPXInfix::Mod:
-    return makeMsg(ctx.move(), "mod", "o@op:%:", node->infixl(), node->unary());
+    return makeMsg(ctx, "mod", nullptr, node->infixl(), node->unary());
   case fps::FPXInfix::Unary: return emitStore(ctx.move(), node->unary());
   }
 }
@@ -103,8 +105,11 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr        ctx,
 
   auto [ctxElse2, Else] = emitStore(ctxElse.move(), node->Else());
 
-  return ctxDone->store<fie::FIPhiValue>("if",
-                                         std::vector<fie::FIRegId>{then, Else});
+  return ctxDone->store<fie::FIPhiValue>(
+      "if",
+      std::vector<std::pair<fie::FIBlock *, fie::FIRegId>>{
+          std::pair(ctxThen2->block(), then),
+          std::pair(ctxElse2->block(), Else)});
 }
 
 fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
@@ -112,9 +117,13 @@ fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
 
   auto ctx = fctx.block("root");
 
+  fctx.entry() = ctx->block();
+
   auto [ctx2, value] = emitStore(ctx.move(), assign->value());
 
   ctx2->contRet(value);
+
+  auto _(fctx.pos().move(assign->value()));
 
   return m_ctx->fiCtx().Const(assign->name()->value(), fctx.body());
 }

@@ -25,6 +25,7 @@
 namespace pre::cc {
 class FuncContext : public CompileContext {
   std::vector<fie::FIBlock *> m_blocks;
+  fie::FIBlock *              m_entry;
   std::uint32_t               m_nextReg = 0;
 
   fie::FIRegId regId(const std::string &name) {
@@ -33,6 +34,8 @@ class FuncContext : public CompileContext {
 
 public:
   constexpr auto &blocks() const { return m_blocks; }
+  constexpr auto &entry() { return m_entry; }
+  constexpr auto &entry() const { return m_entry; }
 
   FuncContext(FPContext *ctx, const fps::FASTBase *pos) :
       CompileContext(ctx, pos) {}
@@ -47,7 +50,7 @@ public:
   }
 
   fie::FIFunctionBody body() {
-    return fie::FIFunctionBody(pos().curr()->loc(), m_blocks);
+    return fie::FIFunctionBody(pos().curr()->loc(), m_entry, m_blocks);
   }
 
   friend class BlockContext;

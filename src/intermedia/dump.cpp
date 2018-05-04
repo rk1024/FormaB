@@ -75,6 +75,7 @@ void FIDump::writeFoldedConst(const FIFoldedConst *Const) const {
 }
 
 void FIDump::writeFuncBody(const FIFunctionBody *body) const {
+  os() << "  br " << body->entry()->name() << "\n";
   for (auto &block : body->blocks()) { writeBlock(block); }
 }
 
@@ -107,7 +108,7 @@ void FIDump::writeValue(const FIValue *val) const {
   case FIValue::Msg: {
     auto msg = dynamic_cast<const FIMsgValue *>(val);
 
-    os() << "msg " << msg->msg();
+    os() << "msg " << msg->msg()->name();
 
     for (auto &param : msg->params()) {
       os() << " ";
@@ -122,8 +123,9 @@ void FIDump::writeValue(const FIValue *val) const {
     os() << "phi";
 
     for (auto &value : phi->values()) {
-      os() << " ";
-      writeReg(value);
+      os() << " (" << value.first->name() << " -> ";
+      writeReg(value.second);
+      os() << ")";
     }
 
     break;

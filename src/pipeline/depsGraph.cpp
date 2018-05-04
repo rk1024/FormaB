@@ -78,8 +78,7 @@ void FDepsGraphEdge::run() {
   for (auto out : m_outs) assert(!out.lock()->m_ready);
 #endif
 
-  m_rule->run();
-  m_state = Done;
+  if (m_rule->run()) m_state = Done;
 
   for (auto out : m_outs) out.lock()->stat();
 }

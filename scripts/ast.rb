@@ -130,10 +130,55 @@ ASTGen.run do
   end
 
   node :PraeSyntaxDeclaration do
-    ctor :Syntax, fmt: ""
+    let :Token, :ident
+    let :PraeGrammarLiteral, :grammar
+    let :PraeExpression, :body # TODO: This is wrong
+
+    ctor :Syntax, :ident, :grammar, :body, fmt: [:ident, " => ", :grammar, ": ", :body]
 
     symbol do
-      rule :Syntax
+      rule :Syntax, [:PIdent, :ident], [:PGives], :grammar, [:PColon], :body
+    end
+  end
+
+  node :PraeGrammarLiteral do
+    let :PraeGrammarElements, :elems
+
+    ctor :Grammar, :elems, fmt: ["`", :elems, "`"]
+
+    symbol do
+      rule :Grammar, [:PBQuote], :elems, [:PBQuote]
+    end
+  end
+
+  node :PraeGrammarElements do
+    let :PraeGrammarElements, :elems
+    let :PraeGrammarElement, :elem
+
+    ctor :Empty, fmt: ""
+    ctor :Elements, :elems, :elem, fmt: [:elems, " ", :elem]
+    ctor :Element, :elem, fmt: :elem
+
+    symbol do
+      rule :Elements, :elems, :elem
+      rule :Element, :elem
+    end
+
+    symbol :PraeGrammarElementsOpt do
+      rule :Empty
+      rule :self, [:PraeGrammarElements, :self]
+    end
+  end
+
+  node :PraeGrammarElement do
+    let :Token, :tok
+
+    ctor :NameRef, :tok, fmt: ["{", :tok, "}"]
+    ctor :TokRef, :tok, fmt: :tok
+
+    symbol do
+      rule :NameRef, [:PLBrace], [:PIdent, :tok], [:PRBrace]
+      rule :TokRef, [:PDQLiteral, :tok]
     end
   end
 

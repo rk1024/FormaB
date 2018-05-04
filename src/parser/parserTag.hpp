@@ -41,7 +41,8 @@ public:
   bool           lexFail = false;
   fdi::FLocation lexFailPos;
 
-  constexpr auto &buf() const { return m_bufs.top(); }
+  // NB: buf() needs to be non-const
+  constexpr auto &buf() { return m_bufs.top(); }
   constexpr auto &logger() const { return *m_logger; }
 
   FParserTag(const fdi::FLogger &logger, const std::string &filename) :

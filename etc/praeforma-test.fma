@@ -3,9 +3,18 @@ let x = 1.0;
 
 let y = 2.0;
 
-let m = 10.0 % 3.0;
+let a = 1.0 + 5.0;
+
+@@ let m = 10.0 % 3.0;
 
 let i = if (true) 1.0 else 0.0;
+
+let Input => `"let" {Identifier} "=" {Expression}`: 3.0;
+
+let Expression => `{Expression} "+" {Expression}`: true;
+let Expression => `{Expression} "-" {Expression}`: true;
+let Expression => `{Expression} "*" {Expression}`: true;
+let Expression => `{Expression} "/" {Expression}`: true;
 
 @@ let z = x + y;
 

@@ -102,5 +102,10 @@ public:
         fiCtx().val<T>(pos().curr()->loc(), std::forward<TArgs>(args)...));
     return RegResult(fun::wrapLinear(this), ins.reg());
   }
+
+  template <typename T, typename... TArgs>
+  [[nodiscard]] decltype(auto) msg(TArgs &&... args) {
+    return fiCtx().msg<T>(pos().curr()->loc(), std::forward<TArgs>(args)...);
+  }
 };
 } // namespace pre::cc

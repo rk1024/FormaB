@@ -39,9 +39,17 @@ protected:
     m_sched->scheduleDAssign(assign);
   }
 
+  virtual void visit(const fps::FPDSyntax *syntax) override {
+    m_sched->scheduleDSyntax(syntax);
+  }
+
 public:
   Walker(FPScheduler *sched) : WalkerBase(sched) {}
 };
+
+void FPScheduler::scheduleDSyntax(const fps::FPDSyntax *syntax) {
+  m_ctx->logger().infoV("scheduler", syntax->toString());
+}
 
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
   auto name = "global '" + assign->name()->value() + "'";

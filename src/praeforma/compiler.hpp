@@ -76,9 +76,9 @@ class FPCompiler : public fun::FObject {
   }
 
   template <typename... TArgs>
-  cc::RegResult makeMsg(cc::BlockCtxPtr    ctx,
-                        const std::string &name,
-                        const std::string &msg,
+  cc::RegResult makeMsg(cc::BlockCtxPtr &   ctx,
+                        const std::string & name,
+                        fie::FIMessageBase *msg,
                         TArgs &&... args) const {
     auto [ctx2, params] = makeValues(ctx.move(), std::forward<TArgs>(args)...);
 

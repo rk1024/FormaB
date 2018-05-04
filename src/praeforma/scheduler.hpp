@@ -38,12 +38,16 @@ class FPScheduler : public fun::FObject {
   class WalkerBase;
   class Walker;
 
+  FPContext *m_ctx;
+
   fun::FPtr<fpp::FDepsGraph> m_graph;
   fun::FPtr<FPCompiler>      m_compiler;
   fun::FPtr<fie::FIDump>     m_dump;
   // TODO: Maybe make the Intermedia pipeline separate?
   fun::FPtr<fie::FIConstFolder>  m_constFolder;
   fun::FPtr<fie::FILLVMCompiler> m_llvmCompiler;
+
+  void scheduleDSyntax(const fps::FPDSyntax *);
 
   void scheduleDAssign(const fps::FPDAssign *);
 
@@ -56,6 +60,7 @@ public:
   FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph,
               FPContext &                       ctx,
               const std::string &               moduleName) :
+      m_ctx(&ctx),
       m_graph(graph),
       m_compiler(fnew<FPCompiler>(ctx)),
       m_dump(fnew<fie::FIDump>(ctx.fiCtx(), std::cerr)),

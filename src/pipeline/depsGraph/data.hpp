@@ -48,7 +48,7 @@ template <>
 class FDataGraphNode<void> : public FDataGraphNodeBase {};
 
 class FDataGraphRuleBase : public fun::FObject {
-  virtual void run() = 0;
+  virtual bool run() = 0;
 
   friend class FDepsGraphEdge;
 };
@@ -88,7 +88,16 @@ class FDataGraphRule : public FDataGraphRuleBase {
   std::vector<fun::FWeakPtr<FDataGraphNode<TOut>>>    m_outs;
   fun::FMFPtr<T, TOut, TArgs...>                      m_ptr;
 
-  virtual void run() override { _run_rule<T, TOut, TArgs...>{}(this); }
+  virtual bool run() override {
+    try {
+      _run_rule<T, TOut, TArgs...>{}(this);
+    }
+    catch (fdi::logger_raise &) {
+      return false;
+    }
+
+    return true;
+  }
 
 public:
   FDataGraphRule(fun::FMFPtr<T, TOut, TArgs...> ptr) : m_ptr(ptr) {}

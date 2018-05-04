@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (value.cpp)
+ * FormaB - the bootstrap Forma compiler (message.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,30 +18,30 @@
  *
  ************************************************************************/
 
-#include "value.hpp"
+#include "message.hpp"
+
+#include "intermedia/context.hpp"
 
 namespace fie {
-FIValue::~FIValue() {}
+FIMessageBase::~FIMessageBase() {}
 
-FIValue::Type FIConstValueBase::type() const { return Const; }
+std::string FIAddMessage::name() const { return "o@op:+:"; }
 
-FIValue::Type FIMsgValue::type() const { return Msg; }
+FIValue *FIAddMessage::eval(FIContext &                 ctx,
+                            const FIEvalContext &       state,
+                            const std::vector<FIRegId> &params) const {
+  if (params.size() != 2) return nullptr;
 
-FIValue *FIMsgValue::eval(FIContext &ctx, const FIEvalContext &state) const {
-  return m_msg->eval(ctx, state, m_params);
+  auto *lhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[0]));
+  auto *rhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[1]));
+
+  if (!(lhs && rhs)) return nullptr;
+
+  // TODO: Watch your arithmetic!
+  return ctx.val<FIDoubleConstValue>(m_loc, lhs->value() + rhs->value());
 }
 
-FIValue::Type FIPhiValue::type() const { return Phi; }
-
-FIValue *FIPhiValue::eval(FIContext &, const FIEvalContext &state) const {
-  for (auto &[blk, reg] : m_values) {
-    if (blk == state.prev) {
-      if (auto it = state.regs.find(reg); it != state.regs.end())
-        return it->second;
-      return nullptr;
-    }
-  }
-
-  return nullptr;
+void FIAddMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
+  ctx.logger().fatalR("msg-add", "emit not implemented");
 }
 } // namespace fie

@@ -27,12 +27,14 @@
 #include "diagnostic/logger.hpp"
 
 #include "const.hpp"
+#include "function/_value.hpp"
 #include "function/block.hpp"
-#include "function/value.hpp"
+#include "function/message.hpp"
 
 namespace fie {
 class FIContext {
   fun::FPtrStore<FIValue>       m_values;
+  fun::FPtrStore<FIMessageBase> m_msgs;
   fun::FPtrStore<FIConst>       m_consts;
   fun::FPtrStore<FIFoldedConst> m_foldedConsts;
   fun::FPtrStore<FIBlock>       m_blocks;
@@ -44,6 +46,11 @@ public:
   template <typename T, typename... TArgs>
   [[nodiscard]] decltype(auto) val(TArgs &&... args) {
     return m_values.emplaceP<T>(std::forward<TArgs>(args)...);
+  }
+
+  template <typename T, typename... TArgs>
+  [[nodiscard]] decltype(auto) msg(TArgs &&... args) {
+    return m_msgs.emplaceP<T>(std::forward<TArgs>(args)...);
   }
 
   template <typename... TArgs>

@@ -42,6 +42,87 @@ FIValue *FIAddMessage::eval(FIContext &                 ctx,
 }
 
 void FIAddMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
-  ctx.logger().fatalR("msg-add", "emit not implemented");
+  ctx.logger().fatalR(m_loc, "emit not implemented");
+}
+
+std::string FISubMessage::name() const { return "o@op:-:"; }
+
+FIValue *FISubMessage::eval(FIContext &                 ctx,
+                            const FIEvalContext &       state,
+                            const std::vector<FIRegId> &params) const {
+  if (params.size() != 2) return nullptr;
+
+  auto *lhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[0]));
+  auto *rhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[1]));
+
+  if (!(lhs && rhs)) return nullptr;
+
+  // TODO: Watch your arithmetic!
+  return ctx.val<FIDoubleConstValue>(m_loc, lhs->value() - rhs->value());
+}
+
+void FISubMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
+  ctx.logger().fatalR(m_loc, "emit not implemented");
+}
+
+std::string FIMulMessage::name() const { return "o@op:*:"; }
+
+FIValue *FIMulMessage::eval(FIContext &                 ctx,
+                            const FIEvalContext &       state,
+                            const std::vector<FIRegId> &params) const {
+  if (params.size() != 2) return nullptr;
+
+  auto *lhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[0]));
+  auto *rhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[1]));
+
+  if (!(lhs && rhs)) return nullptr;
+
+  // TODO: Watch your arithmetic!
+  return ctx.val<FIDoubleConstValue>(m_loc, lhs->value() * rhs->value());
+}
+
+void FIMulMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
+  ctx.logger().fatalR(m_loc, "emit not implemented");
+}
+
+std::string FIDivMessage::name() const { return "o@op:/:"; }
+
+FIValue *FIDivMessage::eval(FIContext &                 ctx,
+                            const FIEvalContext &       state,
+                            const std::vector<FIRegId> &params) const {
+  if (params.size() != 2) return nullptr;
+
+  auto *lhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[0]));
+  auto *rhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[1]));
+
+  if (!(lhs && rhs)) return nullptr;
+
+  // TODO: Watch your arithmetic!
+  return ctx.val<FIDoubleConstValue>(m_loc, lhs->value() / rhs->value());
+}
+
+void FIDivMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
+  ctx.logger().fatalR(m_loc, "emit not implemented");
+}
+
+std::string FIModMessage::name() const { return "o@op:%:"; }
+
+FIValue *FIModMessage::eval(FIContext &                 ctx,
+                            const FIEvalContext &       state,
+                            const std::vector<FIRegId> &params) const {
+  if (params.size() != 2) return nullptr;
+
+  auto *lhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[0]));
+  auto *rhs = dynamic_cast<FIDoubleConstValue *>(state.regs.at(params[1]));
+
+  if (!(lhs && rhs)) return nullptr;
+
+  // TODO: Watch your arithmetic!
+  return ctx.val<FIDoubleConstValue>(m_loc,
+                                     std::fmod(lhs->value(), rhs->value()));
+}
+
+void FIModMessage::emit(FIContext &ctx, llvm::IRBuilder<> &) const {
+  ctx.logger().fatalR(m_loc, "emit not implemented");
 }
 } // namespace fie

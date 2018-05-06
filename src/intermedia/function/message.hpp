@@ -62,4 +62,56 @@ public:
 
   virtual void emit(FIContext &, llvm::IRBuilder<> &) const override;
 };
+
+class FISubMessage : public FIMessageBase {
+public:
+  FISubMessage(const fdi::FLocation &loc) : FIMessageBase(loc) {}
+
+  virtual std::string name() const override;
+
+  virtual FIValue *eval(FIContext &,
+                        const FIEvalContext &,
+                        const std::vector<FIRegId> &) const override;
+
+  virtual void emit(FIContext &, llvm::IRBuilder<> &) const override;
+};
+
+class FIMulMessage : public FIMessageBase {
+public:
+  FIMulMessage(const fdi::FLocation &loc) : FIMessageBase(loc) {}
+
+  virtual std::string name() const override;
+
+  virtual FIValue *eval(FIContext &,
+                        const FIEvalContext &,
+                        const std::vector<FIRegId> &) const override;
+
+  virtual void emit(FIContext &, llvm::IRBuilder<> &) const override;
+};
+
+class FIDivMessage : public FIMessageBase {
+public:
+  FIDivMessage(const fdi::FLocation &loc) : FIMessageBase(loc) {}
+
+  virtual std::string name() const override;
+
+  virtual FIValue *eval(FIContext &,
+                        const FIEvalContext &,
+                        const std::vector<FIRegId> &) const override;
+
+  virtual void emit(FIContext &, llvm::IRBuilder<> &) const override;
+};
+
+class FIModMessage : public FIMessageBase {
+public:
+  FIModMessage(const fdi::FLocation &loc) : FIMessageBase(loc) {}
+
+  virtual std::string name() const override;
+
+  virtual FIValue *eval(FIContext &,
+                        const FIEvalContext &,
+                        const std::vector<FIRegId> &) const override;
+
+  virtual void emit(FIContext &, llvm::IRBuilder<> &) const override;
+};
 } // namespace fie

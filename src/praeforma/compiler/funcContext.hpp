@@ -40,6 +40,14 @@ public:
   FuncContext(FPContext *ctx, const fps::FASTBase *pos) :
       CompileContext(ctx, pos) {}
 
+  void info(const std::string &str) const {
+    ctx().logger().info(pos().curr()->loc(), str);
+  }
+
+  [[noreturn]] void errorR(const std::string &str) const {
+    ctx().logger().errorR(pos().curr()->loc(), str);
+  }
+
   template <typename... TArgs>
   [[nodiscard]] BlockCtxPtr block(TArgs &&... args) {
     auto *block = fiCtx().block(std::forward<TArgs>(args)...);

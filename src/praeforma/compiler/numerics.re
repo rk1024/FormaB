@@ -315,6 +315,7 @@ emitR4:
   // return closure->emitConst<float>("r4", 1337.1337f);
   ctx->errorR("not implemented");
 emitR8:
-  return ctx->store<fie::FIDoubleConstValue>("r8", 1337.1337);
+  // TODO: Do this without using stod
+  return ctx->store<fie::FIDoubleConstValue>("r8", std::stod(tok->value()));
 }
 } // namespace pre

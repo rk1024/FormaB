@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (compileContext.hpp)
+ * FormaB - the bootstrap Forma compiler (module.hpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -20,29 +20,15 @@
 
 #pragma once
 
-#include "util/scopeTracker.hpp"
+#include "scope.hpp"
 
-#include "ast/astBase.hpp"
-
-#include "praeforma/context.hpp"
-
-namespace pre::cc {
-class BlockContext;
-
-using BlockCtxPtr = fun::FLinearPtr<BlockContext>;
-
-class CompileContext {
-  FPContext *                               m_ctx;
-  fun::FScopeTracker<const fps::FASTBase *> m_pos;
+namespace fie {
+class FIModule {
+  fun::FPtr<FIScope> m_globals;
 
 public:
-  constexpr auto &ctx() const { return *m_ctx; }
-  constexpr auto &fiCtx() const { return m_ctx->fiCtx(); }
-  constexpr auto &pos() { return m_pos; }
-  constexpr auto &pos() const { return m_pos; }
+  constexpr auto &globals() const { return m_globals; }
 
-  CompileContext(FPContext *ctx, const fps::FASTBase *pos) :
-      m_ctx(ctx),
-      m_pos(pos) {}
+  FIModule() : m_globals(fnew<FIScope>()) {}
 };
-} // namespace pre::cc
+} // namespace fie

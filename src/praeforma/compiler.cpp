@@ -37,8 +37,6 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
                                     const fps::FPXInfix *node) const {
   auto _(ctx->pos().move(node));
 
-  auto &fiCtx = ctx->fiCtx();
-
   switch (node->alt()) {
   case fps::FPXInfix::Add:
     return makeMsg(ctx,
@@ -47,13 +45,29 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr      ctx,
                    node->infixl(),
                    node->infixr());
   case fps::FPXInfix::Sub:
-    return makeMsg(ctx, "sub", nullptr, node->infixl(), node->infixr());
+    return makeMsg(ctx,
+                   "sub",
+                   ctx->msg<fie::FISubMessage>(),
+                   node->infixl(),
+                   node->infixr());
   case fps::FPXInfix::Mul:
-    return makeMsg(ctx, "mul", nullptr, node->infixl(), node->infixr());
+    return makeMsg(ctx,
+                   "mul",
+                   ctx->msg<fie::FIMulMessage>(),
+                   node->infixl(),
+                   node->infixr());
   case fps::FPXInfix::Div:
-    return makeMsg(ctx, "div", nullptr, node->infixl(), node->infixr());
+    return makeMsg(ctx,
+                   "div",
+                   ctx->msg<fie::FIDivMessage>(),
+                   node->infixl(),
+                   node->infixr());
   case fps::FPXInfix::Mod:
-    return makeMsg(ctx, "mod", nullptr, node->infixl(), node->unary());
+    return makeMsg(ctx,
+                   "mod",
+                   ctx->msg<fie::FIModMessage>(),
+                   node->infixl(),
+                   node->unary());
   case fps::FPXInfix::Unary: return emitStore(ctx.move(), node->unary());
   }
 }
@@ -125,6 +139,11 @@ fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
 
   auto _(fctx.pos().move(assign->value()));
 
-  return m_ctx->fiCtx().Const(assign->name()->value(), fctx.body());
+  auto ret = m_ctx->fiCtx().Const(assign->name()->value(), fctx.body());
+
+  if (!m_ctx->fiCtx().module().globals()->put<fie::FIConst *>(ret->name(), ret))
+    fctx.errorR("failed to bind global '" + ret->name() + "'");
+
+  return ret;
 }
 } // namespace pre

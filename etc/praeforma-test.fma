@@ -3,11 +3,19 @@ let x = 1.0;
 
 let y = 2.0;
 
+@@ let z = x + y;
+
+@@ let w = (x + z) * 2.0;
+
 let a = 1.0 + 5.0;
-
-@@ let m = 10.0 % 3.0;
-
+let s = 1.0 - 5.0;
+let p = 2.0 * 5.0;
+let d = 2.0 / 5.0;
+let m = 10.0 % 3.5;
 let i = if (true) 1.0 else 0.0;
+let e = if (false) 1.0 else 0.0;
+
+@@ let e = 5.0; @@ This shouldn't compile
 
 let Input => `"let" {Identifier} "=" {Expression}`: 3.0;
 
@@ -15,8 +23,4 @@ let Expression => `{Expression} "+" {Expression}`: true;
 let Expression => `{Expression} "-" {Expression}`: true;
 let Expression => `{Expression} "*" {Expression}`: true;
 let Expression => `{Expression} "/" {Expression}`: true;
-
-@@ let z = x + y;
-
-@@ let w = (x + z) * 2.0;
 @}

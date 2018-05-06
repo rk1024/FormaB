@@ -30,6 +30,7 @@
 #include "function/_value.hpp"
 #include "function/block.hpp"
 #include "function/message.hpp"
+#include "module.hpp"
 
 namespace fie {
 class FIContext {
@@ -38,10 +39,13 @@ class FIContext {
   fun::FPtrStore<FIConst>       m_consts;
   fun::FPtrStore<FIFoldedConst> m_foldedConsts;
   fun::FPtrStore<FIBlock>       m_blocks;
+  FIModule                      m_module;
   const fdi::FLogger *          m_logger;
 
 public:
   constexpr auto &logger() const { return *m_logger; }
+  constexpr auto &module() { return m_module; }
+  constexpr auto &module() const { return m_module; }
 
   template <typename T, typename... TArgs>
   [[nodiscard]] decltype(auto) val(TArgs &&... args) {

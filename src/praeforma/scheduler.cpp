@@ -54,36 +54,25 @@ void FPScheduler::scheduleDSyntax(const fps::FPDSyntax *syntax) {
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
   auto name = "global '" + assign->name()->value() + "'";
 
-  auto ast    = m_graph->node("[AST] " + name, assign);
-  auto i0     = m_graph->node<fie::FIConst *>("[I0] " + name, nullptr);
-  auto folded = m_graph->node<fie::FIFoldedConst *>("[Folded] " + name,
-                                                    nullptr);
+  auto ast = m_graph->node("[AST] " + name, assign);
+  auto i0  = m_graph->node<fie::FIConst *>("[I0] " + name, nullptr);
 
   auto compile = m_graph->edge("compile",
                                m_compiler,
                                &FPCompiler::compileDAssign);
-  auto fold    = m_graph->edge("fold",
-                            m_constFolder,
-                            &fie::FIConstFolder::foldConstant);
 
-  ast >> compile >> i0 >> fold >> folded;
+  ast >> compile >> i0;
 
-#if !defined(NDEBUG)
-  auto printed = m_graph->node<void>("[Printed] " + name);
-
-  auto dump       = m_graph->edge("dump", m_dump, &fie::FIDump::dumpConst);
-  auto dumpFolded = m_graph->edge("dumpFolded",
-                                  m_dump,
-                                  &fie::FIDump::dumpFoldedConst);
-
-  i0 >> dump >> printed;
-  folded >> dumpFolded >> printed;
-#endif
+  m_fiScheduler->scheduleGlobalConst(name, i0);
 }
 
 void FPScheduler::schedule(const fps::FInputs *inputs) {
+  m_fiScheduler->start();
+
   Walker walker(this);
 
   walker.walk(inputs);
+
+  m_fiScheduler->finish();
 }
 } // namespace pre

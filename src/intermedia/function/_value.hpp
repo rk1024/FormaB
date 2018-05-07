@@ -38,6 +38,7 @@ public:
     Const,
     Msg,
     Phi,
+    Var,
   };
 
 private:
@@ -142,6 +143,21 @@ public:
              const std::vector<std::pair<FIBlock *, FIRegId>> &values) :
       FIValue(loc),
       m_values(values) {}
+
+  virtual Type type() const override;
+
+  virtual FIValue *eval(FIContext &, const FIEvalContext &) const override;
+};
+
+class FIVarValue : public FIValue {
+  std::string m_name;
+
+public:
+  constexpr auto &name() const { return m_name; }
+
+  FIVarValue(const fdi::FLocation &loc, const std::string &name) :
+      FIValue(loc),
+      m_name(name) {}
 
   virtual Type type() const override;
 

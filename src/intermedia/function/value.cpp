@@ -44,4 +44,10 @@ FIValue *FIPhiValue::eval(FIContext &, const FIEvalContext &state) const {
 
   return nullptr;
 }
+
+FIValue::Type FIVarValue::type() const { return Var; }
+
+FIValue *FIVarValue::eval(FIContext &ctx, const FIEvalContext &) const {
+  return nullptr;
+}
 } // namespace fie

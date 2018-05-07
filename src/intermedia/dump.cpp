@@ -130,6 +130,11 @@ void FIDump::writeValue(const FIValue *val) const {
 
     break;
   }
+  case FIValue::Var: {
+    auto var = dynamic_cast<const FIVarValue *>(val);
+
+    os() << "var " << var->name();
+  }
   }
 }
 

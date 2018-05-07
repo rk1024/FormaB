@@ -38,15 +38,20 @@
 class FMainArgParser : public fun::FArgParser {
   const fdi::FLogger *m_logger;
 
-  fun::FAtomStore<std::string> m_flags;
-  using Flag = decltype(m_flags)::Atom;
+  fun::FAtomStore<std::string> m_flags, m_dotModes;
+  using Flag    = decltype(m_flags)::Atom;
+  using DotMode = decltype(m_dotModes)::Atom;
 
   std::unordered_map<std::string, Flag> m_short;
-  Flag                                  m_help, m_quiet, m_usage, m_verbose;
+  Flag    m_dot, m_help, m_quiet, m_usage, m_verbose;
+  DotMode m_dotDeps;
 
   std::vector<std::string> m_args;
+  DotMode                  m_dotMode = DotMode(-1);
   bool m_showHelp = false, m_showUsage = false, m_isQuiet = false;
   int  m_verboseLvl = 0;
+
+  void error(const std::string &str) { m_logger->error("formab-cli", str); }
 
   Flag resolve(bool shortFlag, const std::string &flag) {
     Flag id;
@@ -62,14 +67,16 @@ class FMainArgParser : public fun::FArgParser {
     return id;
 
   nonexist:
-    m_logger->error("formab-cli", "Invalid flag '" + flag + "'.");
+    error("Invalid flag '" + flag + "'.");
     throw fun::bad_argument();
   }
 
   virtual TakesArg takesArg(bool shortFlag, const std::string &flag) override {
     Flag id = resolve(shortFlag, flag);
 
-    if (id == m_help)
+    if (id == m_dot)
+      return Required;
+    else if (id == m_help)
       m_showHelp = true;
     else if (id == m_quiet)
       m_isQuiet = true;
@@ -81,11 +88,20 @@ class FMainArgParser : public fun::FArgParser {
     return None;
   }
 
-  virtual TakesArg handleVal(bool /* shortFlag */,
-                             const std::string & /* flag */,
-                             const std::string & /* val */,
+  virtual TakesArg handleVal(bool               shortFlag,
+                             const std::string &flag,
+                             const std::string &val,
                              int) override {
-    // Flag id = resolve(shortFlag, flag);
+    Flag id = resolve(shortFlag, flag);
+
+    if (id == m_dot) {
+      if (!m_dotModes.find(val, &m_dotMode)) {
+        error("Invalid --dot mode '" + val + "'.");
+        throw fun::bad_argument();
+      }
+    }
+    else
+      assert(false);
 
     return None;
   }
@@ -95,7 +111,10 @@ class FMainArgParser : public fun::FArgParser {
   }
 
 public:
+  constexpr auto &dotDeps() const { return m_dotDeps; }
+
   constexpr auto &args() const { return m_args; }
+  constexpr auto &dotMode() const { return m_dotMode; }
   constexpr auto &showHelp() const { return m_showHelp; }
   constexpr auto &showUsage() const { return m_showUsage; }
   constexpr auto &isQuiet() const { return m_isQuiet; }
@@ -105,12 +124,15 @@ public:
 #define MKFLAG(name, lname, sname)                                             \
   m_short.emplace(#sname, m_##name = m_flags.intern(#lname));
 
+    MKFLAG(dot, dot, d)
     MKFLAG(help, help, h)
     MKFLAG(quiet, quiet, q)
     MKFLAG(usage, usage, u)
     MKFLAG(verbose, verbose, v)
 
 #undef MKFLAG
+
+    m_dotDeps = m_dotModes.intern("deps");
   }
 
   void usage() {
@@ -122,6 +144,7 @@ public:
 
     // TODO: Find a better solution for this
     std::cerr << "Flags:\n"
+                 "  \e[1m--dot, -d\e[0m: Output a Graphviz dotfile.\n"
                  "  \e[1m--help, -h\e[0m: Display this message.\n"
                  "  \e[1m--quiet, -q\e[0m: Output less information.\n"
                  "  \e[1m--usage, -u\e[0m: Display brief usage info.\n"
@@ -322,13 +345,16 @@ int run(int argc, char **argv) {
 
     if (errors) throw fdi::logger_raise();
 
-    graph->run(logger);
+    if (ap.dotMode() == ap.dotDeps())
+      graph->dot(std::cout);
+    else
+      graph->run(logger);
 
     if (errors) throw fdi::logger_raise();
 
 #if !defined(NDEBUG)
     // TODO: Remove this eventually
-    sched->llvmCompiler()->printModule();
+    sched->fiScheduler()->llvmCompiler()->printModule();
 #endif
   }
   catch (fdi::logger_raise &) {

@@ -83,7 +83,8 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr     ctx,
   auto _(ctx->pos().move(node));
 
   switch (node->alt()) {
-  case fps::FPXPrim::Ident: ctx->errorR("ident not implemented");
+  case fps::FPXPrim::Ident:
+    return ctx->store<fie::FIVarValue>("var", node->tok()->value());
   case fps::FPXPrim::Number: return makeNumeric(ctx.move(), node->tok());
   case fps::FPXPrim::True:
     return ctx->store<fie::FIBoolConstValue>("true", true);

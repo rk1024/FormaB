@@ -3,9 +3,9 @@ let x = 1.0;
 
 let y = 2.0;
 
-@@ let z = x + y;
+let z = x + y;
 
-@@ let w = (x + z) * 2.0;
+let w = (x + z) * 2.0;
 
 let a = 1.0 + 5.0;
 let s = 1.0 - 5.0;

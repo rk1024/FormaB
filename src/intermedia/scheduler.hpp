@@ -35,7 +35,8 @@
 namespace fie {
 class FIScheduler {
   struct ScheduleContext {
-    fpp::FDepsNodeHelper<void> unresolvedScope, resolvedScope;
+    std::unordered_map<FIConst *, fpp::FDepsNodeHelper<FIConst *>>
+        m_globalConsts;
   };
 
   FIContext *m_ctx;
@@ -47,8 +48,9 @@ class FIScheduler {
 
   ScheduleContext *m_sctx;
 
-  void scheduleGlobalConst(const std::string &,
-                           fpp::FDepsNodeHelper<fie::FIConst *> &);
+  void scheduleGlobalConst(FIConst *);
+
+  void walkConst(FIConst *);
 
 public:
   constexpr auto &dump() const { return m_dump; }

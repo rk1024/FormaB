@@ -25,6 +25,7 @@
 #include "diagnostic/location.hpp"
 
 #include "evalContext.hpp"
+#include "intermedia/scope.hpp"
 #include "regId.hpp"
 
 namespace fie {
@@ -150,14 +151,19 @@ public:
 };
 
 class FIVarValue : public FIValue {
-  std::string m_name;
+  std::string        m_name;
+  fun::FPtr<FIScope> m_scope;
 
 public:
   constexpr auto &name() const { return m_name; }
+  constexpr auto &scope() const { return m_scope; }
 
-  FIVarValue(const fdi::FLocation &loc, const std::string &name) :
+  FIVarValue(const fdi::FLocation &    loc,
+             const std::string &       name,
+             const fun::FPtr<FIScope> &scope) :
       FIValue(loc),
-      m_name(name) {}
+      m_name(name),
+      m_scope(scope) {}
 
   virtual Type type() const override;
 

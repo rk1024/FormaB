@@ -24,21 +24,28 @@
 
 namespace pre::cc {
 class FuncContext : public CompileContext {
-  std::vector<fie::FIBlock *> m_blocks;
-  fie::FIBlock *              m_entry;
-  std::uint32_t               m_nextReg = 0;
+  fun::FScopeTracker<fun::FPtr<fie::FIScope>> m_scope;
+  std::vector<fie::FIBlock *>                 m_blocks;
+  fie::FIBlock *                              m_entry;
+  std::uint32_t                               m_nextReg = 0;
 
   fie::FIRegId regId(const std::string &name) {
     return fie::FIRegId(m_nextReg++, name);
   }
 
 public:
+  constexpr auto &scope() { return m_scope; }
+  constexpr auto &scope() const { return m_scope; }
   constexpr auto &blocks() const { return m_blocks; }
   constexpr auto &entry() { return m_entry; }
   constexpr auto &entry() const { return m_entry; }
 
-  FuncContext(FPContext *ctx, const fps::FASTBase *pos) :
-      CompileContext(ctx, pos) {}
+  FuncContext(FPContext *                    ctx,
+              const fps::FASTBase *          pos,
+              const fun::FPtr<fie::FIScope> &scope) :
+      CompileContext(ctx, pos),
+      // TODO: This is wrong and bad
+      m_scope(scope) {}
 
   void info(const std::string &str) const {
     ctx().logger().info(pos().curr()->loc(), str);

@@ -33,12 +33,7 @@
 #include "parser/lexerDriver.hpp"
 #include "parser/parserTag.hpp"
 
-#include "intermedia/scheduler.hpp"
-
-#include "praeforma/scheduler.hpp"
-
-
-#include "pipeline/miniDepsGraph.hpp"
+#include "praeforma/driver.hpp"
 
 class FMainArgParser : public fun::FArgParser {
   const fdi::FLogger *m_logger;
@@ -49,7 +44,7 @@ class FMainArgParser : public fun::FArgParser {
 
   std::unordered_map<std::string, Flag> m_short;
   Flag    m_dot, m_help, m_quiet, m_usage, m_verbose;
-  DotMode m_dotDeps;
+  DotMode m_dotPreDeps, m_dotFIDeps;
 
   std::vector<std::string> m_args;
   DotMode                  m_dotMode = DotMode(-1);
@@ -116,7 +111,8 @@ class FMainArgParser : public fun::FArgParser {
   }
 
 public:
-  constexpr auto &dotDeps() const { return m_dotDeps; }
+  constexpr auto &dotPreDeps() const { return m_dotPreDeps; }
+  constexpr auto &dotFIDeps() const { return m_dotFIDeps; }
 
   constexpr auto &args() const { return m_args; }
   constexpr auto &dotMode() const { return m_dotMode; }
@@ -137,7 +133,8 @@ public:
 
 #undef MKFLAG
 
-    m_dotDeps = m_dotModes.intern("deps");
+    m_dotPreDeps = m_dotModes.intern("pre-deps");
+    m_dotFIDeps  = m_dotModes.intern("fi-deps");
   }
 
   void usage() {
@@ -264,8 +261,9 @@ int run(int argc, char **argv) {
 
   fdi::FLogger logger(std::cerr, [&]() { ++warnings; }, [&]() { ++errors; });
 
-  FILE *      infile;
-  std::string filename("???");
+  FILE *                 infile;
+  std::string            filename("???");
+  pre::FPDriver::RunMode runMode = pre::FPDriver::Run;
 
   FMainArgParser ap(logger);
 
@@ -285,6 +283,15 @@ int run(int argc, char **argv) {
       ap.usage();
       return 0;
     }
+
+    if (ap.dotMode() == ap.dotPreDeps())
+      runMode = pre::FPDriver::DotPreDeps;
+    else if (ap.dotMode() == ap.dotFIDeps())
+      runMode = pre::FPDriver::DotFIDeps;
+    else if (ap.dotMode().value() == -1)
+      ;
+    else
+      abort();
 
     auto &&args = ap.args();
 
@@ -329,49 +336,15 @@ int run(int argc, char **argv) {
     }
 #endif
 
-    if (errors) throw fdi::logger_raise();
+    if (parse.parse()) throw fdi::logger_raise();
 
-    // NB: Do this separately to avoid it being optimized out
-    bool err = parse.parse();
+    fie::FIContext iCtx(logger);
+    pre::FPContext pCtx(iCtx);
+    pre::FPDriver  driver(pCtx);
 
-    if (err) assert(errors); // There had better be errors if the parser failed
-
-    if (errors) throw fdi::logger_raise();
-
-    fpp::FDepsGraph  pGraph, iGraph;
-    fie::FIContext   fiCtx(logger);
-    pre::FPContext   fpCtx(fiCtx);
-    pre::FPScheduler pSched(pGraph, fpCtx);
-    fie::FIScheduler iSched(iGraph, fiCtx, "cool module wow");
-
-    // TODO: There has to be a better way to do this
-    if (errors) throw fdi::logger_raise();
-
-    if (tag.inputs) pSched.schedule(tag.inputs);
+    driver.run(runMode, tag.inputs);
 
     if (errors) throw fdi::logger_raise();
-
-    if (ap.dotMode() == ap.dotDeps()) {
-      pGraph.dot(std::cout);
-      goto done;
-    }
-
-    pGraph.run(logger);
-
-    if (errors) throw fdi::logger_raise();
-
-    iSched.schedule();
-
-    if (errors) throw fdi::logger_raise();
-
-    iGraph.run(logger);
-
-#if !defined(NDEBUG)
-    // TODO: Remove this eventually
-    iSched.llvmCompiler()->printModule();
-#endif
-
-  done:;
   }
   catch (fdi::logger_raise &) {
     printLogs(logger, warnings, errors);

@@ -47,7 +47,8 @@ public:
   constexpr auto &ctx() const { return *m_ctx; }
   constexpr auto &pCtx() const { return m_ctx->ctx(); }
   constexpr auto &fiCtx() const { return m_ctx->fiCtx(); }
-  constexpr auto &pos() const { return ctx().pos(); }
+  constexpr auto &scope() const { return m_ctx->scope(); }
+  constexpr auto &pos() const { return m_ctx->pos(); }
   constexpr auto &block() const { return m_block; }
 
   explicit BlockContext(FuncContext *ctx, fie::FIBlock *block) :

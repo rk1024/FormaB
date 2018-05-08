@@ -21,13 +21,11 @@
 %define parse.error verbose
 %defines
 %language "c++"
-// %locations
 %name-prefix "fps"
 
 // TODO: This should only happen in debug mode
 %define parse.trace
 
-// %define YYSTYPE "fps::parser::semantic_type"
 %define api.location.type {fdi::FLocation}
 
 %param {fps::FParserTag *tag}

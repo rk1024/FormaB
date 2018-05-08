@@ -24,20 +24,17 @@
 
 #include "parser/ast.hpp"
 
-#include "intermedia/scheduler.hpp"
-
 #include "compiler.hpp"
 
 namespace pre {
-class FPScheduler : public fun::FObject {
+class FPScheduler {
   class WalkerBase;
   class Walker;
 
   FPContext *m_ctx;
 
-  fun::FPtr<fpp::FDepsGraph>  m_graph;
-  fun::FPtr<FPCompiler>       m_compiler;
-  fun::FPtr<fie::FIScheduler> m_fiScheduler;
+  fpp::FDepsGraph *     m_graph;
+  fun::FPtr<FPCompiler> m_compiler;
 
   void scheduleDSyntax(const fps::FPDSyntax *);
 
@@ -45,15 +42,12 @@ class FPScheduler : public fun::FObject {
 
 public:
   constexpr auto &compiler() const { return m_compiler; }
-  constexpr auto &fiScheduler() const { return m_fiScheduler; }
 
-  FPScheduler(const fun::FPtr<fpp::FDepsGraph> &graph,
-              FPContext &                       ctx,
-              const std::string &               moduleName) :
+  FPScheduler(fpp::FDepsGraph &graph, FPContext &ctx) :
       m_ctx(&ctx),
-      m_graph(graph),
-      m_compiler(fnew<FPCompiler>(ctx)),
-      m_fiScheduler(fnew<fie::FIScheduler>(graph, ctx.fiCtx(), moduleName)) {}
+      m_graph(&graph),
+      m_compiler(fnew<FPCompiler>(ctx)) {}
+
   void schedule(const fps::FInputs *);
 };
 } // namespace pre

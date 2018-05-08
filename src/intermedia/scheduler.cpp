@@ -21,8 +21,6 @@
 #include "scheduler.hpp"
 
 namespace fie {
-void FIScheduler::resolveScope() {}
-
 void FIScheduler::scheduleGlobalConst(
     const std::string &name, fpp::FDepsNodeHelper<fie::FIConst *> &Const) {
   auto folded = m_graph->node<FIFoldedConst *>("[Folded] " + name, nullptr);
@@ -33,6 +31,9 @@ void FIScheduler::scheduleGlobalConst(
 
   Const >> fold >> folded;
 
+  Const.order() >> m_sctx->unresolvedScope;
+  m_sctx->resolvedScope.order() >> fold;
+
 #if !defined(NDEBUG)
   auto printed = m_graph->node<void>("[Printed] " + name);
 
@@ -41,14 +42,23 @@ void FIScheduler::scheduleGlobalConst(
                                   m_dump,
                                   &fie::FIDump::dumpFoldedConst);
 
-  Const >> dump >> printed;
-  folded >> dumpFolded >> printed;
+  Const >> dump >> printed.order();
+  folded >> dumpFolded >> printed.order();
 #endif
 }
 
-void FIScheduler::start() {
-  m_sctx = new ScheduleContext{m_graph->node<void>("Resolve Scopes")};
-}
+void FIScheduler::schedule() {
+  m_sctx = new ScheduleContext{
+      .unresolvedScope = m_graph->node<void>("(scope unresolved)"),
+      .resolvedScope   = m_graph->node<void>("(scope resolved)"),
+  };
 
-void FIScheduler::finish() { delete m_sctx; }
+  // auto resolveScope = m_graph->edge("resolveScope",
+  //                                   fun::wrap(this),
+  //                                   &FIScheduler::resolveScope);
+
+  // m_sctx->unresolvedScope.order() >> resolveScope >> m_sctx->resolvedScope;
+
+  delete m_sctx;
+}
 } // namespace fie

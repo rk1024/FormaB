@@ -30,7 +30,15 @@ void FDepsGraphNode::statSelf() {
   if (m_ready) return;
 
   for (auto in : m_ins) {
-    if (in.lock()->m_state != FDepsGraphEdge::Done) return;
+    if (in->m_state != FDepsGraphEdge::Done) return;
+  }
+
+  for (auto in : m_orderIns) {
+    if (in->m_state != FDepsGraphEdge::Done) return;
+  }
+
+  for (auto in : m_nodeIns) {
+    if (!in->m_ready) return;
   }
 
   m_ready = true;
@@ -40,15 +48,23 @@ void FDepsGraphNode::stat() {
   if (m_ready) return;
 
   for (auto in : m_ins) {
-    if (in.lock()->m_state != FDepsGraphEdge::Done) return;
+    if (in->m_state != FDepsGraphEdge::Done) return;
+  }
+
+  for (auto in : m_orderIns) {
+    if (in->m_state != FDepsGraphEdge::Done) return;
+  }
+
+  for (auto in : m_nodeIns) {
+    if (!in->m_ready) return;
   }
 
   m_ready = true;
 
-  for (auto out : m_outs) out.lock()->stat();
+  for (auto out : m_outs) out->stat();
+  for (auto out : m_orderOuts) out->stat();
+  for (auto out : m_nodeOuts) out->stat();
 }
-
-FDepsGraphNode::FDepsGraphNode(const std::string &name) : m_name(name) {}
 
 void FDepsGraphEdge::stat() {
   switch (m_state) {
@@ -59,12 +75,16 @@ void FDepsGraphEdge::stat() {
   }
 
   for (auto in : m_ins) {
-    if (!in.lock()->m_ready) return;
+    if (!in->m_ready) return;
+  }
+
+  for (auto in : m_orderIns) {
+    if (!in->m_ready) return;
   }
 
   m_state = Open;
 
-  m_graph.lock()->m_q.push(fun::weak(this));
+  m_graph->m_q.push(this);
 }
 
 void FDepsGraphEdge::run() {
@@ -74,33 +94,30 @@ void FDepsGraphEdge::run() {
   assert(m_ins.size());
   assert(m_outs.size());
 
-  for (auto in : m_ins) assert(in.lock()->m_ready);
-  for (auto out : m_outs) assert(!out.lock()->m_ready);
+  for (auto in : m_ins) assert(in->m_ready);
+  for (auto in : m_orderIns) assert(in->m_ready);
+  for (auto out : m_outs) assert(!out->m_ready);
 #endif
 
   if (m_rule->run()) m_state = Done;
 
-  for (auto out : m_outs) out.lock()->stat();
+  for (auto out : m_outs) out->stat();
+  for (auto out : m_orderOuts) out->stat();
 }
-
-FDepsGraphEdge::FDepsGraphEdge(const std::string &           name,
-                               fun::FWeakPtr<FDepsGraph>     graph,
-                               fun::FPtr<FDataGraphRuleBase> rule) :
-    m_name(name),
-    m_graph(graph),
-    m_rule(rule) {}
 
 void FDepsGraph::run(const fdi::FLogger &logger) {
   assert(!m_run);
 
-  for (auto node : m_nodes) node->statSelf();
+  m_run = true;
 
-  for (auto edge : m_edges) edge->stat();
+  for (auto node : m_nodes.store()) node->statSelf();
+
+  for (auto edge : m_edges.store()) edge->stat();
 
   if (m_q.empty()) logger.warn("depsgraph", "nothing to do");
 
   while (m_q.size()) {
-    auto edge = m_q.front().lock();
+    auto edge = m_q.front();
 
 
     std::cerr
@@ -119,7 +136,7 @@ void FDepsGraph::run(const fdi::FLogger &logger) {
         else
           std::cerr << ", ";
 
-        std::cerr << "\e[38;5;6m" << out.lock()->m_name << "\e[0m";
+        std::cerr << "\e[38;5;6m" << out->m_name << "\e[0m";
       }
 
 #if defined(DEBUG)
@@ -135,33 +152,45 @@ void FDepsGraph::run(const fdi::FLogger &logger) {
 #if !defined(DEBUG)
   std::cerr << "\r\e[2K";
 #endif
-
-  m_run = true;
 }
 
 void FDepsGraph::dot(std::ostream &os) {
   os << "strict digraph{";
 
-  fun::FAtomStore<fun::FPtr<FDepsGraphNode>, std::size_t> nodeIds;
-  fun::FAtomStore<fun::FPtr<FDepsGraphEdge>, std::size_t> edgeIds;
+  fun::FAtomStore<FDepsGraphNode *, std::size_t> nodeIds;
+  fun::FAtomStore<FDepsGraphEdge *, std::size_t> edgeIds;
 
-  for (auto node : m_nodes)
-    os << "n" << nodeIds.intern(node).value() << "[label=\"" << node->m_name
-       << "\"];";
-  for (auto edge : m_edges)
+  for (auto node : m_nodes.store())
+    os << "n" << nodeIds.intern(node).value() << "[shape=rectangle,label=\""
+       << node->m_name << "\"];";
+  for (auto edge : m_edges.store())
     os << "e" << edgeIds.intern(edge).value() << "[label=\"" << edge->m_name
        << "\"];";
 
-  for (auto edge : m_edges) {
-    auto id = edgeIds.intern(edge);
+  for (auto node : m_nodes.store()) {
+    auto id = nodeIds.intern(node);
+
+    for (auto out : node->m_nodeOuts)
+      os << "n" << id << "->n" << nodeIds.intern(out).value()
+         << "[style=dashed];";
+
+    for (auto out : node->m_orderOuts)
+      os << "n" << id << "->e" << edgeIds.intern(out).value()
+         << "[style=dashed];";
+  }
+
+  for (auto edge : m_edges.store()) {
+    auto id = edgeIds.intern(edge).value();
 
     for (auto in : edge->m_ins)
-      os << "n" << nodeIds.intern(in.lock()).value() << "->e" << id.value()
-         << ";";
+      os << "n" << nodeIds.intern(in).value() << "->e" << id << ";";
 
     for (auto out : edge->m_outs)
-      os << "e" << id.value() << "->n" << nodeIds.intern(out.lock()).value()
-         << ";";
+      os << "e" << id << "->n" << nodeIds.intern(out).value() << ";";
+
+    for (auto out : edge->m_orderOuts)
+      os << "e" << id << "->n" << nodeIds.intern(out).value()
+         << "[style=dashed];";
   }
 
   os << "}" << std::endl;

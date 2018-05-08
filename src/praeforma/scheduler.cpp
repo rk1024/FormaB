@@ -62,17 +62,11 @@ void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
                                &FPCompiler::compileDAssign);
 
   ast >> compile >> i0;
-
-  m_fiScheduler->scheduleGlobalConst(name, i0);
 }
 
 void FPScheduler::schedule(const fps::FInputs *inputs) {
-  m_fiScheduler->start();
-
   Walker walker(this);
 
   walker.walk(inputs);
-
-  m_fiScheduler->finish();
 }
 } // namespace pre

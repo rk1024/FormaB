@@ -33,41 +33,37 @@
 #include "llvmCompiler.hpp"
 
 namespace fie {
-class FIScheduler : public fun::FObject {
+class FIScheduler {
   struct ScheduleContext {
-    fpp::FDepsNodeHelper<void> resolveScope;
+    fpp::FDepsNodeHelper<void> unresolvedScope, resolvedScope;
   };
 
   FIContext *m_ctx;
 
-  fun::FPtr<fpp::FDepsGraph> m_graph;
-  fun::FPtr<FIDump>          m_dump;
-  fun::FPtr<FIConstFolder>   m_constFolder;
-  fun::FPtr<FILLVMCompiler>  m_llvmCompiler;
+  fpp::FDepsGraph *         m_graph;
+  fun::FPtr<FIDump>         m_dump;
+  fun::FPtr<FIConstFolder>  m_constFolder;
+  fun::FPtr<FILLVMCompiler> m_llvmCompiler;
 
   ScheduleContext *m_sctx;
 
-  void resolveScope();
+  void scheduleGlobalConst(const std::string &,
+                           fpp::FDepsNodeHelper<fie::FIConst *> &);
 
 public:
   constexpr auto &dump() const { return m_dump; }
   constexpr auto &constFolder() const { return m_constFolder; }
   constexpr auto &llvmCompiler() const { return m_llvmCompiler; }
 
-  FIScheduler(const fun::FPtr<fpp::FDepsGraph> &graph,
-              FIContext &                       ctx,
-              const std::string &               moduleName) :
+  FIScheduler(fpp::FDepsGraph &  graph,
+              FIContext &        ctx,
+              const std::string &moduleName) :
       m_ctx(&ctx),
-      m_graph(graph),
+      m_graph(&graph),
       m_dump(fnew<FIDump>(ctx, std::cerr)),
       m_constFolder(fnew<FIConstFolder>(ctx)),
       m_llvmCompiler(fnew<FILLVMCompiler>(ctx, moduleName)) {}
 
-  void scheduleGlobalConst(const std::string &,
-                           fpp::FDepsNodeHelper<fie::FIConst *> &);
-
-  void start();
-
-  void finish();
+  void schedule();
 };
 } // namespace fie

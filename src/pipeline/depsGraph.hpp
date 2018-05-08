@@ -25,8 +25,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "util/object/object.hpp"
 #include "util/ptr.hpp"
+#include "util/ptrStore.hpp"
 
 #include "diagnostic/logger.hpp"
 
@@ -44,11 +44,12 @@ class FDepsNodeHelper;
 template <typename, typename, typename...>
 class FDepsEdgeHelper;
 
-class FDepsGraphNode : public fun::FObject {
-  std::string                                m_name;
-  std::vector<fun::FWeakPtr<FDepsGraphEdge>> m_ins, m_outs;
-  fun::FPtr<FDataGraphNodeBase>              m_data;
-  bool                                       m_ready = false;
+class FDepsGraphNode {
+  std::string                   m_name;
+  std::vector<FDepsGraphEdge *> m_ins, m_outs, m_orderIns, m_orderOuts;
+  std::vector<FDepsGraphNode *> m_nodeIns, m_nodeOuts;
+  fun::FPtr<FDataGraphNodeBase> m_data;
+  bool                          m_ready = false;
 
   void statSelf();
 
@@ -57,7 +58,17 @@ class FDepsGraphNode : public fun::FObject {
 public:
   auto data() const { return m_data; }
 
-  FDepsGraphNode(const std::string &);
+  FDepsGraphNode(const std::string &name) : m_name(name) {}
+
+  void nodeIn(FDepsGraphNode *in) {
+    m_nodeIns.push_back(in);
+    in->m_nodeOuts.push_back(this);
+  }
+
+  void nodeOut(FDepsGraphNode *out) {
+    m_nodeOuts.push_back(out);
+    out->m_nodeIns.push_back(this);
+  }
 
   template <typename T>
   fun::FPtr<FDataGraphNode<T>> data(const T &value) {
@@ -77,11 +88,11 @@ public:
   friend class FDepsGraph;
 };
 
-class FDepsGraphEdge : public fun::FObject {
-  std::string                                m_name;
-  fun::FWeakPtr<FDepsGraph>                  m_graph;
-  fun::FPtr<FDataGraphRuleBase>              m_rule;
-  std::vector<fun::FWeakPtr<FDepsGraphNode>> m_ins, m_outs;
+class FDepsGraphEdge {
+  std::string                   m_name;
+  FDepsGraph *                  m_graph;
+  fun::FPtr<FDataGraphRuleBase> m_rule;
+  std::vector<FDepsGraphNode *> m_ins, m_outs, m_orderIns, m_orderOuts;
   enum { Closed, Open, Done } m_state = Closed;
 
   void stat();
@@ -89,29 +100,42 @@ class FDepsGraphEdge : public fun::FObject {
   void run();
 
 public:
-  FDepsGraphEdge(const std::string &,
-                 fun::FWeakPtr<FDepsGraph>,
-                 fun::FPtr<FDataGraphRuleBase>);
+  FDepsGraphEdge(const std::string &           name,
+                 FDepsGraph *                  graph,
+                 fun::FPtr<FDataGraphRuleBase> rule) :
+      m_name(name),
+      m_graph(graph),
+      m_rule(rule) {}
 
-  void in(fun::FPtr<FDepsGraphNode> in) {
-    m_ins.push_back(fun::weak(in));
-    in->m_outs.push_back(fun::weak(this));
+  void in(FDepsGraphNode *in) {
+    m_ins.push_back(in);
+    in->m_outs.push_back(this);
   }
 
-  void out(fun::FPtr<FDepsGraphNode> out) {
-    m_outs.push_back(fun::weak(out));
-    out->m_ins.push_back(fun::weak(this));
+  void out(FDepsGraphNode *out) {
+    m_outs.push_back(out);
+    out->m_ins.push_back(this);
+  }
+
+  void orderIn(FDepsGraphNode *in) {
+    m_orderIns.push_back(in);
+    in->m_orderOuts.push_back(this);
+  }
+
+  void orderOut(FDepsGraphNode *out) {
+    m_orderOuts.push_back(out);
+    out->m_orderIns.push_back(this);
   }
 
   friend class FDepsGraphNode;
   friend class FDepsGraph;
 };
 
-class FDepsGraph : public fun::FObject {
-  std::vector<fun::FPtr<FDepsGraphNode>>    m_nodes;
-  std::vector<fun::FPtr<FDepsGraphEdge>>    m_edges;
-  std::queue<fun::FWeakPtr<FDepsGraphEdge>> m_q;
-  bool                                      m_run = false;
+class FDepsGraph {
+  fun::FPtrStore<FDepsGraphNode> m_nodes;
+  fun::FPtrStore<FDepsGraphEdge> m_edges;
+  std::queue<FDepsGraphEdge *>   m_q;
+  bool                           m_run = false;
 
 public:
   template <typename T>
@@ -142,13 +166,13 @@ public:
 namespace fpp {
 template <typename T>
 FDepsNodeHelper<T> FDepsGraph::node(const std::string &name, const T &value) {
-  auto &node = m_nodes.emplace_back(fnew<FDepsGraphNode>(name));
+  auto node = m_nodes.emplace(name);
   return FDepsNodeHelper<T>(node, node->data<T>(value));
 }
 
 template <typename T>
 FDepsNodeHelper<T> FDepsGraph::node(const std::string &name) {
-  auto &node = m_nodes.emplace_back(fnew<FDepsGraphNode>(name));
+  auto node = m_nodes.emplace(name);
   return FDepsNodeHelper<T>(node, node->data<T>());
 }
 
@@ -157,7 +181,7 @@ FDepsEdgeHelper<T, TOut, TArgs...> FDepsGraph::edge(
     const std::string &name, const fun::FMFPtr<T, TOut, TArgs...> &ptr) {
   auto rule = fnew<FDataGraphRule<T, TOut, TArgs...>>(ptr);
 
-  auto &edge = m_edges.emplace_back(fnew<FDepsGraphEdge>(name));
+  auto edge = m_edges.emplace(name, this, rule);
 
   return FDepsEdgeHelper<T, TOut, TArgs...>(edge, rule);
 }
@@ -168,8 +192,7 @@ FDepsEdgeHelper<T, TOut, TArgs...> FDepsGraph::edge(const std::string &name,
                                                     TOut (U::*pmf)(TArgs...)) {
   auto rule = fnew<FDataGraphRule<T, TOut, TArgs...>>(ptr->*pmf);
 
-  auto &edge = m_edges.emplace_back(
-      fnew<FDepsGraphEdge>(name, fun::weak(this), rule));
+  auto edge = m_edges.emplace(name, this, rule);
 
   return FDepsEdgeHelper<T, TOut, TArgs...>(edge, rule);
 }

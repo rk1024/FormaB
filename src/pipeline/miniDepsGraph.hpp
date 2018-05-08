@@ -24,49 +24,46 @@
 #include <queue>
 #include <vector>
 
-#include "util/object/object.hpp"
-#include "util/ptr.hpp"
+#include "util/ptrStore.hpp"
 
 namespace fpp {
-template <typename T>
+template <typename>
 class FMiniDepsGraph;
 
 template <typename T>
-class FMiniDepsGraphNode : public fun::FObject {
+class FMiniDepsGraphNode {
 public:
   using Node  = FMiniDepsGraphNode;
   using Graph = FMiniDepsGraph<T>;
 
 private:
-  std::string                      m_name;
-  T                                m_value;
-  fun::FWeakPtr<Graph>             m_graph;
-  std::vector<fun::FWeakPtr<Node>> m_ins, m_outs;
-  bool                             m_ready = false;
+  std::string         m_name;
+  T                   m_value;
+  Graph *             m_graph;
+  std::vector<Node *> m_ins, m_outs;
+  bool                m_ready = false;
 
   void stat() {
     if (m_ready) return;
 
     for (auto &in : m_ins) {
-      if (!in.lock()->m_ready) return;
+      if (!in->m_ready) return;
     }
 
-    m_graph.lock()->m_q.push(fun::weak(this));
+    m_graph->m_q.push(this);
 
     m_ready = true;
   }
 
   void statOuts() {
-    for (auto out : m_outs) out.lock()->stat();
+    for (auto out : m_outs) out->stat();
   }
 
 public:
   constexpr auto &value() { return m_value; }
   constexpr auto &value() const { return m_value; }
 
-  FMiniDepsGraphNode(const std::string &         name,
-                     const fun::FWeakPtr<Graph> &graph,
-                     const T &                   value) :
+  FMiniDepsGraphNode(const std::string &name, Graph *graph, const T &value) :
       m_name(name),
       m_value(value),
       m_graph(graph) {}
@@ -75,25 +72,23 @@ public:
 };
 
 template <typename T>
-class FMiniDepsGraph : public fun::FObject {
+class FMiniDepsGraph {
 public:
   using Node = FMiniDepsGraphNode<T>;
 
 private:
-  std::vector<fun::FPtr<Node>>    m_nodes;
-  std::queue<fun::FWeakPtr<Node>> m_q;
-  bool                            m_run = false;
+  fun::FPtrStore<Node> m_nodes;
+  std::queue<Node *>   m_q;
+  bool                 m_run = false;
 
 public:
-  fun::FPtr<Node> node(const std::string &name, const T &value) {
-    auto node = fnew<Node>(name, fun::weak(this), value);
-    m_nodes.push_back(node);
-    return node;
+  Node *node(const std::string &name, const T &value) {
+    return m_nodes.emplace(name, this, value);
   }
 
-  void connect(const fun::FPtr<Node> &in, const fun::FPtr<Node> &out) {
-    in->m_outs.push_back(fun::weak(out));
-    out->m_ins.push_back(fun::weak(in));
+  void connect(Node *in, Node *out) {
+    in->m_outs.push_back(out);
+    out->m_ins.push_back(in);
   }
 
   template <typename TFunc>
@@ -103,7 +98,7 @@ public:
     for (auto node : m_nodes) node->stat();
 
     while (m_q.size()) {
-      auto node = m_q.front().lock();
+      auto node = m_q.front();
 
       func(node->m_value);
       node->statOuts();
@@ -115,7 +110,7 @@ public:
   void dot(std::ostream &os) {
     os << "strict digraph{";
 
-    fun::FAtomStore<fun::FPtr<Node>, std::size_t> nodeIds;
+    fun::FAtomStore<Node *, std::size_t> nodeIds;
 
     for (auto &node : m_nodes) {
       auto id = nodeIds.intern(node);
@@ -123,7 +118,7 @@ public:
       os << "n" << id << "[label=\"" << node->m_name << "\"];";
 
       for (auto &in : node->m_ins) {
-        os << "n" << nodeIds.intern(in.lock()) << "->n" << id << ";";
+        os << "n" << nodeIds.intern(in) << "->n" << id << ";";
       }
     }
 

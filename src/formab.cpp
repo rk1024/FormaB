@@ -33,7 +33,12 @@
 #include "parser/lexerDriver.hpp"
 #include "parser/parserTag.hpp"
 
+#include "intermedia/scheduler.hpp"
+
 #include "praeforma/scheduler.hpp"
+
+
+#include "pipeline/miniDepsGraph.hpp"
 
 class FMainArgParser : public fun::FArgParser {
   const fdi::FLogger *m_logger;
@@ -333,29 +338,40 @@ int run(int argc, char **argv) {
 
     if (errors) throw fdi::logger_raise();
 
-    auto           graph = fnew<fpp::FDepsGraph>();
-    fie::FIContext fiCtx(logger);
-    pre::FPContext fpCtx(fiCtx);
-    auto sched = fnew<pre::FPScheduler>(graph, fpCtx, "cool module wow");
+    fpp::FDepsGraph  pGraph, iGraph;
+    fie::FIContext   fiCtx(logger);
+    pre::FPContext   fpCtx(fiCtx);
+    pre::FPScheduler pSched(pGraph, fpCtx);
+    fie::FIScheduler iSched(iGraph, fiCtx, "cool module wow");
 
     // TODO: There has to be a better way to do this
     if (errors) throw fdi::logger_raise();
 
-    if (tag.inputs) sched->schedule(tag.inputs);
+    if (tag.inputs) pSched.schedule(tag.inputs);
 
     if (errors) throw fdi::logger_raise();
 
-    if (ap.dotMode() == ap.dotDeps())
-      graph->dot(std::cout);
-    else
-      graph->run(logger);
+    if (ap.dotMode() == ap.dotDeps()) {
+      pGraph.dot(std::cout);
+      goto done;
+    }
+
+    pGraph.run(logger);
 
     if (errors) throw fdi::logger_raise();
+
+    iSched.schedule();
+
+    if (errors) throw fdi::logger_raise();
+
+    iGraph.run(logger);
 
 #if !defined(NDEBUG)
     // TODO: Remove this eventually
-    sched->fiScheduler()->llvmCompiler()->printModule();
+    iSched.llvmCompiler()->printModule();
 #endif
+
+  done:;
   }
   catch (fdi::logger_raise &) {
     printLogs(logger, warnings, errors);

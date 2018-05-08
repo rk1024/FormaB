@@ -84,7 +84,9 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr     ctx,
 
   switch (node->alt()) {
   case fps::FPXPrim::Ident:
-    return ctx->store<fie::FIVarValue>("var", node->tok()->value());
+    return ctx->store<fie::FIVarValue>("var",
+                                       node->tok()->value(),
+                                       ctx->scope().curr());
   case fps::FPXPrim::Number: return makeNumeric(ctx.move(), node->tok());
   case fps::FPXPrim::True:
     return ctx->store<fie::FIBoolConstValue>("true", true);
@@ -128,7 +130,7 @@ cc::RegResult FPCompiler::emitStore(cc::BlockCtxPtr        ctx,
 }
 
 fie::FIConst *FPCompiler::compileDAssign(const fps::FPDAssign *assign) {
-  cc::FuncContext fctx(m_ctx, assign);
+  cc::FuncContext fctx(m_ctx, assign, m_ctx->fiCtx().module().globals());
 
   auto ctx = fctx.block("root");
 

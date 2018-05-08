@@ -21,18 +21,17 @@
 #include "scheduler.hpp"
 
 namespace fie {
-void FIScheduler::scheduleGlobalConst(
-    const std::string &name, fpp::FDepsNodeHelper<fie::FIConst *> &Const) {
+void FIScheduler::scheduleGlobalConst(FIConst *Const) {
+  auto name = "global '" + Const->name() + "'";
+
+  auto i0     = m_graph->node<FIConst *>("[I0] " + name, Const);
   auto folded = m_graph->node<FIFoldedConst *>("[Folded] " + name, nullptr);
 
   auto fold = m_graph->edge("fold",
                             m_constFolder,
                             &FIConstFolder::foldConstant);
 
-  Const >> fold >> folded;
-
-  Const.order() >> m_sctx->unresolvedScope;
-  m_sctx->resolvedScope.order() >> fold;
+  i0 >> fold >> folded;
 
 #if !defined(NDEBUG)
   auto printed = m_graph->node<void>("[Printed] " + name);
@@ -42,16 +41,25 @@ void FIScheduler::scheduleGlobalConst(
                                   m_dump,
                                   &fie::FIDump::dumpFoldedConst);
 
-  Const >> dump >> printed.order();
-  folded >> dumpFolded >> printed.order();
+  i0 >> dump >> printed;
+  folded >> dumpFolded >> printed;
 #endif
 }
 
+void FIScheduler::walkConst(FIConst *Const) {
+  // FUCC
+}
+
 void FIScheduler::schedule() {
-  m_sctx = new ScheduleContext{
-      .unresolvedScope = m_graph->node<void>("(scope unresolved)"),
-      .resolvedScope   = m_graph->node<void>("(scope resolved)"),
-  };
+  m_sctx = new ScheduleContext{};
+
+  for (auto &[name, Const] :
+       m_ctx->module().globals()->container<FIConst *>()->map())
+    scheduleGlobalConst(Const);
+
+  for (auto &[name, Const] :
+       m_ctx->module().globals()->container<FIConst *>()->map())
+    walkConst(Const);
 
   // auto resolveScope = m_graph->edge("resolveScope",
   //                                   fun::wrap(this),

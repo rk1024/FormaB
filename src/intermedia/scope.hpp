@@ -54,12 +54,6 @@ public:
 };
 
 class FIScope : public fun::FObject {
-  struct hash_typeinfo {
-    std::size_t operator()(const std::type_info &inf) const {
-      return inf.hash_code();
-    }
-  };
-
   std::vector<fun::FPtr<FIScope>> m_parents;
 
   std::unordered_map<std::type_index, fun::FPtr<FIScopeContainerBase>>

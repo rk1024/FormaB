@@ -22,7 +22,6 @@
 
 #include <vector>
 
-#include "util/autoref.hpp"
 #include "util/cons.hpp"
 #include "util/object/object.hpp"
 #include "util/ptr.hpp"
@@ -38,10 +37,10 @@ class FDataGraphNode : public FDataGraphNodeBase {
   T m_data;
 
 public:
-  fun::autoref<T> data() { return m_data; }
-  void            data(fun::autoref<T> data) { m_data = data; }
+  constexpr auto &data() { return m_data; }
+  constexpr auto &data() const { return m_data; }
 
-  FDataGraphNode(fun::autoref<T> data) : m_data(data) {}
+  FDataGraphNode(const T &data) : m_data(data) {}
 };
 
 template <>

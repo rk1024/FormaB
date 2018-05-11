@@ -41,30 +41,15 @@ class FDepsNodeOrderHelper {
 public:
   FDepsNodeOrderHelper(FDepsGraphNode *node) : m_node(node) {}
 
-  FDepsNodeOrderHelper &operator>>(FDepsNodeOrderHelper &rhs) {
+  const FDepsNodeOrderHelper &operator>>(const FDepsNodeOrderHelper &rhs) {
     m_node->nodeOut(rhs.m_node);
-    return rhs;
-  }
-
-  FDepsNodeOrderHelper &&operator>>(FDepsNodeOrderHelper &&rhs) {
-    m_node->nodeOut(rhs.m_node);
-    return std::move(rhs);
-  }
-
-  friend FDepsNodeOrderHelper &operator>>(FDepsNodeOrderHelper &&lhs,
-                                          FDepsNodeOrderHelper & rhs) {
-    lhs.m_node->nodeOut(rhs.m_node);
-    return rhs;
-  }
-
-  friend FDepsNodeOrderHelper &&operator>>(FDepsNodeOrderHelper &&lhs,
-                                           FDepsNodeOrderHelper &&rhs) {
-    lhs.m_node->nodeOut(rhs.m_node);
     return std::move(rhs);
   }
 
   template <typename>
   friend class FDepsNodeHelper;
+
+  friend class FDepsEdgeOrderHelper;
 
   template <typename, typename, typename...>
   friend class FDepsEdgeHelper;
@@ -81,32 +66,39 @@ public:
       m_node(node),
       m_data(data) {}
 
-  FDepsNodeOrderHelper order() const { return FDepsNodeOrderHelper(m_node); }
+  auto order() { return FDepsNodeOrderHelper(m_node); }
 
-  FDepsNodeOrderHelper &operator>>(FDepsNodeOrderHelper &rhs) {
-    m_node->nodeOut(rhs.m_node);
-    return rhs;
-  }
-
-  FDepsNodeOrderHelper &&operator>>(FDepsNodeOrderHelper &&rhs) {
+  const FDepsNodeOrderHelper &operator>>(const FDepsNodeOrderHelper &rhs) {
     m_node->nodeOut(rhs.m_node);
     return std::move(rhs);
   }
 
-  friend FDepsNodeHelper &operator>>(FDepsNodeOrderHelper &lhs,
-                                     FDepsNodeHelper &     rhs) {
-    lhs.m_node->nodeOut(rhs.m_node);
-    return rhs;
-  }
-
-  friend FDepsNodeHelper &operator>>(FDepsNodeOrderHelper &&lhs,
-                                     FDepsNodeHelper &      rhs) {
+  friend FDepsNodeHelper &operator>>(const FDepsNodeOrderHelper &lhs,
+                                     FDepsNodeHelper &           rhs) {
     lhs.m_node->nodeOut(rhs.m_node);
     return rhs;
   }
 
   template <typename, typename, typename...>
   friend class FDepsEdgeHelper;
+};
+
+class FDepsEdgeOrderHelper {
+  FDepsGraphEdge *m_edge;
+
+public:
+  FDepsEdgeOrderHelper(FDepsGraphEdge *edge) : m_edge(edge) {}
+
+  const FDepsNodeOrderHelper &operator>>(const FDepsNodeOrderHelper &rhs) {
+    m_edge->orderOut(rhs.m_node);
+    return rhs;
+  }
+
+  friend const FDepsEdgeOrderHelper &operator>>(
+      const FDepsNodeOrderHelper &lhs, const FDepsEdgeOrderHelper &rhs) {
+    rhs.m_edge->orderIn(lhs.m_node);
+    return rhs;
+  }
 };
 
 template <typename T, typename TOut, typename... TArgs>
@@ -135,30 +127,21 @@ public:
       m_edge(edge),
       m_rule(rule) {}
 
+  auto order() { return FDepsEdgeOrderHelper(m_edge); }
+
   FDepsNodeHelper<TOut> &operator>>(FDepsNodeHelper<TOut> &rhs) {
     m_edge->out(rhs.m_node);
     m_rule->out(fun::weak(rhs.m_data));
     return rhs;
   }
 
-  FDepsNodeOrderHelper &operator>>(FDepsNodeOrderHelper &rhs) {
-    m_edge->orderOut(rhs.m_node);
-    return rhs;
-  }
-
-  FDepsNodeOrderHelper &&operator>>(FDepsNodeOrderHelper &&rhs) {
+  const FDepsNodeOrderHelper &operator>>(const FDepsNodeOrderHelper &rhs) {
     m_edge->orderOut(rhs.m_node);
     return std::move(rhs);
   }
 
-  friend FDepsEdgeHelper &operator>>(FDepsNodeOrderHelper &lhs,
-                                     FDepsEdgeHelper &     rhs) {
-    rhs.m_edge->orderIn(lhs.m_node);
-    return rhs;
-  }
-
-  friend FDepsEdgeHelper &operator>>(FDepsNodeOrderHelper &&lhs,
-                                     FDepsEdgeHelper &      rhs) {
+  friend FDepsEdgeHelper &operator>>(const FDepsNodeOrderHelper &lhs,
+                                     FDepsEdgeHelper &           rhs) {
     rhs.m_edge->orderIn(lhs.m_node);
     return rhs;
   }

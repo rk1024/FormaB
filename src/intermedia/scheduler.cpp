@@ -33,6 +33,11 @@ void FIScheduler::scheduleGlobalConst(FIConst *Const) {
 
   i0 >> fold >> folded;
 
+  m_sctx->m_consts.emplace(Const,
+                           ScheduleContext::ConstInfo{.node   = i0,
+                                                      .folded = folded,
+                                                      .fold   = fold});
+
 #if !defined(NDEBUG)
   auto printed = m_graph->node<void>("[Printed] " + name);
 
@@ -46,8 +51,35 @@ void FIScheduler::scheduleGlobalConst(FIConst *Const) {
 #endif
 }
 
+void FIScheduler::walkBlock(const fpp::FDepsEdgeOrderHelper &order,
+                            FIBlock *                        block) {
+  for (auto &ins : block->body()) walkValue(order, ins.value());
+}
+
 void FIScheduler::walkConst(FIConst *Const) {
-  // FUCC
+  walkFuncBody(m_sctx->m_consts.at(Const).fold.order(), Const->body());
+}
+
+void FIScheduler::walkFuncBody(const fpp::FDepsEdgeOrderHelper &order,
+                               FIFunctionBody &                 body) {
+  for (auto &block : body.blocks()) walkBlock(order, block);
+}
+
+void FIScheduler::walkValue(const fpp::FDepsEdgeOrderHelper &order,
+                            FIValue *                        value) {
+  switch (value->type()) {
+  case FIValue::Var: {
+    auto *var = dynamic_cast<FIVarValue *>(value);
+
+    if (auto [result, Const] = var->scope()->find<FIConst *>(var->name());
+        result == FIScope::Found) {
+      m_sctx->m_consts.at(*Const).folded.order() >> order;
+    }
+
+    break;
+  }
+  default: break;
+  }
 }
 
 void FIScheduler::schedule() {
@@ -60,12 +92,6 @@ void FIScheduler::schedule() {
   for (auto &[name, Const] :
        m_ctx->module().globals()->container<FIConst *>()->map())
     walkConst(Const);
-
-  // auto resolveScope = m_graph->edge("resolveScope",
-  //                                   fun::wrap(this),
-  //                                   &FIScheduler::resolveScope);
-
-  // m_sctx->unresolvedScope.order() >> resolveScope >> m_sctx->resolvedScope;
 
   delete m_sctx;
 }

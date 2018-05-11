@@ -35,8 +35,14 @@
 namespace fie {
 class FIScheduler {
   struct ScheduleContext {
-    std::unordered_map<FIConst *, fpp::FDepsNodeHelper<FIConst *>>
-        m_globalConsts;
+    struct ConstInfo {
+      fpp::FDepsNodeHelper<FIConst *>       node;
+      fpp::FDepsNodeHelper<FIFoldedConst *> folded;
+
+      fpp::FDepsEdgeHelper<FIConstFolder, FIFoldedConst *, FIConst *> fold;
+    };
+
+    std::unordered_map<FIConst *, ConstInfo> m_consts;
   };
 
   FIContext *m_ctx;
@@ -50,7 +56,13 @@ class FIScheduler {
 
   void scheduleGlobalConst(FIConst *);
 
+  void walkBlock(const fpp::FDepsEdgeOrderHelper &, FIBlock *);
+
   void walkConst(FIConst *);
+
+  void walkFuncBody(const fpp::FDepsEdgeOrderHelper &, FIFunctionBody &);
+
+  void walkValue(const fpp::FDepsEdgeOrderHelper &, FIValue *);
 
 public:
   constexpr auto &dump() const { return m_dump; }

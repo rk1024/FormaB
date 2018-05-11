@@ -97,7 +97,7 @@ class FDepsGraphEdge {
 
   void stat();
 
-  void run();
+  [[nodiscard]] bool run();
 
 public:
   FDepsGraphEdge(const std::string &           name,
@@ -131,6 +131,7 @@ public:
   friend class FDepsGraph;
 };
 
+// TODO: Make cycle detection smarter
 class FDepsGraph {
   fun::FPtrStore<FDepsGraphNode> m_nodes;
   fun::FPtrStore<FDepsGraphEdge> m_edges;
@@ -153,7 +154,7 @@ public:
                                           fun::FPtr<T>,
                                           TOut (U::*)(TArgs...));
 
-  void run(const fdi::FLogger &);
+  [[nodiscard]] bool run(const fdi::FLogger &);
 
   void dot(std::ostream &);
 

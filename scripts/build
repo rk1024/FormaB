@@ -216,6 +216,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-Werror=old-style-cast",
       "-Werror=return-type",
       "-Werror=switch",
+      "-Werror=unused-result",
       *(config(:diagnostic) ? [
         "-fdiagnostics-show-template-tree",
         "-Wswitch-bool",

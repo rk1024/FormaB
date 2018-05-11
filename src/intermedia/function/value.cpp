@@ -47,7 +47,18 @@ FIValue *FIPhiValue::eval(FIContext &, const FIEvalContext &state) const {
 
 FIValue::Type FIVarValue::type() const { return Var; }
 
-FIValue *FIVarValue::eval(FIContext &ctx, const FIEvalContext &) const {
+FIValue *FIVarValue::eval(FIContext &ctx, const FIEvalContext &state) const {
+  auto tp = m_scope->type(m_name);
+
+  if (tp == typeid(FIConst *)) {
+    auto [result, pConst] = m_scope->find<FIConst *>(m_name);
+    assert(result == FIScope::Found);
+
+    auto Const = *pConst;
+
+    if (Const->folded()) return Const->folded()->value()->eval(ctx, state);
+  }
+
   return nullptr;
 }
 } // namespace fie

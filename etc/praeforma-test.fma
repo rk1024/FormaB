@@ -1,9 +1,9 @@
 @!prae{
-let x = 1.0;
+let z = x + y;
+
+let x = 1.0 + z;
 
 let y = 2.0;
-
-let z = x + y;
 
 let w = (x + z) * 2.0;
 
@@ -14,6 +14,10 @@ let d = 2.0 / 5.0;
 let m = 10.0 % 3.5;
 let i = if (true) 1.0 else 0.0;
 let e = if (false) 1.0 else 0.0;
+
+let a2 = a + s + d;
+let i2 = i + e - p;
+let a3 = a2 + i2 + m;
 
 @@ let e = 5.0; @@ This shouldn't compile
 

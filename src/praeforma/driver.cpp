@@ -39,7 +39,9 @@ void FPDriver::run(RunMode mode, const fps::FInputs *inputs) {
       return;
     }
 
-    graph.run(m_ctx->logger());
+    if (!graph.run(m_ctx->logger()))
+      m_ctx->logger().errorR("prae-driver",
+                             "some Præforma edges failed or did not run");
   }
 
   {
@@ -53,7 +55,9 @@ void FPDriver::run(RunMode mode, const fps::FInputs *inputs) {
       return;
     }
 
-    graph.run(m_ctx->logger());
+    if (!graph.run(m_ctx->logger()))
+      m_ctx->logger().errorR("prae-driver",
+                             "some Intermedia edges failed or did not run");
   }
 }
 } // namespace pre

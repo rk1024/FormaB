@@ -87,7 +87,7 @@ void FDepsGraphEdge::stat() {
   m_graph->m_q.push(this);
 }
 
-void FDepsGraphEdge::run() {
+bool FDepsGraphEdge::run() {
 #if !defined(NDEBUG)
   assert(m_state == Open);
 
@@ -99,14 +99,21 @@ void FDepsGraphEdge::run() {
   for (auto out : m_outs) assert(!out->m_ready);
 #endif
 
-  if (m_rule->run()) m_state = Done;
+  if (m_rule->run())
+    m_state = Done;
+  else
+    return false;
 
   for (auto out : m_outs) out->stat();
   for (auto out : m_orderOuts) out->stat();
+
+  return true;
 }
 
-void FDepsGraph::run(const fdi::FLogger &logger) {
+bool FDepsGraph::run(const fdi::FLogger &logger) {
   assert(!m_run);
+
+  bool success = true;
 
   m_run = true;
 
@@ -118,7 +125,6 @@ void FDepsGraph::run(const fdi::FLogger &logger) {
 
   while (m_q.size()) {
     auto edge = m_q.front();
-
 
     std::cerr
 #if !defined(DEBUG)
@@ -144,14 +150,34 @@ void FDepsGraph::run(const fdi::FLogger &logger) {
 #endif
     }
 
-    edge->run();
+    if (!edge->run()) success = false;
 
     m_q.pop();
+  }
+
+  if (success) {
+    for (auto &node : m_nodes.store()) {
+      if (!node->m_ready) {
+        success = false;
+        break;
+      }
+    }
+  }
+
+  if (success) {
+    for (auto &edge : m_edges.store()) {
+      if (edge->m_state != FDepsGraphEdge::Done) {
+        success = false;
+        break;
+      }
+    }
   }
 
 #if !defined(DEBUG)
   std::cerr << "\r\e[2K";
 #endif
+
+  return success;
 }
 
 void FDepsGraph::dot(std::ostream &os) {

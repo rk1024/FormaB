@@ -34,6 +34,8 @@ public:
   virtual ~FIScopeContainerBase();
 
   virtual bool contains(const std::string &) const = 0;
+
+  virtual void remove(const std::string &) = 0;
 };
 
 template <typename T>
@@ -47,6 +49,8 @@ public:
     return m_map.find(name) != m_map.end();
   }
 
+  virtual void remove(const std::string &name) override { m_map.erase(name); }
+
   template <typename... TArgs>
   void put(const std::string &name, TArgs &&... args) {
     m_map.emplace(name, T(std::forward<TArgs>(args)...));
@@ -54,6 +58,15 @@ public:
 };
 
 class FIScope : public fun::FObject {
+public:
+  enum FindResult {
+    Found,
+    Nonexistent,
+    DifferentType,
+  };
+
+private:
+  // TODO: Implement scope parenting
   std::vector<fun::FPtr<FIScope>> m_parents;
 
   std::unordered_map<std::type_index, fun::FPtr<FIScopeContainerBase>>
@@ -63,6 +76,29 @@ class FIScope : public fun::FObject {
 public:
   bool contains(const std::string &name) const {
     return m_types.find(name) != m_types.end();
+  }
+
+  std::type_index type(const std::string &name) const {
+    return m_types.at(name);
+  }
+
+  template <typename T>
+  std::pair<FindResult, const T *> find(const std::string &name) const {
+    if (!contains(name)) return std::pair(Nonexistent, nullptr);
+    if (auto it = m_containers.find(typeid(T)); it != m_containers.end())
+      return std::pair(Found,
+                       &it->second.as<FIScopeContainer<T>>()->map().at(name));
+    else
+      return std::pair(DifferentType, nullptr);
+  }
+
+  [[nodiscard]] bool remove(const std::string &name) const {
+    if (auto it = m_types.find(name); it != m_types.end()) {
+      m_containers.at(it->second)->remove(name);
+      return true;
+    }
+
+    return false;
   }
 
   template <typename T, typename... TArgs>

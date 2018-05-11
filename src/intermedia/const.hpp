@@ -25,14 +25,19 @@
 #include "function/body.hpp"
 
 namespace fie {
+class FIFoldedConst;
+
 class FIConst {
   std::string    m_name;
   FIFunctionBody m_body;
+  FIFoldedConst *m_folded; // TODO: This is dumb
 
 public:
   constexpr auto &name() const { return m_name; }
   constexpr auto &body() { return m_body; }
   constexpr auto &body() const { return m_body; }
+  constexpr auto &folded() { return m_folded; }
+  constexpr auto &folded() const { return m_folded; }
 
   FIConst(const std::string &name, const FIFunctionBody &body) :
       m_name(name),

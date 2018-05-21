@@ -55,7 +55,7 @@ class Diagnostics
   end
 
   def ctrace(lvl, fmt, str)
-    $stderr << "\e[1m[#{@pos.join(" :: ")}]\e[0m \e[#{fmt}m#{lvl}:\e[0m #{str}\n"
+    $stderr << "\e[1m[#{@pos.join(" :: ")}]\e[m \e[#{fmt}m#{lvl}:\e[m #{str}\n"
     str
   end
 
@@ -96,7 +96,7 @@ class Diagnostics
 
     name.each_with_index.map do |part, idx|
       next "" if part.empty?
-      idx % 2 == 0 ? hl_uname(part, idx == name.length - 1) : "\e[0m#{part}"
+      idx % 2 == 0 ? hl_uname(part, idx == name.length - 1) : "\e[m#{part}"
     end.join
   end
 
@@ -160,58 +160,58 @@ class Diagnostics
 
         if long && hl_fold(obj)
           LineWriter.lines do |l|
-            l << "\e[0m["
+            l << "\e[m["
             l.fmt with_indent: "  " do
               items.each_with_index do |el, idx|
-                l.peek << "\e[0m," unless idx == 0
+                l.peek << "\e[m," unless idx == 0
                 el.to_s.split("\n").each{|e| l << e }
               end
             end
-            l << "\e[0m]"
+            l << "\e[m]"
           end
         else
-          "[#{items.join("\e[0m, ")}]"
+          "[#{items.join("\e[m, ")}]"
         end
       when Hash, Set
         items = if obj.is_a?(Set)
           obj.map{|e| hl(e, long: long) }
         else
           obj.select{|k, _| k.is_a?(Symbol) }.map do |key, val|
-            "\e[38;5;3m#{key.to_s}\e[0m: #{hl(val, long: long)}"
+            "\e[38;5;3m#{key.to_s}\e[m: #{hl(val, long: long)}"
           end.concat(obj.select{|k, _| !k.is_a?(Symbol) }.map do |key, val|
-            "#{hl(key, long: long)}\e[0m#{lsp}=>#{lsp}#{hl(val, long: long)}"
+            "#{hl(key, long: long)}\e[m#{lsp}=>#{lsp}#{hl(val, long: long)}"
           end)
         end
 
         s = if long && hl_fold(obj)
           LineWriter.lines do |l|
-            l << "\e[0m{"
+            l << "\e[m{"
             l.fmt with_indent: "  " do
               items.each_with_index do |el, idx|
-                l.peek << "\e[0m," unless idx == 0
+                l.peek << "\e[m," unless idx == 0
                 el.split("\n").each{|e| l << e }
               end
             end
-            l << "\e[0m}"
+            l << "\e[m}"
           end
         else
-          "\e[0m{#{items.join("\e[0m, ")}\e[0m}"
+          "\e[m{#{items.join("\e[m, ")}\e[m}"
         end
 
         if obj.is_a?(Hash)
-          "\e[0m#{s}"
+          "\e[m#{s}"
         else
-          "\e[38;5;9m#\e[0m<#{hl_qname(obj.class.name)}\e[0m: #{s}>"
+          "\e[38;5;9m#\e[m<#{hl_qname(obj.class.name)}\e[m: #{s}>"
         end
       else
         has_no_inspect = obj.class.method_defined?(:diag_no_inspect)
         if obj.method(:inspect).owner == Kernel || has_no_inspect
           no_inspect = has_no_inspect ? Set.new(obj.diag_no_inspect) : Set.new
 
-          prefix = "\e[38;5;9m#\e[0m<#{hl_qname(obj.class.name)}\e[0m:\e[38;5;5m0x#{obj.object_id.to_s(16)}"
+          prefix = "\e[38;5;9m#\e[m<#{hl_qname(obj.class.name)}\e[m:\e[38;5;5m0x#{obj.object_id.to_s(16)}"
 
           items = obj.instance_variables.select{|e| !no_inspect.include?(e) }.map do |e|
-            hl_uname(e) << "\e[0m#{lsp}=#{lsp}#{hl(obj.instance_variable_get(e), long: long)}"
+            hl_uname(e) << "\e[m#{lsp}=#{lsp}#{hl(obj.instance_variable_get(e), long: long)}"
           end
 
           if long && hl_fold(obj)
@@ -219,14 +219,14 @@ class Diagnostics
               l << prefix
               l.fmt with_indent: "  " do
                 items.each_with_index do |el, idx|
-                  l.peek << "\e[0m," unless idx == 0
+                  l.peek << "\e[m," unless idx == 0
                   el.split("\n").each{|e| l << e }
                 end
               end
-              l << "\e[0m>"
+              l << "\e[m>"
             end
           else
-            "#{prefix} #{items.join("\e[0m,  ")}\e[0m>"
+            "#{prefix} #{items.join("\e[m,  ")}\e[m>"
           end
         else
           "\e[38;5;#{case obj
@@ -234,7 +234,7 @@ class Diagnostics
             when String; "6"
             when Numeric; "5"
             else "13"
-          end}m#{obj.inspect}\e[0m"
+          end}m#{obj.inspect}\e[m"
         end
     end
   end

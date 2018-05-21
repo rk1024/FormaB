@@ -146,11 +146,11 @@ public:
 
     // TODO: Find a better solution for this
     std::cerr << "Flags:\n"
-                 "  \e[1m--dot, -d\e[0m: Output a Graphviz dotfile.\n"
-                 "  \e[1m--help, -h\e[0m: Display this message.\n"
-                 "  \e[1m--quiet, -q\e[0m: Output less information.\n"
-                 "  \e[1m--usage, -u\e[0m: Display brief usage info.\n"
-                 "  \e[1m--verbose, -v\e[0m: Output extra information.\n";
+                 "  \e[1m--dot, -d\e[m: Output a Graphviz dotfile.\n"
+                 "  \e[1m--help, -h\e[m: Display this message.\n"
+                 "  \e[1m--quiet, -q\e[m: Output less information.\n"
+                 "  \e[1m--usage, -u\e[m: Display brief usage info.\n"
+                 "  \e[1m--verbose, -v\e[m: Output extra information.\n";
   }
 };
 

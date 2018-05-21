@@ -20,14 +20,14 @@ module Log
       *(@@threads[Thread.current]),
       *(from),
     ]
-    ("\e[0;1m#{chips.map{|s| "[#{s}\e[0;1m]" }.join}\e[0m " if chips.any?)
+    ("\e[0;1m#{chips.map{|s| "[#{s}\e[0;1m]" }.join}\e[m " if chips.any?)
   end
 
   def self.call(*args, from: nil)
     @@lock.synchronize do
       $stderr << "\r\e[2K" if @@tmp
       pfx = prefix(from: from)
-      args.each{|a| $stderr << "#{pfx}#{a}\e[0m\n" }
+      args.each{|a| $stderr << "#{pfx}#{a}\e[m\n" }
       @@tmp = false
     end
   end
@@ -37,7 +37,7 @@ module Log
   def self.tmp(arg, from: nil)
     @@lock.synchronize do
       $stderr << "\r\e[2K" if @@tmp
-      $stderr << "#{prefix}#{arg}\e[0m"
+      $stderr << "#{prefix}#{arg}\e[m"
       @@tmp = true
     end
   end

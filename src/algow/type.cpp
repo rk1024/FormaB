@@ -27,22 +27,22 @@
 namespace w {
 Subst TypeBase::mgu(const fun::FPtr<const TypeBase> &rhs, TIBase &t) const {
   {
-    TIPos _(t, "\e[1mlmgu\e[0m " + to_string() + " <-> " + rhs->to_string());
+    TIPos _(t, "\e[1mlmgu\e[m " + to_string() + " <-> " + rhs->to_string());
     auto [success, subst] = mguImpl(rhs, t);
     if (success) {
       TIPos __(t,
-               "\e[38;5;2mresult:\e[0m " + to_string() + " ~ " +
+               "\e[38;5;2mresult:\e[m " + to_string() + " ~ " +
                    rhs->to_string() + printSubst(subst));
       return subst;
     }
   }
 
   {
-    TIPos _(t, "\e[1mrmgu\e[0m " + rhs->to_string() + " <-> " + to_string());
+    TIPos _(t, "\e[1mrmgu\e[m " + rhs->to_string() + " <-> " + to_string());
     auto [success, subst] = rhs->rmguImpl(fun::wrap(this), t);
     if (success) {
       TIPos __(t,
-               "\e[38;5;2mresult:\e[0m " + to_string() + " ~ " +
+               "\e[38;5;2mresult:\e[m " + to_string() + " ~ " +
                    rhs->to_string() + printSubst(subst));
       return subst;
     }

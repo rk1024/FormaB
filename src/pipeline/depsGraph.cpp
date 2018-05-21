@@ -142,7 +142,7 @@ void FDepsGraph::run() {
         else
           std::cerr << ", ";
 
-        std::cerr << "\e[38;5;6m" << out->m_name << "\e[0m";
+        std::cerr << "\e[38;5;6m" << out->m_name << "\e[m";
       }
 
 #if defined(DEBUG)

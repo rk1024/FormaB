@@ -58,10 +58,10 @@ private:
   void writeBody(const std::string &lvlFmt,
                  const std::string &lvl,
                  const std::string &str) const {
-    if (m_color) *m_os << "\e[0m" << lvlFmt;
+    if (m_color) *m_os << "\e[m" << lvlFmt;
     *m_os << lvl << ": ";
 
-    if (m_color) *m_os << "\e[0m";
+    if (m_color) *m_os << "\e[m";
     *m_os << str << std::endl;
   }
 
@@ -176,10 +176,10 @@ private:
   _FLOGFN(debugV, verb, debug, 8);
   _FLOGFN(infoV, verb, info, 8);
   _FLOGFN(warn, okay, warning, 13);
-  _FLOGFN(error, bad, error, 1);
-  _FLOGFN(fatal, bad, fatal, 1);
-  _FLOGFN(errorR, raise, error, 1, [[noreturn]]);
-  _FLOGFN(fatalR, raise, fatal, 1, [[noreturn]]);
+  _FLOGFN(error, bad, error, 9);
+  _FLOGFN(fatal, bad, fatal, 9);
+  _FLOGFN(errorR, raise, error, 9, [[noreturn]]);
+  _FLOGFN(fatalR, raise, fatal, 9, [[noreturn]]);
 
 #undef _FLOGFN
 };

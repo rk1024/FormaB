@@ -6,29 +6,30 @@ RNinja.config(file: "build.yaml") do
   init :debug,
     :debug_symbols,
     :diagnostic,
+    :lto,
     :optimize,
     :sanitize
 
   defaults afl: false,
     build_profile: false,
-    dashOFast: false,
     diagnostic: false,
-    gen: :ninja,
-    no_lto: false
+    gen: :ninja
 
   profile :release, {
     debug: false,
     debug_symbols: false,
     diagnostic: false,
     sanitize: false,
-    optimize: true,
+    lto: true,
+    optimize: :full,
   }
 
   profile :debug, {
     debug: true,
     debug_symbols: true,
     sanitize: true,
-    optimize: false,
+    lto: false,
+    optimize: :debug,
   }
 
   profile :afl, {
@@ -133,9 +134,14 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-ferror-limit=0",
       "-std=c11",
       *("-g" if config(:debug_symbols)),
-      *("-flto" if config(:optimize) && !config(:no_lto)),
+      *("-flto" if config(:lto)),
+      "-O#{case config(:optimize)
+        when :none; "0"
+        when :debug; "g"
+        when :full; "3"
+        when :fast; "fast"
+      end}",
       *(config(:debug) ? [
-        *("-O0" unless config(:optimize)),
         "-DDEBUG",
         "-D_DEBUG",
       ] : [
@@ -153,7 +159,6 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       *pkcflags,
       *san_flags,
       *includes,
-      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
     ],
     cxx_flags: [
       "-fcolor-diagnostics",
@@ -164,9 +169,14 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-D_DEBUG_DIAGNOSTIC",
       ] : []),
       *("-g3" if config(:debug_symbols)),
-      *("-flto" if config(:optimize) && !config(:no_lto)),
+      *("-flto" if config(:lto)),
+      "-O#{case config(:optimize)
+        when :none; "0"
+        when :debug; "g"
+        when :full; "3"
+        when :fast; "fast"
+      end}",
       *(config(:debug) ? [
-        *("-O0" unless config(:optimize)),
         "-D_GLIBCXX_DEBUG",
         "-D_GLIBCXX_DEBUG_PEDANTIC",
         "-D_LIBCPP_DEBUG",
@@ -183,7 +193,6 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       *pkcxxflags,
       *san_flags,
       *includes,
-      *("-O#{config(:dashOFast) ? "fast" : 3}" if config(:optimize)),
     ],
     cc_diags: [
       "-Wall",
@@ -221,6 +230,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
         "-fdiagnostics-show-template-tree",
         "-Wswitch-bool",
         "-Wswitch-enum",
+        "-Wweak-vtables",
         "-Wweak-template-vtables",
 
         # Anti-spam measures:
@@ -235,7 +245,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
     cc_pchs: cc_pchs,
     cxx_pchs: cxx_pchs,
     ld_flags: [
-      *("-flto" if config(:optimize) && !config(:no_lto)),
+      *("-flto" if config(:lto)),
       *ldlibs,
       *pkldflags,
       *san_flags,

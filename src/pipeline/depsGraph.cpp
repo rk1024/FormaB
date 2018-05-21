@@ -110,10 +110,8 @@ bool FDepsGraphEdge::run() {
   return true;
 }
 
-bool FDepsGraph::run(const fdi::FLogger &logger) {
+void FDepsGraph::run() {
   assert(!m_run);
-
-  bool success = true;
 
   m_run = true;
 
@@ -121,7 +119,9 @@ bool FDepsGraph::run(const fdi::FLogger &logger) {
 
   for (auto edge : m_edges.store()) edge->stat();
 
-  if (m_q.empty()) logger.warn("depsgraph", "nothing to do");
+  if (m_q.empty()) m_logger->warn("depsgraph", "nothing to do");
+
+  bool fail = false;
 
   while (m_q.size()) {
     auto edge = m_q.front();
@@ -150,34 +150,36 @@ bool FDepsGraph::run(const fdi::FLogger &logger) {
 #endif
     }
 
-    if (!edge->run()) success = false;
+    if (!edge->run()) fail = true;
 
     m_q.pop();
   }
 
-  if (success) {
-    for (auto &node : m_nodes.store()) {
-      if (!node->m_ready) {
-        success = false;
-        break;
-      }
+  if (fail) throw fdi::logger_raise();
+
+  for (auto &node : m_nodes.store()) {
+    if (!node->m_ready) {
+      m_logger->error(node->m_loc, "node '" + node->m_name + "' not completed");
+      fail = true;
     }
   }
 
-  if (success) {
-    for (auto &edge : m_edges.store()) {
-      if (edge->m_state != FDepsGraphEdge::Done) {
-        success = false;
-        break;
-      }
+  if (fail) throw fdi::logger_raise();
+
+  for (auto &edge : m_edges.store()) {
+    if (edge->m_state != FDepsGraphEdge::Done) {
+      m_logger->error("depsgraph", "edge '" + edge->m_name + "' not run");
+      fail = true;
     }
   }
+
+  if (fail) throw fdi::logger_raise();
 
 #if !defined(DEBUG)
   std::cerr << "\r\e[2K";
 #endif
 
-  return success;
+  assert(!fail);
 }
 
 void FDepsGraph::dot(std::ostream &os) {

@@ -137,12 +137,15 @@ public:
 
 // TODO: Make cycle detection smarter
 class FDepsGraph {
+  const fdi::FLogger *           m_logger;
   fun::FPtrStore<FDepsGraphNode> m_nodes;
   fun::FPtrStore<FDepsGraphEdge> m_edges;
   std::queue<FDepsGraphEdge *>   m_q;
   bool                           m_run = false;
 
 public:
+  FDepsGraph(const fdi::FLogger &logger) : m_logger(&logger) {}
+
   template <typename T>
   FDepsNodeHelper<T> node(const std::string &,
                           const fdi::FLocation &,
@@ -160,7 +163,7 @@ public:
                                           fun::FPtr<T>,
                                           TOut (U::*)(TArgs...));
 
-  [[nodiscard]] bool run(const fdi::FLogger &);
+  void run();
 
   void dot(std::ostream &);
 

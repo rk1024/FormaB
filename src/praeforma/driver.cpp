@@ -29,7 +29,7 @@
 namespace pre {
 void FPDriver::run(RunMode mode, const fps::FInputs *inputs) {
   {
-    fpp::FDepsGraph graph;
+    fpp::FDepsGraph graph(m_ctx->logger());
     FPScheduler     sched(graph, *m_ctx);
 
     sched.schedule(inputs);
@@ -39,13 +39,11 @@ void FPDriver::run(RunMode mode, const fps::FInputs *inputs) {
       return;
     }
 
-    if (!graph.run(m_ctx->logger()))
-      m_ctx->logger().errorR("prae-driver",
-                             "some Præforma edges failed or did not run");
+    graph.run();
   }
 
   {
-    fpp::FDepsGraph  graph;
+    fpp::FDepsGraph  graph(m_ctx->logger());
     fie::FIScheduler sched(graph, m_ctx->fiCtx(), "cool module wow");
 
     sched.schedule();
@@ -55,9 +53,7 @@ void FPDriver::run(RunMode mode, const fps::FInputs *inputs) {
       return;
     }
 
-    if (!graph.run(m_ctx->logger()))
-      m_ctx->logger().errorR("prae-driver",
-                             "some Intermedia edges failed or did not run");
+    graph.run();
   }
 }
 } // namespace pre

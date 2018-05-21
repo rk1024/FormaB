@@ -46,6 +46,7 @@ class FDepsEdgeHelper;
 
 class FDepsGraphNode {
   std::string                   m_name;
+  fdi::FLocation                m_loc;
   std::vector<FDepsGraphEdge *> m_ins, m_outs, m_orderIns, m_orderOuts;
   std::vector<FDepsGraphNode *> m_nodeIns, m_nodeOuts;
   fun::FPtr<FDataGraphNodeBase> m_data;
@@ -56,9 +57,12 @@ class FDepsGraphNode {
   void stat();
 
 public:
+  auto loc() const { return m_loc; }
   auto data() const { return m_data; }
 
-  FDepsGraphNode(const std::string &name) : m_name(name) {}
+  FDepsGraphNode(const std::string &name, const fdi::FLocation &loc) :
+      m_name(name),
+      m_loc(loc) {}
 
   void nodeIn(FDepsGraphNode *in) {
     m_nodeIns.push_back(in);
@@ -140,10 +144,12 @@ class FDepsGraph {
 
 public:
   template <typename T>
-  FDepsNodeHelper<T> node(const std::string &, const T &);
+  FDepsNodeHelper<T> node(const std::string &,
+                          const fdi::FLocation &,
+                          const T &);
 
   template <typename T>
-  FDepsNodeHelper<T> node(const std::string &);
+  FDepsNodeHelper<T> node(const std::string &, const fdi::FLocation &);
 
   template <typename T, typename TOut, typename... TArgs>
   FDepsEdgeHelper<T, TOut, TArgs...> edge(
@@ -166,14 +172,17 @@ public:
 
 namespace fpp {
 template <typename T>
-FDepsNodeHelper<T> FDepsGraph::node(const std::string &name, const T &value) {
-  auto node = m_nodes.emplace(name);
+FDepsNodeHelper<T> FDepsGraph::node(const std::string &   name,
+                                    const fdi::FLocation &loc,
+                                    const T &             value) {
+  auto node = m_nodes.emplace(name, loc);
   return FDepsNodeHelper<T>(node, node->data<T>(value));
 }
 
 template <typename T>
-FDepsNodeHelper<T> FDepsGraph::node(const std::string &name) {
-  auto node = m_nodes.emplace(name);
+FDepsNodeHelper<T> FDepsGraph::node(const std::string &   name,
+                                    const fdi::FLocation &loc) {
+  auto node = m_nodes.emplace(name, loc);
   return FDepsNodeHelper<T>(node, node->data<T>());
 }
 

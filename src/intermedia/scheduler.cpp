@@ -22,10 +22,13 @@
 
 namespace fie {
 void FIScheduler::scheduleGlobalConst(FIConst *Const) {
-  auto name = "global '" + Const->name() + "'";
+  auto  name = "global '" + Const->name() + "'";
+  auto &loc  = Const->body().loc();
 
-  auto i0     = m_graph->node<FIConst *>("[I0] " + name, Const);
-  auto folded = m_graph->node<FIFoldedConst *>("[Folded] " + name, nullptr);
+  auto i0     = m_graph->node<FIConst *>("[I0] " + name, loc, Const);
+  auto folded = m_graph->node<FIFoldedConst *>("[Folded] " + name,
+                                               loc,
+                                               nullptr);
 
   auto fold = m_graph->edge("fold",
                             m_constFolder,
@@ -39,7 +42,7 @@ void FIScheduler::scheduleGlobalConst(FIConst *Const) {
                                                       .fold   = fold});
 
 #if !defined(NDEBUG)
-  auto printed = m_graph->node<void>("[Printed] " + name);
+  auto printed = m_graph->node<void>("[Printed] " + name, loc);
 
   auto dump       = m_graph->edge("dump", m_dump, &FIDump::dumpConst);
   auto dumpFolded = m_graph->edge("dumpFolded",

@@ -112,7 +112,7 @@ template <typename T, typename TOut, typename... TArgs>
 struct _run_rule {
   void operator()(FDataGraphRule<T, TOut, TArgs...> *self) {
     auto ret = _consNodeApply(self->m_ptr, _consNodeExtract(self->m_ins));
-    for (auto out : self->m_outs) out.lock()->data(ret);
+    for (auto out : self->m_outs) out.lock()->data() = ret;
   }
 };
 

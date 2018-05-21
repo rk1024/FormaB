@@ -52,10 +52,11 @@ void FPScheduler::scheduleDSyntax(const fps::FPDSyntax *syntax) {
 }
 
 void FPScheduler::scheduleDAssign(const fps::FPDAssign *assign) {
-  auto name = "global '" + assign->name()->value() + "'";
+  auto  name = "global '" + assign->name()->value() + "'";
+  auto &loc  = assign->loc();
 
-  auto ast = m_graph->node("[AST] " + name, assign);
-  auto i0  = m_graph->node<fie::FIConst *>("[I0] " + name, nullptr);
+  auto ast = m_graph->node("[AST] " + name, loc, assign);
+  auto i0  = m_graph->node<fie::FIConst *>("[I0] " + name, loc, nullptr);
 
   auto compile = m_graph->edge("compile",
                                m_compiler,

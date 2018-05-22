@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * FormaB - the bootstrap Forma compiler (expr.hpp)
+ * FormaB - the bootstrap Forma compiler (logger.cpp)
  * Copyright (C) 2017-2018 Ryan Schroeder, Colin Unger
  *
  * FormaB is free software: you can redistribute it and/or modify
@@ -18,26 +18,8 @@
  *
  ************************************************************************/
 
-#pragma once
+#include "logger.hpp"
 
-#include "_expr.hpp"
-
-#include "ti.hpp"
-
-namespace w {
-template <typename T>
-typename ExprBase<T>::TIResult ExprBase<T>::ti(TI<T> &t) const {
-  TIPos _(t, "\x1b[1mti\x1b[m " + to_string());
-  auto  ret = tiImpl(t);
-
-#if defined(DEBUG)
-  TIPos __(t,
-           "\x1b[38;5;2mresult:\x1b[m " + to_string() +
-               " :: " + ret.template get<2>()->to_string() +
-               printConstraints(ret.template get<1>()) +
-               printSubst(ret.template get<0>()));
-#endif
-
-  return ret;
-}
-} // namespace w
+namespace fdi {
+const char *logger_raise::what() const noexcept { return "logger_raise"; }
+} // namespace fdi

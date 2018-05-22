@@ -202,8 +202,11 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-Wunused",
     ],
     cxx_diags: [
+      "-fdiagnostics-show-template-tree",
       "-Wall",
+      "-Wconditional-uninitialized",
       "-Wconversion",
+      "-Wcovered-switch-default",
       "-Wdeprecated",
       "-Wextra",
       "-Wimplicit",
@@ -217,17 +220,19 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
       "-Wno-shorten-64-to-32",
       "-Wno-sign-compare",
       "-Wno-sign-conversion",
+      "-Wnon-virtual-dtor",
       "-Wtautological-compare",
       "-Wthread-safety",
       "-Wunreachable-code-aggressive",
+      "-Wuninitialized",
       "-Wunused",
       "-Werror=implicit-fallthrough",
       "-Werror=old-style-cast",
       "-Werror=return-type",
       "-Werror=switch",
       "-Werror=unused-result",
+      "-Werror=zero-as-null-pointer-constant",
       *(config(:diagnostic) ? [
-        "-fdiagnostics-show-template-tree",
         "-Wswitch-bool",
         "-Wswitch-enum",
         "-Wweak-vtables",
@@ -382,7 +387,7 @@ RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
   end
 
   build "$build_d/scanner.o", from: "$build_d/scanner.cpp",
-    flags: "$includes"
+    flags: ["$includes", "-Wno-zero-as-null-pointer-constant"]
   objs << "$build_d/scanner.o"
 
   build "$build_d/parser.o", from: "$build_d/parser.cpp",

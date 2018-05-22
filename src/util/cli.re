@@ -40,17 +40,19 @@ FArgParser::TakesArg FArgParser::handleVal(bool,
 
 void FArgParser::handleArg(const std::string &) {}
 
+FArgParser::~FArgParser() {}
+
 void FArgParser::parse(const std::vector<std::string> &args) {
   auto                         it = args.begin(), end = args.end();
   std::pair<bool, std::string> acceptFlag;
-  int                          acceptIdx;
+  int                          acceptIdx = 0;
   TakesArg                     acceptMode = TakesArg::None;
 
   for (; it != end; ++it) {
     auto &      arg  = *it;
     const char *_str = arg.c_str(), *str = _str, *YYMARKER, *l0 = nullptr,
                *l1 = nullptr, *l2 = nullptr, *v0 = nullptr, *v1 = nullptr
-        /*!stags:re2c format = ", *@@"; */;
+        /*!stags:re2c format = ", *@@ = nullptr"; */;
 
     // Parsing not necessary; we're just going to handleVal
     if (acceptMode == Required) goto handle;
@@ -129,7 +131,7 @@ void FArgParser::parse(const std::vector<std::string> &args) {
       name = std::string(l0, l1);
 
     TakesArg    ta = takesArg(l2, name);
-    const char *rest;
+    const char *rest = nullptr;
     if (l2) rest = l0 + 1;
 
     if (ta == None) {

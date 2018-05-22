@@ -44,8 +44,9 @@
 #define RC_WRNINFREE(fn)
 #else
 #define RC_WRNINFREE(fn)                                                       \
-  std::cerr << "\e[1;38;5;3mwarning: \e[39m" << fn                             \
-            << "() called on FObject during free; ignoring\e[m" << std::endl;
+  std::cerr << "\x1b[1;38;5;3mwarning: \x1b[39m" << fn                         \
+            << "() called on FObject during free; ignoring\x1b[m"              \
+            << std::endl;
 #endif
 
 #define RC_REDUCE(counter, op)                                                 \

@@ -137,6 +137,8 @@ public:
     m_dotFIDeps  = m_dotModes.intern("fi-deps");
   }
 
+  virtual ~FMainArgParser() override = default;
+
   void usage() {
     std::cerr << "Usage: formab [flags] [--] [input]" << std::endl;
   }
@@ -146,11 +148,11 @@ public:
 
     // TODO: Find a better solution for this
     std::cerr << "Flags:\n"
-                 "  \e[1m--dot, -d\e[m: Output a Graphviz dotfile.\n"
-                 "  \e[1m--help, -h\e[m: Display this message.\n"
-                 "  \e[1m--quiet, -q\e[m: Output less information.\n"
-                 "  \e[1m--usage, -u\e[m: Display brief usage info.\n"
-                 "  \e[1m--verbose, -v\e[m: Output extra information.\n";
+                 "  \x1b[1m--dot, -d\x1b[m: Output a Graphviz dotfile.\n"
+                 "  \x1b[1m--help, -h\x1b[m: Display this message.\n"
+                 "  \x1b[1m--quiet, -q\x1b[m: Output less information.\n"
+                 "  \x1b[1m--usage, -u\x1b[m: Display brief usage info.\n"
+                 "  \x1b[1m--verbose, -v\x1b[m: Output extra information.\n";
   }
 };
 

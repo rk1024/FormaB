@@ -116,14 +116,16 @@ std::enable_if_t<std::is_integral<T>::value, T> readInt(
 }
 
 cc::RegResult FPCompiler::makeNumeric(cc::BlockCtxPtr    ctx,
-                                        const fps::FToken *tok) const {
+                                      const fps::FToken *tok) const {
   const char *_str = tok->value().c_str(), *str = _str, *YYMARKER, *sg, *d0,
              *dp = nullptr, *d1, *es = nullptr, *e0 = nullptr, *e1 = nullptr,
-             *tu = nullptr, *tl /*!stags:re2c format = ", *@@"; */;
+             *tu = nullptr, *tl /*!stags:re2c format = ", *@@ = nullptr"; */;
 
   std::uint8_t radix = 0;
   NumFormat    fmt;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wzero-as-null-pointer-constant"
   /*!re2c
     re2c:flags:T = 1;
 
@@ -193,6 +195,7 @@ cc::RegResult FPCompiler::makeNumeric(cc::BlockCtxPtr    ctx,
       goto isFloat;
     }
   */
+#pragma clang diagnostic pop
 
 isInt:
   // TODO: This seems problematic
@@ -309,7 +312,6 @@ emit:
       ctx->errorR("i8 not implemented");
   case NumFormat::R4: goto emitR4;
   case NumFormat::R8: goto emitR8;
-  default: assert(false);
   }
 emitR4:
   // return closure->emitConst<float>("r4", 1337.1337f);

@@ -27,7 +27,7 @@
 
 namespace fdi {
 class logger_raise : public std::exception {
-  virtual const char *what() const noexcept override { return "logger_raise"; }
+  virtual const char *what() const noexcept override;
 };
 
 class FLogger {
@@ -58,10 +58,10 @@ private:
   void writeBody(const std::string &lvlFmt,
                  const std::string &lvl,
                  const std::string &str) const {
-    if (m_color) *m_os << "\e[m" << lvlFmt;
+    if (m_color) *m_os << "\x1b[m" << lvlFmt;
     *m_os << lvl << ": ";
 
-    if (m_color) *m_os << "\e[m";
+    if (m_color) *m_os << "\x1b[m";
     *m_os << str << std::endl;
   }
 
@@ -69,7 +69,7 @@ private:
              const std::string &lvl,
              const FLocation &  loc,
              const std::string &str) const {
-    if (m_color) *m_os << "\e[1m";
+    if (m_color) *m_os << "\x1b[1m";
     *m_os << loc << ": ";
 
     writeBody(lvlFmt, lvl, str);
@@ -79,7 +79,7 @@ private:
              const std::string &lvl,
              const std::string &pre,
              const std::string &str) const {
-    if (m_color) *m_os << "\e[1m";
+    if (m_color) *m_os << "\x1b[1m";
     *m_os << pre << ": ";
 
     writeBody(lvlFmt, lvl, str);
@@ -151,24 +151,25 @@ private:
                           const std::string &str) const {
     bad(lvlFmt, lvl, loc, str);
     throw fdi::logger_raise();
-  };
+  }
 
-  [[noreturn]] void raise(const std::string &lvlFmt,
-                          const std::string &lvl,
-                          const std::string &pre,
-                          const std::string &str) const {
+      [[noreturn]] void raise(const std::string &lvlFmt,
+                              const std::string &lvl,
+                              const std::string &pre,
+                              const std::string &str) const {
     bad(lvlFmt, lvl, pre, str);
     throw fdi::logger_raise();
   }
 
-  public:;
+public:
+  ;
 #define _FLOGFN(name, write, lvl, clr, ...)                                    \
   __VA_ARGS__ void name(const FLocation &loc, const std::string &str) const {  \
-    write("\e[1;38;5;" #clr "m", #lvl, loc, str);                              \
+    write("\x1b[1;38;5;" #clr "m", #lvl, loc, str);                            \
   }                                                                            \
   __VA_ARGS__ void name(const std::string &pre, const std::string &str)        \
       const {                                                                  \
-    write("\e[1;38;5;" #clr "m", #lvl, pre, str);                              \
+    write("\x1b[1;38;5;" #clr "m", #lvl, pre, str);                            \
   }
 
   _FLOGFN(debug, good, debug, 8);

@@ -71,7 +71,6 @@ void FDepsGraphEdge::stat() {
   case Done:
   case Open: return;
   case Closed: break;
-  default: assert(false);
   }
 
   for (auto in : m_ins) {
@@ -128,7 +127,7 @@ void FDepsGraph::run() {
 
     std::cerr
 #if !defined(DEBUG)
-        << "\r\e[2K"
+        << "\r\x1b[2K"
 #endif
         << edge->m_name;
 
@@ -142,7 +141,7 @@ void FDepsGraph::run() {
         else
           std::cerr << ", ";
 
-        std::cerr << "\e[38;5;6m" << out->m_name << "\e[m";
+        std::cerr << "\x1b[38;5;6m" << out->m_name << "\x1b[m";
       }
 
 #if defined(DEBUG)
@@ -176,7 +175,7 @@ void FDepsGraph::run() {
   if (fail) throw fdi::logger_raise();
 
 #if !defined(DEBUG)
-  std::cerr << "\r\e[2K";
+  std::cerr << "\r\x1b[2K";
 #endif
 
   assert(!fail);

@@ -33,14 +33,14 @@
 namespace w {
 fun::FPtr<const TypeBase> TIBase::makeVar() {
   std::string name = "@T" + std::to_string(supply);
-  TIPos       _(*this, "\e[1mcreate\e[m " + name);
+  TIPos       _(*this, "\x1b[1mcreate\x1b[m " + name);
   ++supply;
   return fnew<TypeVar>(name);
 }
 
 std::pair<fun::FPtr<const TypeBase>, Constraints> TIBase::instantiate(
     const Scheme &s) {
-  TIPos _(*this, "\e[1minstantiate\e[m " + s.to_string());
+  TIPos _(*this, "\x1b[1minstantiate\x1b[m " + s.to_string());
   Subst subst;
   for (auto var : s.vars()) subst.emplace(var, makeVar());
   return std::pair(sub(subst, s.type()), sub(subst, s.constraints()));

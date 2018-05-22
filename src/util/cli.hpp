@@ -48,6 +48,8 @@ protected:
   virtual void handleArg(const std::string &arg);
 
 public:
+  virtual ~FArgParser();
+
   void parse(const std::vector<std::string> &);
 
   void parse(int argc, char **argv) {

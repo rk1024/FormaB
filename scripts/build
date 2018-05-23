@@ -45,6 +45,8 @@ RNinja.config(file: "build.yaml") do
   profile :make, {
     gen: :make,
   }
+
+  default_profiles :release
 end
 
 RNinja.run(rn_dir: "build/rninja", gen: RNinja[:gen]) do
